@@ -8,8 +8,8 @@
     "VITE_MOCK_INTEGRATIONS": "false",
     "VITE_CHAIN_ID": "personachain-1",
     "VITE_BLOCKCHAIN_NETWORK": "persona-chain",
-    "VITE_BLOCKCHAIN_RPC": "https://personachain-proxy.aidenlippert.workers.dev/rpc",
-    "VITE_BLOCKCHAIN_REST": "https://personachain-proxy.aidenlippert.workers.dev/api",
+    "VITE_BLOCKCHAIN_RPC": "https://personachain-prod.uc.r.appspot.com/api/v1/blockchain",
+    "VITE_BLOCKCHAIN_REST": "https://personachain-prod.uc.r.appspot.com/api/v1",
     "VITE_BACKEND_API": "https://personachain-prod.uc.r.appspot.com",
     "VITE_PERSONA_GAS_PRICE": "0.025persona",
     "VITE_ENABLE_REAL_APIS": "true",
@@ -65,7 +65,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://personachain-proxy.aidenlippert.workers.dev https://personachain-backend.run.app wss://personachain-proxy.aidenlippert.workers.dev; font-src 'self' data:; worker-src 'self' blob:; frame-ancestors 'none';"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://personachain-proxy.aidenlippert.workers.dev https://personachain-prod.uc.r.appspot.com wss://personachain-proxy.aidenlippert.workers.dev https://api.stripe.com; font-src 'self' data:; worker-src 'self' blob:; frame-ancestors 'none';"
         }
       ]
     }

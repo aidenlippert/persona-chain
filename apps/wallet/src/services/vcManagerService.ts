@@ -84,15 +84,15 @@ export class VCManagerService {
           const storedDID = existingDIDs[0];
           didKeyPair = {
             did: storedDID.id,
-            privateKey: storedDID.privateKey instanceof Uint8Array 
+            privateKey: storedDID?.privateKey instanceof Uint8Array 
               ? storedDID.privateKey 
-              : storedDID.privateKey && typeof storedDID.privateKey === 'object'
-                ? new Uint8Array(Object.values(storedDID.privateKey))
+              : storedDID?.privateKey && typeof storedDID.privateKey === 'object'
+                ? new Uint8Array(Object.values(storedDID.privateKey).filter(v => v != null))
                 : new Uint8Array(),
-            publicKey: storedDID.publicKey instanceof Uint8Array 
+            publicKey: storedDID?.publicKey instanceof Uint8Array 
               ? storedDID.publicKey 
-              : storedDID.publicKey && typeof storedDID.publicKey === 'object'
-                ? new Uint8Array(Object.values(storedDID.publicKey))
+              : storedDID?.publicKey && typeof storedDID.publicKey === 'object'
+                ? new Uint8Array(Object.values(storedDID.publicKey).filter(v => v != null))
                 : new Uint8Array(),
             document: storedDID.document,
           };
