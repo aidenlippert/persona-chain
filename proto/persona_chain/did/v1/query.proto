@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package persona_chain.did.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "persona_chain/did/v1/did.proto";
+
+option go_package = "github.com/persona-chain/persona-chain/x/did/types";
+
+// Query defines the gRPC querier service.
+service Query {
+  
+  // Parameters queries the parameters of the module.
+  rpc Params (QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/persona_chain/did/v1/params";
+  
+  }
+  
+  // Queries a DidDocument by id.
+  rpc DidDocument (QueryGetDidDocumentRequest) returns (QueryGetDidDocumentResponse) {
+    option (google.api.http).get = "/persona_chain/did/v1/did_document/{id}";
+  
+  }
+  
+  // Queries a list of DidDocument items.
+  rpc DidDocumentAll (QueryAllDidDocumentRequest) returns (QueryAllDidDocumentResponse) {
+    option (google.api.http).get = "/persona_chain/did/v1/did_document";
+  
+  }
+}
+// QueryParamsRequest is request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  
+  // params holds all the parameters of this module.
+  Params params = 1 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+}
+
+message QueryGetDidDocumentRequest {
+  string id = 1;
+}
+
+message QueryGetDidDocumentResponse {
+  DidDocument didDocument = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryAllDidDocumentRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+message QueryAllDidDocumentResponse {
+  repeated DidDocument didDocument = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}

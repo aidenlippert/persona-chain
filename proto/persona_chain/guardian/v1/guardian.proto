@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package persona_chain.guardian.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "github.com/persona-chain/persona-chain/x/guardian/types";
+
+// Params defines the parameters for the module.
+message Params {
+  option (amino.name) = "persona-chain/x/guardian/Params";
+  
+  uint32 threshold = 1; // Minimum number of guardians required for recovery
+  uint32 max_guardians = 2; // Maximum number of guardians allowed
+}
+
+message Guardian {
+  string did_id = 1;
+  string guardian_address = 2;
+  string public_key = 3;
+  bool active = 4;
+  int64 added_at = 5;
+}
+
+message RecoveryProposal {
+  string id = 1;
+  string did_id = 2;
+  string proposer = 3;
+  string new_controller = 4;
+  string reason = 5;
+  repeated string approvals = 6;
+  repeated string rejections = 7;
+  string status = 8; // "pending", "approved", "rejected", "executed"
+  int64 created_at = 9;
+  int64 expires_at = 10;
+  int64 executed_at = 11;
+}
+
+message ThresholdSignature {
+  string proposal_id = 1;
+  string signer = 2;
+  string signature_share = 3;
+  string public_key_share = 4;
+  int64 signed_at = 5;
+}
+
+message GenesisState {
+  // params defines all the parameters of the module.
+  Params params = 1 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  repeated Guardian guardianList = 2 [(gogoproto.nullable) = false];
+  repeated RecoveryProposal recoveryProposalList = 3 [(gogoproto.nullable) = false];
+  repeated ThresholdSignature thresholdSignatureList = 4 [(gogoproto.nullable) = false];
+}

@@ -1,0 +1,111 @@
+# ====================================
+# PersonaChain Production .gitignore
+# ====================================
+
+# ========== BINARIES & EXECUTABLES ==========
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+persona-chaind
+kubectl
+k6
+buf
+go1.*.tar.gz
+
+# ========== BUILD ARTIFACTS ==========
+build/
+dist/
+out/
+target/
+.next/
+coverage/
+*.test
+*.prof
+
+# ========== DEPENDENCIES ==========
+node_modules/
+vendor/
+.pnpm-store/
+package-lock.json
+
+# ========== TERRAFORM & INFRASTRUCTURE ==========
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# ========== LARGE GENERATED FILES ==========
+*.wasm
+*.node
+*swc*.node
+*.tar.gz
+*.zip
+
+# ========== CACHE & TEMPORARY ==========
+.cache/
+tmp/
+temp/
+.tmp/
+cache/
+
+# ========== LOGS ==========
+*.log
+logs/
+
+# ========== ENVIRONMENT & SECRETS ==========
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.staging
+*.pem
+*.key
+*.crt
+
+# Keep example files
+!.env.example
+
+# ========== IDE & EDITORS ==========
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ========== OS GENERATED ==========
+.DS_Store
+Thumbs.db
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# ========== WALLET BUILD ARTIFACTS ==========
+apps/wallet/dist/
+apps/wallet/.next/
+apps/wallet/out/
+apps/wallet/build/
+
+# ========== BACKEND BUILD ARTIFACTS ==========
+apps/backend/dist/
+apps/backend/build/
+apps/backend/coverage/
+
+# ========== ZK PROOF ARTIFACTS ==========
+circuits/build/
+circuits/node_modules/
+circuits/*.r1cs
+circuits/*.zkey
+circuits/powersOfTau*.ptau
+
+# ========== DATABASE ==========
+*.db
+*.sqlite
+*.sqlite3
+
+# ========== TESTING ==========
+test-results/
+.nyc_output/
+junit.xml 

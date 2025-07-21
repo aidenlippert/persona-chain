@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package persona_chain.zk.v1;
+
+import "amino/amino.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "github.com/persona-chain/persona-chain/x/zk/types";
+
+// Msg defines the Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+  
+  // SubmitProof defines a method for submitting a zero-knowledge proof
+  rpc SubmitProof(MsgSubmitProof) returns (MsgSubmitProofResponse);
+  
+  // RegisterCircuit defines a method for registering a new ZK circuit
+  rpc RegisterCircuit(MsgRegisterCircuit) returns (MsgRegisterCircuitResponse);
+  
+  // DeactivateCircuit defines a method for deactivating a ZK circuit
+  rpc DeactivateCircuit(MsgDeactivateCircuit) returns (MsgDeactivateCircuitResponse);
+}
+
+// MsgSubmitProof represents a message to submit a zero-knowledge proof
+message MsgSubmitProof {
+  option (cosmos.msg.v1.signer) = "submitter";
+  option (amino.name) = "persona-chain/SubmitProof";
+  
+  string submitter = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string id = 2;
+  string circuit_id = 3;
+  string public_inputs = 4;
+  string proof_data = 5;
+}
+
+// MsgSubmitProofResponse defines the Msg/SubmitProof response type.
+message MsgSubmitProofResponse {
+  bool verified = 1;
+}
+
+// MsgRegisterCircuit represents a message to register a new ZK circuit
+message MsgRegisterCircuit {
+  option (cosmos.msg.v1.signer) = "creator";
+  option (amino.name) = "persona-chain/RegisterCircuit";
+  
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string id = 2;
+  string name = 3;
+  string description = 4;
+  string wasm_code = 5; // Base64 encoded WASM bytecode
+  string verification_key = 6;
+}
+
+// MsgRegisterCircuitResponse defines the Msg/RegisterCircuit response type.
+message MsgRegisterCircuitResponse {
+  string code_hash = 1;
+}
+
+// MsgDeactivateCircuit represents a message to deactivate a ZK circuit
+message MsgDeactivateCircuit {
+  option (cosmos.msg.v1.signer) = "creator";
+  option (amino.name) = "persona-chain/DeactivateCircuit";
+  
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string id = 2;
+}
+
+// MsgDeactivateCircuitResponse defines the Msg/DeactivateCircuit response type.
+message MsgDeactivateCircuitResponse {}

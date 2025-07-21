@@ -1,0 +1,456 @@
+/**
+ * PersonaPass Professional UI Components
+ * Modern, clean design system with glassmorphism and smooth animations
+ */
+
+/* Base Component Styles */
+.pp-glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.pp-glass-dark {
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* Professional Button System */
+.pp-btn {
+  @apply inline-flex items-center justify-center font-medium rounded-lg transition-all duration-300 ease-out;
+  @apply focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  @apply relative overflow-hidden;
+
+  /* Hover effect overlay */
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent
+    );
+    transition: left 0.5s ease;
+  }
+
+  &:hover::before {
+    left: 100%;
+  }
+}
+
+.pp-btn-sm {
+  @apply px-3 py-1.5 text-sm min-h-[32px];
+}
+
+.pp-btn-md {
+  @apply px-4 py-2.5 text-sm min-h-[40px];
+}
+
+.pp-btn-lg {
+  @apply px-6 py-3 text-base min-h-[48px];
+}
+
+.pp-btn-primary {
+  @apply bg-primary-500 hover:bg-primary-600 active:bg-primary-700;
+  @apply text-white shadow-lg hover:shadow-xl;
+  @apply focus:ring-primary-500;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+.pp-btn-secondary {
+  @apply bg-gray-100 hover:bg-gray-200 active:bg-gray-300;
+  @apply text-gray-900 border border-gray-200;
+  @apply focus:ring-gray-500;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+}
+
+.pp-btn-success {
+  @apply bg-success-500 hover:bg-success-600 active:bg-success-700;
+  @apply text-white shadow-lg hover:shadow-xl;
+  @apply focus:ring-success-500;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+}
+
+.pp-btn-danger {
+  @apply bg-error-500 hover:bg-error-600 active:bg-error-700;
+  @apply text-white shadow-lg hover:shadow-xl;
+  @apply focus:ring-error-500;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+}
+
+.pp-btn-ghost {
+  @apply bg-transparent hover:bg-gray-100 active:bg-gray-200;
+  @apply text-gray-700 hover:text-gray-900;
+  @apply focus:ring-gray-500;
+}
+
+/* Professional Card System */
+.pp-card {
+  @apply bg-white rounded-xl shadow-lg border border-gray-200;
+  @apply transition-all duration-300 ease-out;
+
+  &:hover {
+    @apply shadow-xl;
+    transform: translateY(-2px);
+  }
+}
+
+.pp-card-glass {
+  @apply rounded-xl transition-all duration-300 ease-out;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  }
+}
+
+.pp-card-interactive {
+  @apply cursor-pointer;
+
+  &:hover {
+    @apply shadow-2xl;
+    transform: translateY(-4px) scale(1.02);
+  }
+
+  &:active {
+    transform: translateY(-2px) scale(1.01);
+  }
+}
+
+/* Professional Input System */
+.pp-input {
+  @apply w-full px-4 py-3 rounded-lg border border-gray-300;
+  @apply focus:ring-2 focus:ring-primary-500 focus:border-primary-500;
+  @apply bg-white text-gray-900 placeholder-gray-500;
+  @apply transition-all duration-200 ease-out;
+
+  &:focus {
+    @apply shadow-lg;
+    transform: translateY(-1px);
+  }
+}
+
+.pp-input-error {
+  @apply border-error-500 focus:ring-error-500 focus:border-error-500;
+}
+
+.pp-input-success {
+  @apply border-success-500 focus:ring-success-500 focus:border-success-500;
+}
+
+/* Status Indicators */
+.pp-status-online {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium;
+  @apply bg-green-100 text-green-800;
+}
+
+.pp-status-offline {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium;
+  @apply bg-red-100 text-red-800;
+}
+
+.pp-status-pending {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium;
+  @apply bg-yellow-100 text-yellow-800;
+}
+
+/* Professional Navigation */
+.pp-nav {
+  @apply flex items-center space-x-1 p-2 rounded-xl;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.pp-nav-item {
+  @apply px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200;
+  @apply text-white/80 hover:text-white hover:bg-white/10;
+
+  &.active {
+    @apply bg-white/20 text-white;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* Modal and Dialog Styles */
+.pp-modal-overlay {
+  @apply fixed inset-0 bg-black/50 backdrop-blur-sm;
+  @apply flex items-center justify-center p-4;
+  @apply transition-all duration-300 ease-out;
+}
+
+.pp-modal {
+  @apply bg-white rounded-2xl shadow-2xl max-w-md w-full p-6;
+  @apply transform transition-all duration-300 ease-out;
+
+  &.entering {
+    @apply scale-95 opacity-0;
+  }
+
+  &.entered {
+    @apply scale-100 opacity-100;
+  }
+}
+
+/* Toast Notifications */
+.pp-toast {
+  @apply fixed top-4 right-4 max-w-sm p-4 rounded-lg shadow-lg;
+  @apply transform transition-all duration-300 ease-out;
+  @apply border border-white/20;
+  backdrop-filter: blur(20px);
+
+  &.success {
+    @apply bg-success-500/90 text-white;
+  }
+
+  &.error {
+    @apply bg-error-500/90 text-white;
+  }
+
+  &.info {
+    @apply bg-primary-500/90 text-white;
+  }
+
+  &.warning {
+    @apply bg-amber-500/90 text-white;
+  }
+}
+
+/* Loading States */
+.pp-skeleton {
+  @apply bg-gray-200 rounded animate-pulse;
+}
+
+.pp-loading-overlay {
+  @apply absolute inset-0 bg-white/80 backdrop-blur-sm;
+  @apply flex items-center justify-center;
+  @apply transition-all duration-300 ease-out;
+}
+
+/* QR Code Styles */
+.pp-qr-container {
+  @apply p-6 bg-white rounded-2xl shadow-lg;
+  @apply border-2 border-dashed border-gray-300;
+  @apply transition-all duration-300 ease-out;
+
+  &:hover {
+    @apply border-primary-500 shadow-xl;
+    transform: scale(1.02);
+  }
+}
+
+/* Credential Card Styles */
+.pp-credential-card {
+  @apply p-6 rounded-xl transition-all duration-300 ease-out;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.1),
+    rgba(255, 255, 255, 0.05)
+  );
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+
+  &:hover {
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.15),
+      rgba(255, 255, 255, 0.1)
+    );
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  }
+
+  &.verified {
+    border-color: rgba(76, 175, 80, 0.3);
+    box-shadow: 0 0 20px rgba(76, 175, 80, 0.1);
+  }
+
+  &.expired {
+    border-color: rgba(244, 67, 54, 0.3);
+    box-shadow: 0 0 20px rgba(244, 67, 54, 0.1);
+  }
+}
+
+/* DID Display Styles */
+.pp-did-display {
+  @apply p-4 rounded-lg font-mono text-xs;
+  @apply bg-gray-100 border border-gray-200;
+  word-break: break-all;
+  user-select: all;
+
+  &:hover {
+    @apply bg-gray-200;
+  }
+}
+
+/* Progress Indicators */
+.pp-progress-bar {
+  @apply w-full bg-gray-200 rounded-full h-2 overflow-hidden;
+}
+
+.pp-progress-fill {
+  @apply h-full bg-gradient-to-r from-primary-500 to-purple-500 rounded-full;
+  @apply transition-all duration-500 ease-out;
+}
+
+/* Biometric Auth Styles */
+.pp-biometric-icon {
+  @apply w-16 h-16 mx-auto text-primary-500;
+  @apply animate-pulse;
+
+  &.active {
+    @apply text-success-500 animate-none;
+    filter: drop-shadow(0 0 10px rgba(76, 175, 80, 0.3));
+  }
+
+  &.error {
+    @apply text-error-500 animate-bounce;
+  }
+}
+
+/* Settings Panel Styles */
+.pp-settings-section {
+  @apply space-y-4 p-6 rounded-xl;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.pp-toggle {
+  @apply relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200;
+  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+
+  &.enabled {
+    @apply bg-primary-500;
+  }
+
+  &.disabled {
+    @apply bg-gray-300;
+  }
+}
+
+.pp-toggle-thumb {
+  @apply inline-block h-4 w-4 transform rounded-full bg-white transition duration-200;
+
+  &.enabled {
+    @apply translate-x-6;
+  }
+
+  &.disabled {
+    @apply translate-x-1;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .pp-modal {
+    @apply mx-4 max-w-none;
+  }
+
+  .pp-nav {
+    @apply flex-wrap space-x-0 space-y-1;
+  }
+
+  .pp-nav-item {
+    @apply w-full text-center;
+  }
+
+  .pp-btn-lg {
+    @apply px-4 py-3 text-base;
+  }
+}
+
+/* Animations */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.3s ease-out;
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.3s ease-out;
+}
+
+.animate-fade-in-scale {
+  animation: fadeInScale 0.3s ease-out;
+}
+
+/* Accessibility Enhancements */
+.pp-focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+}
+
+.pp-sr-only {
+  @apply sr-only;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .pp-btn-primary {
+    @apply border-2 border-primary-800;
+  }
+
+  .pp-card-glass {
+    @apply border-2 border-gray-400;
+  }
+}

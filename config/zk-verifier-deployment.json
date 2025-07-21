@@ -1,0 +1,40 @@
+{
+  "contract_address": "persona1zg0vve0vxzp0jjcx8f7uypgcqwphvcchj2k7kpm6zx8qzh5d0x5s9xqt8v",
+  "code_id": 42,
+  "chain_id": "persona-testnet",
+  "rpc_endpoint": "http://localhost:26657",
+  "deployed_at": "2025-07-13T00:00:00Z",
+  "version": "2.0.0",
+  "deployer": "persona19rl4cm2hmr8afy4kldpxz3fka4jguq0avezma6",
+  "governance_enabled": true,
+  "circuits": [
+    {
+      "id": "academic_gpa",
+      "type": "groth16"
+    },
+    {
+      "id": "financial_income", 
+      "type": "groth16"
+    },
+    {
+      "id": "health_vaccination",
+      "type": "groth16"
+    },
+    {
+      "id": "universal_aggregate",
+      "type": "groth16"
+    }
+  ],
+  "deployment_transactions": {
+    "store": "ABC123DEF456GHI789JKL012MNO345PQR678STU901VWX234YZ567890ABCDEF12",
+    "instantiate": "DEF456GHI789JKL012MNO345PQR678STU901VWX234YZ567890ABCDEF12ABC123"
+  },
+  "access_control": {
+    "admin": "persona19rl4cm2hmr8afy4kldpxz3fka4jguq0avezma6",
+    "governance_enabled": true,
+    "issuers": [],
+    "total_issuers": 0
+  },
+  "deployment_status": "mock_successful",
+  "note": "This is a mock deployment for Sprint 2 development. Contract ready for integration testing."
+}

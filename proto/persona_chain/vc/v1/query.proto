@@ -1,0 +1,86 @@
+syntax = "proto3";
+
+package persona_chain.vc.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "persona_chain/vc/v1/vc.proto";
+
+option go_package = "github.com/persona-chain/persona-chain/x/vc/types";
+
+// Query defines the gRPC querier service.
+service Query {
+  
+  // Parameters queries the parameters of the module.
+  rpc Params (QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/persona_chain/vc/v1/params";
+  }
+  
+  // Queries a VcRecord by id.
+  rpc VcRecord (QueryGetVcRecordRequest) returns (QueryGetVcRecordResponse) {
+    option (google.api.http).get = "/persona_chain/vc/v1/vc_record/{id}";
+  }
+  
+  // Queries a list of VcRecord items.
+  rpc VcRecordAll (QueryAllVcRecordRequest) returns (QueryAllVcRecordResponse) {
+    option (google.api.http).get = "/persona_chain/vc/v1/vc_record";
+  }
+  
+  // Queries VcRecords by issuer DID.
+  rpc VcRecordByIssuer (QueryVcRecordByIssuerRequest) returns (QueryVcRecordByIssuerResponse) {
+    option (google.api.http).get = "/persona_chain/vc/v1/vc_record/issuer/{issuer_did}";
+  }
+  
+  // Queries VcRecords by subject DID.
+  rpc VcRecordBySubject (QueryVcRecordBySubjectRequest) returns (QueryVcRecordBySubjectResponse) {
+    option (google.api.http).get = "/persona_chain/vc/v1/vc_record/subject/{subject_did}";
+  }
+}
+
+// QueryParamsRequest is request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  // params holds all the parameters of this module.
+  Params params = 1 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+}
+
+message QueryGetVcRecordRequest {
+  string id = 1;
+}
+
+message QueryGetVcRecordResponse {
+  VcRecord vcRecord = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryAllVcRecordRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+message QueryAllVcRecordResponse {
+  repeated VcRecord vcRecord = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+message QueryVcRecordByIssuerRequest {
+  string issuer_did = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+
+message QueryVcRecordByIssuerResponse {
+  repeated VcRecord vcRecord = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+message QueryVcRecordBySubjectRequest {
+  string subject_did = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+
+message QueryVcRecordBySubjectResponse {
+  repeated VcRecord vcRecord = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}

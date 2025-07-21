@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package persona_chain.did.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "github.com/persona-chain/persona-chain/x/did/types";
+
+// Params defines the parameters for the module.
+message Params {
+  option (amino.name) = "persona-chain/x/did/Params";
+  
+}
+
+message DidDocument {
+  string id = 1;
+  string did_document = 2;
+  string creator = 3;
+  bool active = 4;
+  int64 created_at = 5;
+  int64 updated_at = 6;
+}
+
+message GenesisState {
+  // params defines all the parameters of the module.
+  Params params = 1 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  repeated DidDocument didDocumentList = 2 [(gogoproto.nullable) = false];
+}

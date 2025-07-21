@@ -1,0 +1,51 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install",
+  "framework": "vite",
+  "env": {
+    "VITE_DEMO_MODE": "false",
+    "VITE_MOCK_INTEGRATIONS": "false",
+    "VITE_CHAIN_ID": "personachain-1",
+    "VITE_BLOCKCHAIN_NETWORK": "persona-chain",
+    "VITE_BLOCKCHAIN_RPC": "https://personachain-proxy.aidenlippert.workers.dev",
+    "VITE_BLOCKCHAIN_REST": "https://personachain-proxy.aidenlippert.workers.dev/api",
+    "VITE_PERSONA_GAS_PRICE": "0.025persona",
+    "VITE_ENABLE_REAL_APIS": "true",
+    "VITE_ENVIRONMENT": "production"
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        }
+      ]
+    }
+  ]
+}

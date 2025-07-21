@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package persona_chain.did.v1;
+
+import "gogoproto/gogo.proto";
+
+option go_package = "github.com/persona-chain/persona-chain/x/did/types";
+
+message DidPacketData {
+  oneof packet {
+    NoData noData = 1;
+    DidUpdatePacketData didUpdatePacketData = 2;
+    DidSyncPacketData didSyncPacketData = 3;
+  }
+}
+
+message NoData {}
+
+// DidUpdatePacketData defines a struct for the packet payload
+message DidUpdatePacketData {
+  string did_id = 1;
+  string did_document = 2;
+  string controller = 3;
+  bool active = 4;
+  int64 updated_at = 5;
+}
+
+// DidUpdatePacketAck defines a struct for the packet acknowledgment
+message DidUpdatePacketAck {
+  bool success = 1;
+  string error = 2;
+}
+
+// DidSyncPacketData defines a struct for requesting DID synchronization
+message DidSyncPacketData {
+  repeated string did_ids = 1;
+}
+
+// DidSyncPacketAck defines a struct for the DID sync acknowledgment
+message DidSyncPacketAck {
+  repeated DidUpdatePacketData did_documents = 1;
+  string error = 2;
+}

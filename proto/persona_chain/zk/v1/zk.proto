@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package persona_chain.zk.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "github.com/persona-chain/persona-chain/x/zk/types";
+
+// Params defines the parameters for the module.
+message Params {
+  option (amino.name) = "persona-chain/x/zk/Params";
+}
+
+message ZkProof {
+  string id = 1;
+  string submitter = 2;
+  string circuit_id = 3;
+  string public_inputs = 4;
+  string proof_data = 5;
+  string verification_key = 6;
+  bool verified = 7;
+  int64 submitted_at = 8;
+  int64 verified_at = 9;
+  string verifier_contract = 10;
+}
+
+message Circuit {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string wasm_code_hash = 4;
+  string verification_key = 5;
+  string creator = 6;
+  bool active = 7;
+  int64 created_at = 8;
+}
+
+message GenesisState {
+  // params defines all the parameters of the module.
+  Params params = 1 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+  repeated ZkProof zkProofList = 2 [(gogoproto.nullable) = false];
+  repeated Circuit circuitList = 3 [(gogoproto.nullable) = false];
+}

@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package persona_chain.did.v1;
+
+import "amino/amino.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "github.com/persona-chain/persona-chain/x/did/types";
+
+// Msg defines the Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+  
+  // CreateDid defines a method for creating a DID document
+  rpc CreateDid(MsgCreateDid) returns (MsgCreateDidResponse);
+  
+  // UpdateDid defines a method for updating a DID document
+  rpc UpdateDid(MsgUpdateDid) returns (MsgUpdateDidResponse);
+  
+  // DeactivateDid defines a method for deactivating a DID document
+  rpc DeactivateDid(MsgDeactivateDid) returns (MsgDeactivateDidResponse);
+}
+
+// MsgCreateDid represents a message to create a new DID document
+message MsgCreateDid {
+  option (cosmos.msg.v1.signer) = "creator";
+  option (amino.name) = "persona-chain/CreateDid";
+  
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string id = 2;
+  string did_document = 3;
+}
+
+// MsgCreateDidResponse defines the Msg/CreateDid response type.
+message MsgCreateDidResponse {}
+
+// MsgUpdateDid represents a message to update an existing DID document
+message MsgUpdateDid {
+  option (cosmos.msg.v1.signer) = "creator";
+  option (amino.name) = "persona-chain/UpdateDid";
+  
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string id = 2;
+  string did_document = 3;
+}
+
+// MsgUpdateDidResponse defines the Msg/UpdateDid response type.
+message MsgUpdateDidResponse {}
+
+// MsgDeactivateDid represents a message to deactivate a DID document
+message MsgDeactivateDid {
+  option (cosmos.msg.v1.signer) = "creator";
+  option (amino.name) = "persona-chain/DeactivateDid";
+  
+  string creator = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string id = 2;
+}
+
+// MsgDeactivateDidResponse defines the Msg/DeactivateDid response type.
+message MsgDeactivateDidResponse {}

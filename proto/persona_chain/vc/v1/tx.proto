@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package persona_chain.vc.v1;
+
+import "amino/amino.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "github.com/persona-chain/persona-chain/x/vc/types";
+
+// Msg defines the Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+  
+  // IssueVc defines a method for issuing a verifiable credential
+  rpc IssueVc(MsgIssueVc) returns (MsgIssueVcResponse);
+  
+  // RevokeVc defines a method for revoking a verifiable credential
+  rpc RevokeVc(MsgRevokeVc) returns (MsgRevokeVcResponse);
+}
+
+// MsgIssueVc represents a message to issue a new verifiable credential
+message MsgIssueVc {
+  option (cosmos.msg.v1.signer) = "issuer";
+  option (amino.name) = "persona-chain/IssueVc";
+  
+  string issuer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string id = 2;
+  string issuer_did = 3;
+  string subject_did = 4;
+  string credential_schema = 5;
+  string credential_data = 6;
+  string proof = 7;
+  int64 expires_at = 8;
+}
+
+// MsgIssueVcResponse defines the Msg/IssueVc response type.
+message MsgIssueVcResponse {}
+
+// MsgRevokeVc represents a message to revoke a verifiable credential
+message MsgRevokeVc {
+  option (cosmos.msg.v1.signer) = "issuer";
+  option (amino.name) = "persona-chain/RevokeVc";
+  
+  string issuer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string id = 2;
+}
+
+// MsgRevokeVcResponse defines the Msg/RevokeVc response type.
+message MsgRevokeVcResponse {}

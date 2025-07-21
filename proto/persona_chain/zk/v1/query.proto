@@ -1,0 +1,98 @@
+syntax = "proto3";
+
+package persona_chain.zk.v1;
+
+import "amino/amino.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+import "cosmos/base/query/v1beta1/pagination.proto";
+import "persona_chain/zk/v1/zk.proto";
+
+option go_package = "github.com/persona-chain/persona-chain/x/zk/types";
+
+// Query defines the gRPC querier service.
+service Query {
+  
+  // Parameters queries the parameters of the module.
+  rpc Params (QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/persona_chain/zk/v1/params";
+  }
+  
+  // Queries a ZkProof by id.
+  rpc ZkProof (QueryGetZkProofRequest) returns (QueryGetZkProofResponse) {
+    option (google.api.http).get = "/persona_chain/zk/v1/zk_proof/{id}";
+  }
+  
+  // Queries a list of ZkProof items.
+  rpc ZkProofAll (QueryAllZkProofRequest) returns (QueryAllZkProofResponse) {
+    option (google.api.http).get = "/persona_chain/zk/v1/zk_proof";
+  }
+  
+  // Queries a Circuit by id.
+  rpc Circuit (QueryGetCircuitRequest) returns (QueryGetCircuitResponse) {
+    option (google.api.http).get = "/persona_chain/zk/v1/circuit/{id}";
+  }
+  
+  // Queries a list of Circuit items.
+  rpc CircuitAll (QueryAllCircuitRequest) returns (QueryAllCircuitResponse) {
+    option (google.api.http).get = "/persona_chain/zk/v1/circuit";
+  }
+  
+  // Queries ZkProofs by circuit ID.
+  rpc ZkProofByCircuit (QueryZkProofByCircuitRequest) returns (QueryZkProofByCircuitResponse) {
+    option (google.api.http).get = "/persona_chain/zk/v1/zk_proof/circuit/{circuit_id}";
+  }
+}
+
+// QueryParamsRequest is request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  // params holds all the parameters of this module.
+  Params params = 1 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+}
+
+message QueryGetZkProofRequest {
+  string id = 1;
+}
+
+message QueryGetZkProofResponse {
+  ZkProof zkProof = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryAllZkProofRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+message QueryAllZkProofResponse {
+  repeated ZkProof zkProof = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+message QueryGetCircuitRequest {
+  string id = 1;
+}
+
+message QueryGetCircuitResponse {
+  Circuit circuit = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryAllCircuitRequest {
+  cosmos.base.query.v1beta1.PageRequest pagination = 1;
+}
+
+message QueryAllCircuitResponse {
+  repeated Circuit circuit = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+message QueryZkProofByCircuitRequest {
+  string circuit_id = 1;
+  cosmos.base.query.v1beta1.PageRequest pagination = 2;
+}
+
+message QueryZkProofByCircuitResponse {
+  repeated ZkProof zkProof = 1 [(gogoproto.nullable) = false];
+  cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}

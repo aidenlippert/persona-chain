@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+package persona_chain.guardian.v1;
+
+import "amino/amino.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+
+option go_package = "github.com/persona-chain/persona-chain/x/guardian/types";
+
+// Msg defines the Msg service.
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+  
+  // AddGuardian defines a method for adding a guardian to a DID
+  rpc AddGuardian(MsgAddGuardian) returns (MsgAddGuardianResponse);
+  
+  // RemoveGuardian defines a method for removing a guardian from a DID
+  rpc RemoveGuardian(MsgRemoveGuardian) returns (MsgRemoveGuardianResponse);
+  
+  // ProposeRecovery defines a method for proposing DID recovery
+  rpc ProposeRecovery(MsgProposeRecovery) returns (MsgProposeRecoveryResponse);
+  
+  // ApproveRecovery defines a method for approving a recovery proposal
+  rpc ApproveRecovery(MsgApproveRecovery) returns (MsgApproveRecoveryResponse);
+  
+  // ExecuteRecovery defines a method for executing an approved recovery
+  rpc ExecuteRecovery(MsgExecuteRecovery) returns (MsgExecuteRecoveryResponse);
+  
+  // SubmitSignatureShare defines a method for submitting threshold signature shares
+  rpc SubmitSignatureShare(MsgSubmitSignatureShare) returns (MsgSubmitSignatureShareResponse);
+}
+
+// MsgAddGuardian represents a message to add a guardian to a DID
+message MsgAddGuardian {
+  option (cosmos.msg.v1.signer) = "controller";
+  option (amino.name) = "persona-chain/AddGuardian";
+  
+  string controller = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string did_id = 2;
+  string guardian_address = 3;
+  string public_key = 4;
+}
+
+// MsgAddGuardianResponse defines the Msg/AddGuardian response type.
+message MsgAddGuardianResponse {}
+
+// MsgRemoveGuardian represents a message to remove a guardian from a DID
+message MsgRemoveGuardian {
+  option (cosmos.msg.v1.signer) = "controller";
+  option (amino.name) = "persona-chain/RemoveGuardian";
+  
+  string controller = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string did_id = 2;
+  string guardian_address = 3;
+}
+
+// MsgRemoveGuardianResponse defines the Msg/RemoveGuardian response type.
+message MsgRemoveGuardianResponse {}
+
+// MsgProposeRecovery represents a message to propose DID recovery
+message MsgProposeRecovery {
+  option (cosmos.msg.v1.signer) = "proposer";
+  option (amino.name) = "persona-chain/ProposeRecovery";
+  
+  string proposer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string id = 2;
+  string did_id = 3;
+  string new_controller = 4;
+  string reason = 5;
+  int64 expires_at = 6;
+}
+
+// MsgProposeRecoveryResponse defines the Msg/ProposeRecovery response type.
+message MsgProposeRecoveryResponse {}
+
+// MsgApproveRecovery represents a message to approve a recovery proposal
+message MsgApproveRecovery {
+  option (cosmos.msg.v1.signer) = "guardian";
+  option (amino.name) = "persona-chain/ApproveRecovery";
+  
+  string guardian = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string proposal_id = 2;
+  bool approve = 3;
+}
+
+// MsgApproveRecoveryResponse defines the Msg/ApproveRecovery response type.
+message MsgApproveRecoveryResponse {}
+
+// MsgExecuteRecovery represents a message to execute an approved recovery
+message MsgExecuteRecovery {
+  option (cosmos.msg.v1.signer) = "executor";
+  option (amino.name) = "persona-chain/ExecuteRecovery";
+  
+  string executor = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string proposal_id = 2;
+}
+
+// MsgExecuteRecoveryResponse defines the Msg/ExecuteRecovery response type.
+message MsgExecuteRecoveryResponse {}
+
+// MsgSubmitSignatureShare represents a message to submit threshold signature shares
+message MsgSubmitSignatureShare {
+  option (cosmos.msg.v1.signer) = "signer";
+  option (amino.name) = "persona-chain/SubmitSignatureShare";
+  
+  string signer = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  string proposal_id = 2;
+  string signature_share = 3;
+  string public_key_share = 4;
+}
+
+// MsgSubmitSignatureShareResponse defines the Msg/SubmitSignatureShare response type.
+message MsgSubmitSignatureShareResponse {}
