@@ -1,0 +1,166 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: personapass
+  labels:
+    name: personapass
+    env: production
+    app.kubernetes.io/name: personapass
+    app.kubernetes.io/component: application
+    app.kubernetes.io/part-of: identity-platform
+    istio-injection: enabled
+  annotations:
+    description: "PersonaPass identity platform namespace"
+    contact: "devops@personapass.com"
+    cost-center: "engineering"
+spec: {}
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: personapass-staging
+  labels:
+    name: personapass-staging
+    env: staging
+    app.kubernetes.io/name: personapass
+    app.kubernetes.io/component: application
+    app.kubernetes.io/part-of: identity-platform
+    istio-injection: enabled
+  annotations:
+    description: "PersonaPass identity platform staging namespace"
+    contact: "devops@personapass.com"
+    cost-center: "engineering"
+spec: {}
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: personapass-dev
+  labels:
+    name: personapass-dev
+    env: development
+    app.kubernetes.io/name: personapass
+    app.kubernetes.io/component: application
+    app.kubernetes.io/part-of: identity-platform
+    istio-injection: enabled
+  annotations:
+    description: "PersonaPass identity platform development namespace"
+    contact: "devops@personapass.com"
+    cost-center: "engineering"
+spec: {}
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    name: monitoring
+    app.kubernetes.io/name: monitoring
+    app.kubernetes.io/component: observability
+    app.kubernetes.io/part-of: infrastructure
+  annotations:
+    description: "Monitoring and observability stack namespace"
+    contact: "devops@personapass.com"
+    cost-center: "infrastructure"
+spec: {}
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-system
+  labels:
+    name: istio-system
+    app.kubernetes.io/name: istio
+    app.kubernetes.io/component: control-plane
+    app.kubernetes.io/part-of: service-mesh
+    istio-injection: disabled
+  annotations:
+    description: "Istio service mesh control plane namespace"
+    contact: "devops@personapass.com"
+    cost-center: "infrastructure"
+spec: {}
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: keda
+  labels:
+    name: keda
+    app.kubernetes.io/name: keda
+    app.kubernetes.io/component: autoscaling
+    app.kubernetes.io/part-of: infrastructure
+  annotations:
+    description: "KEDA autoscaling namespace"
+    contact: "devops@personapass.com"
+    cost-center: "infrastructure"
+spec: {}
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cert-manager
+  labels:
+    name: cert-manager
+    app.kubernetes.io/name: cert-manager
+    app.kubernetes.io/component: certificate-management
+    app.kubernetes.io/part-of: infrastructure
+  annotations:
+    description: "Certificate management namespace"
+    contact: "devops@personapass.com"
+    cost-center: "infrastructure"
+spec: {}
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-nginx
+  labels:
+    name: ingress-nginx
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/component: ingress-controller
+    app.kubernetes.io/part-of: infrastructure
+  annotations:
+    description: "NGINX ingress controller namespace"
+    contact: "devops@personapass.com"
+    cost-center: "infrastructure"
+spec: {}
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: external-dns
+  labels:
+    name: external-dns
+    app.kubernetes.io/name: external-dns
+    app.kubernetes.io/component: dns-management
+    app.kubernetes.io/part-of: infrastructure
+  annotations:
+    description: "External DNS management namespace"
+    contact: "devops@personapass.com"
+    cost-center: "infrastructure"
+spec: {}
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vault
+  labels:
+    name: vault
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/component: secrets-management
+    app.kubernetes.io/part-of: infrastructure
+  annotations:
+    description: "HashiCorp Vault secrets management namespace"
+    contact: "devops@personapass.com"
+    cost-center: "infrastructure"
+spec: {}

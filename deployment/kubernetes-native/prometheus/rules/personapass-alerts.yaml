@@ -1,0 +1,281 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: personapass-alerts
+  namespace: monitoring
+  labels:
+    app: prometheus
+    component: rules
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/component: rules
+    app.kubernetes.io/part-of: monitoring
+  annotations:
+    description: "Alerting rules for PersonaPass platform monitoring"
+spec:
+  groups:
+  - name: personapass.platform
+    interval: 30s
+    rules:
+    - alert: PersonaPassServiceDown
+      expr: up{namespace="personapass"} == 0
+      for: 1m
+      labels:
+        severity: critical
+        team: platform
+        service: "{{ $labels.job }}"
+      annotations:
+        summary: "PersonaPass service {{ $labels.job }} is down"
+        description: "PersonaPass service {{ $labels.job }} has been down for more than 1 minute."
+        runbook_url: "https://docs.personapass.com/runbooks/service-down"
+        dashboard_url: "https://grafana.personapass.com/d/personapass-overview"
+
+    - alert: PersonaPassHighErrorRate
+      expr: |
+        (
+          sum(rate(http_requests_total{namespace="personapass",code!~"2.."}[5m])) by (service)
+          /
+          sum(rate(http_requests_total{namespace="personapass"}[5m])) by (service)
+        ) * 100 > 5
+      for: 2m
+      labels:
+        severity: warning
+        team: platform
+        service: "{{ $labels.service }}"
+      annotations:
+        summary: "High error rate for PersonaPass service {{ $labels.service }}"
+        description: "PersonaPass service {{ $labels.service }} has an error rate of {{ $value | humanizePercentage }} for more than 2 minutes."
+        runbook_url: "https://docs.personapass.com/runbooks/high-error-rate"
+
+    - alert: PersonaPassHighLatency
+      expr: |
+        histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{namespace="personapass"}[5m])) by (le, service)) * 1000 > 2000
+      for: 3m
+      labels:
+        severity: warning
+        team: platform
+        service: "{{ $labels.service }}"
+      annotations:
+        summary: "High latency for PersonaPass service {{ $labels.service }}"
+        description: "PersonaPass service {{ $labels.service }} has 95th percentile latency of {{ $value | humanizeDuration }} for more than 3 minutes."
+        runbook_url: "https://docs.personapass.com/runbooks/high-latency"
+
+    - alert: PersonaPassPodCrashLooping
+      expr: rate(kube_pod_container_status_restarts_total{namespace="personapass"}[15m]) > 0
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+        pod: "{{ $labels.pod }}"
+        container: "{{ $labels.container }}"
+      annotations:
+        summary: "PersonaPass pod {{ $labels.pod }} is crash looping"
+        description: "PersonaPass pod {{ $labels.pod }} in container {{ $labels.container }} is restarting frequently."
+        runbook_url: "https://docs.personapass.com/runbooks/pod-crash-loop"
+
+  - name: personapass.security
+    interval: 30s
+    rules:
+    - alert: PersonaPassSecurityThreatDetected
+      expr: increase(security_alerts_total{namespace="personapass",severity="critical"}[5m]) > 0
+      for: 0m
+      labels:
+        severity: critical
+        team: security
+        alert_type: "{{ $labels.alert_type }}"
+      annotations:
+        summary: "Critical security threat detected in PersonaPass"
+        description: "A critical security threat of type {{ $labels.alert_type }} has been detected in PersonaPass platform."
+        runbook_url: "https://docs.personapass.com/runbooks/security-threat"
+        escalation: "immediate"
+
+    - alert: PersonaPassHighAuthFailures
+      expr: rate(authentication_failures_total{namespace="personapass"}[5m]) * 60 > 100
+      for: 2m
+      labels:
+        severity: warning
+        team: security
+        service: "{{ $labels.service }}"
+      annotations:
+        summary: "High authentication failure rate detected"
+        description: "PersonaPass service {{ $labels.service }} has {{ $value }} authentication failures per minute."
+        runbook_url: "https://docs.personapass.com/runbooks/auth-failures"
+
+    - alert: PersonaPassSuspiciousActivity
+      expr: rate(suspicious_activity_total{namespace="personapass"}[5m]) * 60 > 50
+      for: 1m
+      labels:
+        severity: warning
+        team: security
+        activity_type: "{{ $labels.activity_type }}"
+      annotations:
+        summary: "Suspicious activity detected in PersonaPass"
+        description: "Detected {{ $value }} suspicious activities of type {{ $labels.activity_type }} per minute."
+        runbook_url: "https://docs.personapass.com/runbooks/suspicious-activity"
+
+    - alert: PersonaPassComplianceViolation
+      expr: increase(audit_violations_total{namespace="personapass"}[1h]) > 0
+      for: 0m
+      labels:
+        severity: critical
+        team: compliance
+        framework: "{{ $labels.framework }}"
+      annotations:
+        summary: "Compliance violation detected"
+        description: "A compliance violation for {{ $labels.framework }} has been detected in PersonaPass platform."
+        runbook_url: "https://docs.personapass.com/runbooks/compliance-violation"
+        escalation: "immediate"
+
+  - name: personapass.performance
+    interval: 30s
+    rules:
+    - alert: PersonaPassHighCPUUsage
+      expr: |
+        (
+          sum(rate(container_cpu_usage_seconds_total{namespace="personapass",container!="POD",container!=""}[5m])) by (pod)
+          /
+          sum(kube_pod_container_resource_limits{namespace="personapass",resource="cpu"}) by (pod)
+        ) * 100 > 80
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+        pod: "{{ $labels.pod }}"
+      annotations:
+        summary: "High CPU usage for PersonaPass pod {{ $labels.pod }}"
+        description: "PersonaPass pod {{ $labels.pod }} is using {{ $value | humanizePercentage }} of CPU resources."
+        runbook_url: "https://docs.personapass.com/runbooks/high-cpu"
+
+    - alert: PersonaPassHighMemoryUsage
+      expr: |
+        (
+          sum(container_memory_working_set_bytes{namespace="personapass",container!="POD",container!=""}) by (pod)
+          /
+          sum(kube_pod_container_resource_limits{namespace="personapass",resource="memory"}) by (pod)
+        ) * 100 > 80
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+        pod: "{{ $labels.pod }}"
+      annotations:
+        summary: "High memory usage for PersonaPass pod {{ $labels.pod }}"
+        description: "PersonaPass pod {{ $labels.pod }} is using {{ $value | humanizePercentage }} of memory resources."
+        runbook_url: "https://docs.personapass.com/runbooks/high-memory"
+
+    - alert: PersonaPassLowReplicas
+      expr: |
+        kube_deployment_status_replicas_available{namespace="personapass"}
+        <
+        kube_deployment_spec_replicas{namespace="personapass"} * 0.5
+      for: 3m
+      labels:
+        severity: warning
+        team: platform
+        deployment: "{{ $labels.deployment }}"
+      annotations:
+        summary: "Low replica count for PersonaPass deployment {{ $labels.deployment }}"
+        description: "PersonaPass deployment {{ $labels.deployment }} has only {{ $value }} available replicas, which is less than 50% of desired replicas."
+        runbook_url: "https://docs.personapass.com/runbooks/low-replicas"
+
+  - name: personapass.business
+    interval: 60s
+    rules:
+    - alert: PersonaPassLowVerificationRate
+      expr: rate(identity_verifications_total{namespace="personapass"}[1h]) * 3600 < 100
+      for: 10m
+      labels:
+        severity: warning
+        team: product
+      annotations:
+        summary: "Low identity verification rate"
+        description: "PersonaPass identity verification rate has dropped to {{ $value }} verifications per hour."
+        runbook_url: "https://docs.personapass.com/runbooks/low-verification-rate"
+
+    - alert: PersonaPassCredentialIssuanceFailure
+      expr: |
+        (
+          sum(rate(credentials_issued_total{namespace="personapass",status="failed"}[5m]))
+          /
+          sum(rate(credentials_issued_total{namespace="personapass"}[5m]))
+        ) * 100 > 5
+      for: 5m
+      labels:
+        severity: critical
+        team: product
+      annotations:
+        summary: "High credential issuance failure rate"
+        description: "PersonaPass credential issuance failure rate is {{ $value | humanizePercentage }}."
+        runbook_url: "https://docs.personapass.com/runbooks/credential-failures"
+
+    - alert: PersonaPassZKProofGenerationFailure
+      expr: |
+        (
+          sum(rate(zk_proof_generation_total{namespace="personapass",status="failed"}[5m]))
+          /
+          sum(rate(zk_proof_generation_total{namespace="personapass"}[5m]))
+        ) * 100 > 2
+      for: 3m
+      labels:
+        severity: warning
+        team: cryptography
+      annotations:
+        summary: "High ZK proof generation failure rate"
+        description: "PersonaPass ZK proof generation failure rate is {{ $value | humanizePercentage }}."
+        runbook_url: "https://docs.personapass.com/runbooks/zk-proof-failures"
+
+  - name: personapass.infrastructure
+    interval: 30s
+    rules:
+    - alert: PersonaPassPersistentVolumeUsage
+      expr: |
+        (
+          kubelet_volume_stats_used_bytes{namespace="personapass"}
+          /
+          kubelet_volume_stats_capacity_bytes{namespace="personapass"}
+        ) * 100 > 85
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+        volume: "{{ $labels.persistentvolumeclaim }}"
+      annotations:
+        summary: "High persistent volume usage"
+        description: "PersonaPass persistent volume {{ $labels.persistentvolumeclaim }} is {{ $value | humanizePercentage }} full."
+        runbook_url: "https://docs.personapass.com/runbooks/high-volume-usage"
+
+    - alert: PersonaPassNetworkPolicyViolation
+      expr: increase(network_policy_violations_total{namespace="personapass"}[5m]) > 0
+      for: 0m
+      labels:
+        severity: critical
+        team: security
+        policy: "{{ $labels.policy }}"
+      annotations:
+        summary: "Network policy violation detected"
+        description: "Network policy {{ $labels.policy }} violation detected in PersonaPass namespace."
+        runbook_url: "https://docs.personapass.com/runbooks/network-policy-violation"
+
+    - alert: PersonaPassServiceMeshDown
+      expr: up{job="istio-mesh",namespace="istio-system"} == 0
+      for: 1m
+      labels:
+        severity: critical
+        team: platform
+        component: "service-mesh"
+      annotations:
+        summary: "Istio service mesh is down"
+        description: "Istio service mesh components are not responding, which may affect PersonaPass service communication."
+        runbook_url: "https://docs.personapass.com/runbooks/service-mesh-down"
+
+    - alert: PersonaPassKEDAScalerError
+      expr: increase(keda_scaler_errors_total{namespace="personapass"}[5m]) > 0
+      for: 2m
+      labels:
+        severity: warning
+        team: platform
+        scaler: "{{ $labels.scaler }}"
+      annotations:
+        summary: "KEDA scaler error detected"
+        description: "KEDA scaler {{ $labels.scaler }} is experiencing errors in PersonaPass namespace."
+        runbook_url: "https://docs.personapass.com/runbooks/keda-scaler-error"

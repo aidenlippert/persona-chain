@@ -1,0 +1,550 @@
+name: Persona Chain CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  GO_VERSION: '1.21'
+  NODE_VERSION: '18'
+  RUST_VERSION: 'stable'
+
+jobs:
+  # Blockchain module tests
+  blockchain-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+    
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    
+    - name: Install dependencies
+      run: go mod download
+    
+    - name: Run Go tests
+      run: |
+        go test ./...
+        go test -v ./x/did/...
+        go test -v ./x/vc/...
+        go test -v ./x/zk/...
+        go test -v ./x/guardian/...
+    
+    - name: Run Go lint
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: latest
+        args: --timeout=5m
+    
+    - name: Build blockchain binary
+      run: |
+        make build
+        ./build/persona-chaind version
+
+  # ZK Circuit tests
+  circuit-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: ${{ env.RUST_VERSION }}
+        override: true
+        components: rustfmt, clippy
+    
+    - name: Cache Rust dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          circuits/*/target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Install wasm-pack
+      run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+    
+    - name: Add wasm32 target for circuit compile check
+      run: rustup target add wasm32-unknown-unknown
+    
+    - name: Build age verification circuit
+      working-directory: circuits/age_verification
+      run: |
+        cargo check
+        cargo check --target wasm32-unknown-unknown
+        cargo test
+        wasm-pack build --target web
+    
+    - name: Run Rust lint
+      working-directory: circuits/age_verification
+      run: |
+        cargo fmt -- --check
+        cargo clippy -- -D warnings
+    
+    - name: Test CosmWasm contracts
+      working-directory: contracts/zk-verifier
+      run: |
+        cargo test
+        cargo test --test simplified_multitest
+
+  # API service tests
+  api-service-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: persona_chain_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: services/api-service/package-lock.json
+    
+    - name: Install API service dependencies
+      working-directory: services/api-service
+      run: npm ci
+    
+    - name: Run API service tests
+      working-directory: services/api-service
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/persona_chain_test
+        REDIS_URL: redis://localhost:6379
+        NODE_ENV: test
+      run: |
+        npm run lint
+        npm run type-check
+        npm test
+    
+    - name: Build API service
+      working-directory: services/api-service
+      run: npm run build
+
+  # DB service tests
+  db-service-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: persona_chain_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: services/db-service/package-lock.json
+    
+    - name: Install DB service dependencies
+      working-directory: services/db-service
+      run: npm ci
+    
+    - name: Run DB service tests
+      working-directory: services/db-service
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/persona_chain_test
+        REDIS_URL: redis://localhost:6379
+        NODE_ENV: test
+      run: |
+        npm run lint
+        npm run type-check
+        npm test
+
+  # Frontend tests
+  frontend-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Install frontend dependencies
+      working-directory: frontend
+      run: npm ci
+    
+    - name: Run frontend tests
+      working-directory: frontend
+      run: |
+        npm run lint
+        npm run type-check
+        npm test
+    
+    - name: Build frontend
+      working-directory: frontend
+      run: npm run build
+
+  # Integration tests
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: [blockchain-tests, api-service-tests, db-service-tests]
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: persona_chain_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+    
+    - name: Install dependencies
+      run: |
+        go mod download
+        cd services/api-service && npm ci
+        cd ../db-service && npm ci
+        cd ../../frontend && npm ci
+    
+    - name: Build all services
+      run: |
+        make build
+        cd services/api-service && npm run build
+        cd ../db-service && npm run build
+        cd ../../frontend && npm run build
+    
+    - name: Run integration tests
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/persona_chain_test
+        REDIS_URL: redis://localhost:6379
+        CHAIN_ID: persona-chain-test
+        RPC_ENDPOINT: http://localhost:26657
+      run: |
+        # Start blockchain in background
+        ./build/persona-chaind start --minimum-gas-prices="0stake" &
+        sleep 10
+        
+        # Start services in background
+        cd services/api-service && npm start &
+        cd ../db-service && npm start &
+        sleep 5
+        
+        # Run integration tests
+        npm run test:integration
+
+  # CosmWasm contract tests
+  cosmwasm-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: wasm32-unknown-unknown
+        components: rustfmt, clippy
+    
+    - name: Cache Rust dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          ./contracts/target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('contracts/**/Cargo.lock') }}
+    
+    - name: Run CosmWasm contract tests
+      working-directory: contracts/zk-verifier
+      run: |
+        cargo test --test simplified_multitest
+        cargo test
+    
+    - name: Build WASM contracts
+      working-directory: contracts/zk-verifier
+      run: cargo build --release --target wasm32-unknown-unknown
+
+  # Mock testnet build
+  build-testnet:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+    
+    - name: Build testnet daemon
+      working-directory: cmd/testnet-daemon
+      run: |
+        go mod tidy
+        go build -o testnet-daemon .
+    
+    - name: Test testnet daemon
+      working-directory: cmd/testnet-daemon
+      run: |
+        ./testnet-daemon &
+        DAEMON_PID=$!
+        sleep 5
+        curl -f http://localhost:1317/health || exit 1
+        kill $DAEMON_PID
+    
+    - name: Upload testnet binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: testnet-daemon
+        path: cmd/testnet-daemon/testnet-daemon
+
+  # E2E tests with Puppeteer
+  e2e-tests:
+    runs-on: ubuntu-latest
+    needs: [build-testnet]
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: tests/e2e/package-lock.json
+    
+    - name: Download testnet daemon
+      uses: actions/download-artifact@v3
+      with:
+        name: testnet-daemon
+        path: ./cmd/testnet-daemon/
+    
+    - name: Make testnet daemon executable
+      run: chmod +x ./cmd/testnet-daemon/testnet-daemon
+    
+    - name: Install E2E dependencies
+      working-directory: tests/e2e
+      run: npm ci
+    
+    - name: Install Puppeteer browsers
+      working-directory: tests/e2e
+      run: npx puppeteer browsers install chrome
+    
+    - name: Start mock testnet
+      run: |
+        ./cmd/testnet-daemon/testnet-daemon &
+        echo $! > testnet.pid
+        sleep 5
+    
+    - name: Run API integration tests
+      working-directory: tests/e2e
+      run: npm test -- tests/api.test.ts --verbose
+    
+    - name: Setup mock frontend for UI tests
+      run: |
+        mkdir -p mock-frontend
+        cd mock-frontend
+        cat > index.html << 'EOF'
+        <!DOCTYPE html>
+        <html>
+        <head><title>Mock Persona Chain DApp</title></head>
+        <body>
+          <nav>
+            <a href="/create-did">Create DID</a>
+            <a href="/prove">Generate Proof</a>
+            <a href="/vcs">Manage VCs</a>
+          </nav>
+          <main>
+            <h1>Mock DApp</h1>
+            <div class="chain-status">Connected</div>
+          </main>
+        </body>
+        </html>
+        EOF
+        python3 -m http.server 3000 &
+        echo $! > ../frontend.pid
+        sleep 2
+    
+    - name: Run UI E2E tests
+      working-directory: tests/e2e
+      run: npm test -- tests/ui.test.ts --verbose
+      env:
+        HEADLESS: true
+        SCREENSHOTS: true
+    
+    - name: Run complete workflow tests
+      working-directory: tests/e2e
+      run: npm test -- tests/workflow.test.ts --verbose
+      env:
+        HEADLESS: true
+    
+    - name: Upload test screenshots
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-screenshots
+        path: tests/e2e/screenshots/
+    
+    - name: Cleanup processes
+      if: always()
+      run: |
+        if [ -f testnet.pid ]; then kill $(cat testnet.pid) || true; fi
+        if [ -f frontend.pid ]; then kill $(cat frontend.pid) || true; fi
+
+  # Security scanning
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # Build and push Docker images (on main branch)
+  docker-build:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [blockchain-tests, cosmwasm-tests, api-service-tests, db-service-tests, frontend-tests, integration-tests, e2e-tests]
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Build and push blockchain image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./docker/Dockerfile.blockchain
+        push: true
+        tags: |
+          ghcr.io/${{ github.repository }}/persona-chain:latest
+          ghcr.io/${{ github.repository }}/persona-chain:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Build and push API service image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./services/api-service
+        push: true
+        tags: |
+          ghcr.io/${{ github.repository }}/api-service:latest
+          ghcr.io/${{ github.repository }}/api-service:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Build and push DB service image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./services/db-service
+        push: true
+        tags: |
+          ghcr.io/${{ github.repository }}/db-service:latest
+          ghcr.io/${{ github.repository }}/db-service:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Build and push frontend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        push: true
+        tags: |
+          ghcr.io/${{ github.repository }}/frontend:latest
+          ghcr.io/${{ github.repository }}/frontend:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max

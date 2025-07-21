@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "persona-testnet.fullname" . }}-data
+  labels:
+    {{- include "persona-testnet.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.validators.storage.size }}
+  {{- if .Values.validators.storage.storageClass }}
+  storageClassName: {{ .Values.validators.storage.storageClass }}
+  {{- end }}

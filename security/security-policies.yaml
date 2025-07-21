@@ -1,0 +1,829 @@
+# PersonaPass Security Policies
+# Comprehensive security hardening and compliance configurations
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: personapass-security
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+# OPA Gatekeeper Constraint Templates
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: personapasssecuritypolicy
+  namespace: personapass-security
+spec:
+  crd:
+    spec:
+      names:
+        kind: PersonaPassSecurityPolicy
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            allowedUsers:
+              type: array
+              items:
+                type: integer
+            allowedGroups:
+              type: array
+              items:
+                type: integer
+            requiredSecurityContext:
+              type: boolean
+            forbiddenCapabilities:
+              type: array
+              items:
+                type: string
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package personapasssecurity
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          not container.securityContext
+          msg := "Container must have securityContext defined"
+        }
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          container.securityContext.runAsUser == 0
+          msg := "Container cannot run as root user (UID 0)"
+        }
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          container.securityContext.privileged == true
+          msg := "Privileged containers are not allowed"
+        }
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          capability := container.securityContext.capabilities.add[_]
+          forbidden_capabilities := {"SYS_ADMIN", "NET_ADMIN", "SYS_TIME", "SYS_MODULE"}
+          forbidden_capabilities[capability]
+          msg := sprintf("Forbidden capability '%v' is not allowed", [capability])
+        }
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          not container.securityContext.readOnlyRootFilesystem == true
+          msg := "Container must have readOnlyRootFilesystem set to true"
+        }
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          not container.securityContext.allowPrivilegeEscalation == false
+          msg := "Container must have allowPrivilegeEscalation set to false"
+        }
+
+---
+# Apply Security Policy to PersonaPass namespace
+apiVersion: config.gatekeeper.sh/v1alpha1
+kind: PersonaPassSecurityPolicy
+metadata:
+  name: personapass-security-policy
+  namespace: personapass-security
+spec:
+  enforcementAction: warn  # Change to "deny" for strict enforcement
+  match:
+    - namespaces: ["personapass-prod", "personapass-staging"]
+      kinds:
+        - apiGroups: ["apps"]
+          kinds: ["Deployment", "StatefulSet", "DaemonSet"]
+  parameters:
+    allowedUsers: [101, 1000, 65534]  # nginx, persona, nobody
+    allowedGroups: [101, 1000, 65534]
+    requiredSecurityContext: true
+    forbiddenCapabilities: ["SYS_ADMIN", "NET_ADMIN", "SYS_TIME", "SYS_MODULE", "SYS_CHROOT"]
+
+---
+# Network Security Policies
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all-ingress
+  namespace: personapass-prod
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all-egress
+  namespace: personapass-prod
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+
+---
+# Allow DNS resolution
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: personapass-prod
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+
+---
+# Allow monitoring access
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-monitoring-ingress
+  namespace: personapass-prod
+spec:
+  podSelector:
+    matchLabels:
+      prometheus.io/scrape: "true"
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: personapass-monitoring
+    ports:
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 26660
+
+---
+# Allow wallet to blockchain communication
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: wallet-to-blockchain
+  namespace: personapass-prod
+spec:
+  podSelector:
+    matchLabels:
+      app: personapass-wallet
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: personapass-blockchain
+    ports:
+    - protocol: TCP
+      port: 26657  # RPC
+    - protocol: TCP
+      port: 1317   # API
+    - protocol: TCP
+      port: 9090   # gRPC
+
+---
+# Inter-blockchain node communication
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: blockchain-internal
+  namespace: personapass-prod
+spec:
+  podSelector:
+    matchLabels:
+      app: personapass-blockchain
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: personapass-blockchain
+    ports:
+    - protocol: TCP
+      port: 26656  # P2P
+  - from:
+    - podSelector:
+        matchLabels:
+          app: personapass-wallet
+    ports:
+    - protocol: TCP
+      port: 26657
+    - protocol: TCP
+      port: 1317
+    - protocol: TCP
+      port: 9090
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: personapass-blockchain
+    ports:
+    - protocol: TCP
+      port: 26656
+  # Allow external P2P connections for blockchain sync
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 26656
+
+---
+# Pod Security Standards
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: security-limits
+  namespace: personapass-prod
+spec:
+  limits:
+  - type: Container
+    default:
+      cpu: "1"
+      memory: "2Gi"
+    defaultRequest:
+      cpu: "100m"
+      memory: "256Mi"
+    max:
+      cpu: "4"
+      memory: "8Gi"
+    min:
+      cpu: "50m"
+      memory: "128Mi"
+
+---
+# Security Scanning with Falco
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: falco-config
+  namespace: personapass-security
+data:
+  falco.yaml: |
+    rules_file:
+      - /etc/falco/falco_rules.yaml
+      - /etc/falco/falco_rules.local.yaml
+      - /etc/falco/k8s_audit_rules.yaml
+      - /etc/falco/personapass_rules.yaml
+
+    time_format_iso_8601: true
+    json_output: true
+    json_include_output_property: true
+    json_include_tags_property: true
+
+    log_stderr: true
+    log_syslog: true
+    log_level: info
+
+    priority: debug
+
+    buffered_outputs: false
+
+    syscall_event_drops:
+      actions:
+        - log
+        - alert
+      rate: 0.03333
+      max_burst: 1000
+
+    outputs:
+      rate: 1
+      max_burst: 1000
+
+    syslog_output:
+      enabled: true
+
+    file_output:
+      enabled: true
+      keep_alive: false
+      filename: /var/log/falco.log
+
+    stdout_output:
+      enabled: true
+
+    webserver:
+      enabled: true
+      listen_port: 8765
+      k8s_healthz_endpoint: /healthz
+      ssl_enabled: false
+
+    grpc:
+      enabled: false
+
+    grpc_output:
+      enabled: false
+
+  personapass_rules.yaml: |
+    # PersonaPass specific security rules
+    
+    - rule: PersonaPass Sensitive File Access
+      desc: Detect access to sensitive PersonaPass files
+      condition: >
+        open_read and
+        (fd.filename pmatch (/etc/passwd) or
+         fd.filename pmatch (/etc/shadow) or
+         fd.filename pmatch (/etc/hosts) or
+         fd.filename pmatch (/root/.ssh/*) or
+         fd.filename pmatch (/home/*/.ssh/*) or
+         fd.filename pmatch (*/priv_validator_key.json) or
+         fd.filename pmatch (*/node_key.json))
+      output: >
+        Sensitive file accessed (user=%user.name command=%proc.cmdline
+        file=%fd.name parent=%proc.pname pcmdline=%proc.pcmdline gparent=%proc.aname[2] container_id=%container.id image=%container.image.repository)
+      priority: WARNING
+      tags: [filesystem, personapass]
+
+    - rule: PersonaPass Crypto Key Access
+      desc: Detect access to cryptographic keys
+      condition: >
+        open_read and
+        (fd.filename pmatch (*/keystore/*) or
+         fd.filename pmatch (*/keys/*) or
+         fd.filename pmatch (*/.persona/*) or
+         fd.filename contains validator_key or
+         fd.filename contains priv_validator or
+         fd.filename contains node_key)
+      output: >
+        Crypto key file accessed (user=%user.name command=%proc.cmdline
+        file=%fd.name container_id=%container.id image=%container.image.repository)
+      priority: CRITICAL
+      tags: [filesystem, crypto, personapass]
+
+    - rule: PersonaPass Network Scan Detection
+      desc: Detect network scanning activities
+      condition: >
+        (fd.sockfamily = ip and evt.type = connect and evt.dir = <) and
+        fd.l4proto = tcp and
+        (fd.sport < 32000 and fd.dport < 32000) and
+        evt.rawres = -ECONNREFUSED
+      output: >
+        Network scan detected (user=%user.name command=%proc.cmdline
+        connection=%fd.name container_id=%container.id image=%container.image.repository)
+      priority: WARNING
+      tags: [network, scan, personapass]
+
+    - rule: PersonaPass Blockchain Process Tampering
+      desc: Detect attempts to tamper with blockchain processes
+      condition: >
+        (spawned_process and
+         (proc.name = gdb or proc.name = strace or proc.name = ptrace)) and
+        (proc.pname contains persona or proc.pname contains tendermint)
+      output: >
+        Blockchain process tampering detected (user=%user.name command=%proc.cmdline
+        parent=%proc.pname container_id=%container.id image=%container.image.repository)
+      priority: CRITICAL
+      tags: [process, blockchain, personapass]
+
+    - rule: PersonaPass Suspicious Network Activity
+      desc: Detect suspicious network connections from PersonaPass containers
+      condition: >
+        outbound and
+        k8s.ns.name in (personapass-prod, personapass-staging) and
+        (fd.sip.name != "" and not fd.sip.name pmatch (*.amazonaws.com) and
+         not fd.sip.name pmatch (*.cloudflare.com) and
+         not fd.sip.name pmatch (*.github.com) and
+         not fd.sip.name pmatch (kubernetes.default.svc.cluster.local) and
+         not fd.sip.name pmatch (*.personapass.io))
+      output: >
+        Suspicious outbound connection (user=%user.name command=%proc.cmdline
+        connection=%fd.name container_id=%container.id image=%container.image.repository)
+      priority: WARNING
+      tags: [network, suspicious, personapass]
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: falco
+  namespace: personapass-security
+  labels:
+    app: falco
+spec:
+  selector:
+    matchLabels:
+      app: falco
+  template:
+    metadata:
+      labels:
+        app: falco
+    spec:
+      serviceAccountName: falco
+      hostNetwork: true
+      hostPID: true
+      containers:
+      - name: falco
+        image: falcosecurity/falco:0.36.0
+        args:
+        - /usr/bin/falco
+        - -c
+        - /etc/falco/falco.yaml
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: dev
+          mountPath: /host/dev
+        - name: proc
+          mountPath: /host/proc
+          readOnly: true
+        - name: boot
+          mountPath: /host/boot
+          readOnly: true
+        - name: lib-modules
+          mountPath: /host/lib/modules
+          readOnly: true
+        - name: usr
+          mountPath: /host/usr
+          readOnly: true
+        - name: etc
+          mountPath: /host/etc
+          readOnly: true
+        - name: falco-config
+          mountPath: /etc/falco
+      volumes:
+      - name: dev
+        hostPath:
+          path: /dev
+      - name: proc
+        hostPath:
+          path: /proc
+      - name: boot
+        hostPath:
+          path: /boot
+      - name: lib-modules
+        hostPath:
+          path: /lib/modules
+      - name: usr
+        hostPath:
+          path: /usr
+      - name: etc
+        hostPath:
+          path: /etc
+      - name: falco-config
+        configMap:
+          name: falco-config
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: falco
+  namespace: personapass-security
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: falco
+rules:
+- apiGroups: [""]
+  resources: ["nodes", "events"]
+  verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: falco
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: falco
+subjects:
+- kind: ServiceAccount
+  name: falco
+  namespace: personapass-security
+
+---
+# Secrets encryption at rest configuration
+apiVersion: v1
+kind: Secret
+metadata:
+  name: encryption-config
+  namespace: personapass-security
+type: Opaque
+data:
+  # Base64 encoded encryption configuration for etcd
+  encryption-config.yaml: |
+    YXBpVmVyc2lvbjogYXBpc2VydmVyLmNvbmZpZy5rOHMuaW8vdjEKa2luZDogRW5jcnlwdGlvbkNvbmZpZwpyZXNvdXJjZXM6Ci0gcmVzb3VyY2VzOgogIC0gc2VjcmV0cwogIC0gY29uZmlnbWFwcwogIC0gcGVyc2lzdGVudHZvbHVtZWNsYWltcwogIHByb3ZpZGVyczoKICAtIGFlc2NiYzoKICAgICAga2V5czoKICAgICAgLSBuYW1lOiBrZXkxCiAgICAgICAgc2VjcmV0OiAzMmNoYXJhY3RlcmtleWZvcmFlczI1NnNlY3VyaXR5CiAgICAgIC0gbmFtZToga2V5MgogICAgICAgIHNlY3JldDogYW5vdGhlcjMyY2hhcmFjdGVya2V5Zm9yYmFja3VwCiAgLSBpZGVudGl0eToge30=
+
+---
+# RBAC for restricted access
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: personapass-security-reader
+  namespace: personapass-prod
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/log", "services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "statefulsets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["networkpolicies"]
+  verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: personapass-security-readers
+  namespace: personapass-prod
+subjects:
+- kind: User
+  name: security-team
+  apiGroup: rbac.authorization.k8s.io
+- kind: ServiceAccount
+  name: monitoring-service
+  namespace: personapass-monitoring
+roleRef:
+  kind: Role
+  name: personapass-security-reader
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Pod Security Policy (deprecated but still useful for older clusters)
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: personapass-restricted
+  namespace: personapass-security
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+    - ALL
+  allowedCapabilities: []
+  volumes:
+    - 'configMap'
+    - 'emptyDir'
+    - 'projected'
+    - 'secret'
+    - 'downwardAPI'
+    - 'persistentVolumeClaim'
+  hostNetwork: false
+  hostIPC: false
+  hostPID: false
+  runAsUser:
+    rule: 'MustRunAsNonRoot'
+  supplementalGroups:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1
+        max: 65535
+  fsGroup:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1
+        max: 65535
+  readOnlyRootFilesystem: true
+
+---
+# Certificate management with cert-manager
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: security@personapass.io
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: personapass-tls
+  namespace: personapass-prod
+spec:
+  secretName: personapass-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - personapass.io
+  - www.personapass.io
+  - api.personapass.io
+  - rpc.personapass.io
+
+---
+# Security monitoring and alerting
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: security-monitoring
+  namespace: personapass-security
+data:
+  security-alerts.yaml: |
+    groups:
+    - name: security.rules
+      rules:
+      - alert: SecurityViolation
+        expr: increase(falco_events_total{priority="Critical"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical security violation detected"
+          description: "Falco detected {{ $value }} critical security events in the last 5 minutes"
+
+      - alert: UnauthorizedAPIAccess
+        expr: increase(nginx_http_requests_total{status="403"}[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Unusual number of 403 responses"
+          description: "{{ $value }} 403 responses in 5 minutes may indicate unauthorized access attempts"
+
+      - alert: SuspiciousNetworkActivity
+        expr: increase(falco_events_total{rule_name="Suspicious Network Activity"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Suspicious network activity detected"
+          description: "Falco detected suspicious network connections from PersonaPass containers"
+
+      - alert: CryptoKeyAccess
+        expr: increase(falco_events_total{rule_name="PersonaPass Crypto Key Access"}[1m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Cryptographic key access detected"
+          description: "Unauthorized access to cryptographic keys detected"
+
+      - alert: HighFailedLogins
+        expr: increase(personapass_auth_operations_total{status="failed"}[5m]) > 20
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of failed login attempts"
+          description: "{{ $value }} failed login attempts in 5 minutes"
+
+      - alert: CertificateExpiringSoon
+        expr: (probe_ssl_earliest_cert_expiry - time()) / 86400 < 30
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "SSL certificate expiring soon"
+          description: "Certificate for {{ $labels.instance }} expires in {{ $value }} days"
+
+---
+# Vulnerability scanning with Trivy
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: trivy-vulnerability-scan
+  namespace: personapass-security
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: trivy
+            image: aquasec/trivy:0.47.0
+            command:
+            - sh
+            - -c
+            - |
+              # Scan all PersonaPass images
+              trivy image --format json --output /shared/wallet-scan.json personapass/wallet:latest
+              trivy image --format json --output /shared/blockchain-scan.json personapass/blockchain:latest
+              
+              # Upload results to monitoring
+              curl -X POST \
+                -H "Content-Type: application/json" \
+                -d @/shared/wallet-scan.json \
+                http://logstash.personapass-monitoring:8080/vulnerability-scans
+              
+              curl -X POST \
+                -H "Content-Type: application/json" \
+                -d @/shared/blockchain-scan.json \
+                http://logstash.personapass-monitoring:8080/vulnerability-scans
+            volumeMounts:
+            - name: shared-storage
+              mountPath: /shared
+          volumes:
+          - name: shared-storage
+            emptyDir: {}
+
+---
+# Compliance monitoring
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: compliance-monitoring
+  namespace: personapass-security
+data:
+  compliance-check.sh: |
+    #!/bin/bash
+    set -euo pipefail
+    
+    # GDPR Compliance Check
+    echo "Checking GDPR compliance..."
+    kubectl get pods -n personapass-prod -o jsonpath='{.items[*].spec.containers[*].env[*]}' | grep -i "gdpr\|privacy\|consent" || echo "No GDPR env vars found"
+    
+    # SOC2 Compliance Check
+    echo "Checking SOC2 compliance..."
+    kubectl get networkpolicies -n personapass-prod --no-headers | wc -l
+    
+    # PCI DSS Compliance (if handling payments)
+    echo "Checking encryption at rest..."
+    kubectl get secrets -n personapass-prod -o json | jq '.items[] | select(.type == "Opaque") | .metadata.name'
+    
+    # Data retention policies
+    echo "Checking data retention policies..."
+    kubectl get persistentvolumes -o jsonpath='{.items[*].spec.persistentVolumeReclaimPolicy}'
+    
+    # Access control audit
+    echo "Auditing RBAC policies..."
+    kubectl auth can-i --list --as=system:serviceaccount:personapass-prod:default -n personapass-prod
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: compliance-audit
+  namespace: personapass-security
+spec:
+  schedule: "0 6 * * 1"  # Weekly on Monday at 6 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: compliance-auditor
+          restartPolicy: OnFailure
+          containers:
+          - name: compliance-check
+            image: bitnami/kubectl:1.28
+            command: ["/bin/bash"]
+            args: ["/scripts/compliance-check.sh"]
+            volumeMounts:
+            - name: compliance-scripts
+              mountPath: /scripts
+          volumes:
+          - name: compliance-scripts
+            configMap:
+              name: compliance-monitoring
+              defaultMode: 0755
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: compliance-auditor
+  namespace: personapass-security
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: compliance-auditor
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["get", "list"]
+- apiGroups: ["authorization.k8s.io"]
+  resources: ["subjectaccessreviews", "selfsubjectaccessreviews"]
+  verbs: ["create"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: compliance-auditor
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: compliance-auditor
+subjects:
+- kind: ServiceAccount
+  name: compliance-auditor
+  namespace: personapass-security

@@ -1,0 +1,148 @@
+---
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: personapass-gateway
+  namespace: personapass
+  labels:
+    app.kubernetes.io/name: personapass-gateway
+    app.kubernetes.io/component: gateway
+    app.kubernetes.io/part-of: istio
+  annotations:
+    description: "Main gateway for PersonaPass platform"
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "api.personapass.com"
+    - "wallet.personapass.com"
+    - "admin.personapass.com"
+    - "docs.personapass.com"
+    tls:
+      httpsRedirect: true
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - "api.personapass.com"
+    - "wallet.personapass.com"
+    - "admin.personapass.com"
+    - "docs.personapass.com"
+    tls:
+      mode: SIMPLE
+      credentialName: personapass-tls-secret
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: monitoring-gateway
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: monitoring-gateway
+    app.kubernetes.io/component: gateway
+    app.kubernetes.io/part-of: istio
+  annotations:
+    description: "Gateway for monitoring services"
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "grafana.personapass.com"
+    - "prometheus.personapass.com"
+    - "jaeger.personapass.com"
+    - "kiali.personapass.com"
+    tls:
+      httpsRedirect: true
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - "grafana.personapass.com"
+    - "prometheus.personapass.com"
+    - "jaeger.personapass.com"
+    - "kiali.personapass.com"
+    tls:
+      mode: SIMPLE
+      credentialName: monitoring-tls-secret
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: internal-gateway
+  namespace: personapass
+  labels:
+    app.kubernetes.io/name: internal-gateway
+    app.kubernetes.io/component: gateway
+    app.kubernetes.io/part-of: istio
+  annotations:
+    description: "Internal gateway for service-to-service communication"
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 15443
+      name: tls
+      protocol: TLS
+    hosts:
+    - "*.personapass.svc.cluster.local"
+    - "*.monitoring.svc.cluster.local"
+    - "*.keda.svc.cluster.local"
+    - "*.istio-system.svc.cluster.local"
+    tls:
+      mode: ISTIO_MUTUAL
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: egress-gateway
+  namespace: istio-system
+  labels:
+    app.kubernetes.io/name: egress-gateway
+    app.kubernetes.io/component: gateway
+    app.kubernetes.io/part-of: istio
+  annotations:
+    description: "Egress gateway for external service access"
+spec:
+  selector:
+    istio: egressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "httpbin.org"
+    - "*.amazonaws.com"
+    - "*.googleapis.com"
+    - "*.github.com"
+    - "*.docker.io"
+    - "*.npmjs.org"
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - "httpbin.org"
+    - "*.amazonaws.com"
+    - "*.googleapis.com"
+    - "*.github.com"
+    - "*.docker.io"
+    - "*.npmjs.org"
+    tls:
+      mode: SIMPLE

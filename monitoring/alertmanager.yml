@@ -1,0 +1,95 @@
+global:
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alerts@personapass.xyz'
+  smtp_auth_username: 'alerts@personapass.xyz'
+  smtp_auth_password: 'SMTP_PASSWORD_PLACEHOLDER'
+
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'web.hook'
+  routes:
+  - match:
+      severity: critical
+    receiver: 'critical-alerts'
+    continue: true
+  - match:
+      severity: warning
+    receiver: 'warning-alerts'
+    continue: true
+
+receivers:
+- name: 'web.hook'
+  webhook_configs:
+  - url: 'http://localhost:5001/webhook'
+    send_resolved: true
+
+- name: 'critical-alerts'
+  email_configs:
+  - to: 'ops-team@personapass.xyz'
+    subject: '[CRITICAL] PersonaPass Alert: {{ .GroupLabels.alertname }}'
+    body: |
+      Alert: {{ .GroupLabels.alertname }}
+      Severity: {{ .CommonLabels.severity }}
+      
+      {{ range .Alerts }}
+      Alert: {{ .Annotations.summary }}
+      Description: {{ .Annotations.description }}
+      Instance: {{ .Labels.instance }}
+      Component: {{ .Labels.component }}
+      Time: {{ .StartsAt }}
+      {{ end }}
+      
+      Dashboard: http://localhost:3000/dashboard/personapass-overview
+      Runbook: https://docs.personapass.xyz/runbook
+  slack_configs:
+  - api_url: 'SLACK_WEBHOOK_URL_PLACEHOLDER'
+    channel: '#alerts-critical'
+    title: '[CRITICAL] PersonaPass Alert'
+    text: |
+      Alert: {{ .GroupLabels.alertname }}
+      {{ range .Alerts }}
+      • {{ .Annotations.summary }}
+      • Instance: {{ .Labels.instance }}
+      • Component: {{ .Labels.component }}
+      {{ end }}
+
+- name: 'warning-alerts'
+  email_configs:
+  - to: 'dev-team@personapass.xyz'
+    subject: '[WARNING] PersonaPass Alert: {{ .GroupLabels.alertname }}'
+    body: |
+      Alert: {{ .GroupLabels.alertname }}
+      Severity: {{ .CommonLabels.severity }}
+      
+      {{ range .Alerts }}
+      Alert: {{ .Annotations.summary }}
+      Description: {{ .Annotations.description }}
+      Instance: {{ .Labels.instance }}
+      Component: {{ .Labels.component }}
+      Time: {{ .StartsAt }}
+      {{ end }}
+      
+      Dashboard: http://localhost:3000/dashboard/personapass-overview
+  slack_configs:
+  - api_url: 'SLACK_WEBHOOK_URL_PLACEHOLDER'
+    channel: '#alerts-warning'
+    title: '[WARNING] PersonaPass Alert'
+    text: |
+      Alert: {{ .GroupLabels.alertname }}
+      {{ range .Alerts }}
+      • {{ .Annotations.summary }}
+      • Instance: {{ .Labels.instance }}
+      {{ end }}
+
+inhibit_rules:
+- source_match:
+    severity: 'critical'
+  target_match:
+    severity: 'warning'
+  equal: ['alertname', 'cluster', 'service']
+
+templates:
+- '/etc/alertmanager/templates/*.tmpl'

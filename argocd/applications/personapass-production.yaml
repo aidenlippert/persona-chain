@@ -1,0 +1,338 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: personapass-production
+  namespace: argocd
+  labels:
+    app: personapass
+    environment: production
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    notifications.argoproj.io/subscribe.on-sync-succeeded.slack: personapass-deployments
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: personapass-alerts
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: personapass-production
+  
+  source:
+    repoURL: https://github.com/PersonaPass/persona-chain
+    targetRevision: main
+    path: k8s/helm/personapass-platform
+    helm:
+      releaseName: personapass
+      valueFiles:
+        - values-production.yaml
+      parameters:
+        - name: global.environment
+          value: production
+        - name: global.domain
+          value: personapass.me
+        - name: global.monitoring.enabled
+          value: "true"
+        - name: global.security.enabled
+          value: "true"
+        - name: global.backup.enabled
+          value: "true"
+        
+        # Wallet Frontend
+        - name: wallet.image.repository
+          value: ghcr.io/personapass/wallet
+        - name: wallet.image.tag
+          value: latest
+        - name: wallet.replicas
+          value: "3"
+        - name: wallet.ingress.host
+          value: wallet.personapass.me
+        - name: wallet.resources.requests.memory
+          value: 256Mi
+        - name: wallet.resources.requests.cpu
+          value: 250m
+        - name: wallet.resources.limits.memory
+          value: 512Mi
+        - name: wallet.resources.limits.cpu
+          value: 500m
+        
+        # Blockchain Network
+        - name: blockchain.validators.count
+          value: "7"
+        - name: blockchain.image.node
+          value: ghcr.io/personapass/node
+        - name: blockchain.image.tag
+          value: latest
+        - name: blockchain.ingress.rpc.host
+          value: rpc.personapass.me
+        - name: blockchain.ingress.api.host
+          value: api.personapass.me
+        - name: blockchain.persistence.size
+          value: 500Gi
+        - name: blockchain.resources.requests.memory
+          value: 8Gi
+        - name: blockchain.resources.requests.cpu
+          value: 4000m
+        
+        # Backend Services
+        - name: backend.api.replicas
+          value: "3"
+        - name: backend.connectors.enabled
+          value: "true"
+        - name: backend.connectors.academics.replicas
+          value: "2"
+        - name: backend.connectors.finance.replicas
+          value: "2"
+        - name: backend.connectors.government.replicas
+          value: "2"
+        - name: backend.connectors.health.replicas
+          value: "2"
+        
+        # Zero-Knowledge Infrastructure
+        - name: zkproof.api.replicas
+          value: "3"
+        - name: zkproof.resources.requests.memory
+          value: 4Gi
+        - name: zkproof.resources.requests.cpu
+          value: 2000m
+        
+        # Database
+        - name: database.enabled
+          value: "true"
+        - name: database.type
+          value: postgres
+        - name: database.ha.enabled
+          value: "true"
+        - name: database.backup.enabled
+          value: "true"
+        
+        # Monitoring & Observability
+        - name: monitoring.prometheus.enabled
+          value: "true"
+        - name: monitoring.grafana.enabled
+          value: "true"
+        - name: monitoring.alertmanager.enabled
+          value: "true"
+        - name: monitoring.jaeger.enabled
+          value: "true"
+        
+        # Security
+        - name: security.networkPolicies.enabled
+          value: "true"
+        - name: security.podSecurityPolicies.enabled
+          value: "true"
+        - name: security.falco.enabled
+          value: "true"
+        - name: security.vault.enabled
+          value: "true"
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: personapass-production
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - RespectIgnoreDifferences=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  revisionHistoryLimit: 10
+
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+    - group: ""
+      kind: Secret
+      jsonPointers:
+        - /data
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: personapass-production
+  namespace: argocd
+  labels:
+    environment: production
+spec:
+  description: PersonaPass Production Environment
+  
+  sourceRepos:
+    - https://github.com/PersonaPass/persona-chain
+    - https://charts.bitnami.com/bitnami
+    - https://prometheus-community.github.io/helm-charts
+    - https://grafana.github.io/helm-charts
+    - https://kubernetes.github.io/ingress-nginx
+    - https://aws.github.io/eks-charts
+  
+  destinations:
+    - namespace: personapass-production
+      server: https://kubernetes.default.svc
+    - namespace: monitoring
+      server: https://kubernetes.default.svc
+    - namespace: cert-manager
+      server: https://kubernetes.default.svc
+    - namespace: kube-system
+      server: https://kubernetes.default.svc
+  
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+    - group: networking.k8s.io
+      kind: NetworkPolicy
+    - group: security.istio.io
+      kind: PeerAuthentication
+    - group: install.istio.io
+      kind: IstioOperator
+    - group: cert-manager.io
+      kind: ClusterIssuer
+    - group: admissionregistration.k8s.io
+      kind: ValidatingAdmissionWebhook
+    - group: admissionregistration.k8s.io
+      kind: MutatingAdmissionWebhook
+  
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: ConfigMap
+    - group: ""
+      kind: Secret
+    - group: ""
+      kind: Service
+    - group: ""
+      kind: ServiceAccount
+    - group: ""
+      kind: PersistentVolumeClaim
+    - group: apps
+      kind: Deployment
+    - group: apps
+      kind: StatefulSet
+    - group: apps
+      kind: DaemonSet
+    - group: batch
+      kind: Job
+    - group: batch
+      kind: CronJob
+    - group: networking.k8s.io
+      kind: Ingress
+    - group: networking.k8s.io
+      kind: NetworkPolicy
+    - group: policy
+      kind: PodDisruptionBudget
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
+    - group: monitoring.coreos.com
+      kind: ServiceMonitor
+    - group: monitoring.coreos.com
+      kind: PrometheusRule
+  
+  roles:
+    - name: admin
+      description: Production administrators
+      policies:
+        - p, proj:personapass-production:admin, applications, *, personapass-production/*, allow
+        - p, proj:personapass-production:admin, repositories, *, *, allow
+        - p, proj:personapass-production:admin, certificates, *, *, allow
+      groups:
+        - personapass:production-admins
+    
+    - name: deployer
+      description: Deployment automation
+      policies:
+        - p, proj:personapass-production:deployer, applications, sync, personapass-production/*, allow
+        - p, proj:personapass-production:deployer, applications, get, personapass-production/*, allow
+      jwtTokens:
+        - iat: 1640995200  # Token issued timestamp
+          
+    - name: readonly
+      description: Read-only access
+      policies:
+        - p, proj:personapass-production:readonly, applications, get, personapass-production/*, allow
+        - p, proj:personapass-production:readonly, repositories, get, *, allow
+      groups:
+        - personapass:developers
+        - personapass:observers
+
+  orphanedResources:
+    warn: true
+    ignore:
+      - group: ""
+        kind: ConfigMap
+        name: kube-root-ca.crt
+      - group: ""
+        kind: Secret
+        name: "*-token-*"
+
+  signatureKeys:
+    - keyID: 4AEE18F83AFDEB23
+      
+  syncWindows:
+    - kind: allow
+      schedule: "0 2 * * 1-5"  # Monday-Friday 2 AM UTC
+      duration: 6h
+      applications:
+        - "*"
+      manualSync: true
+    - kind: deny
+      schedule: "0 18 * * 5"  # Friday 6 PM UTC
+      duration: 60h  # Weekend freeze
+      applications:
+        - "*"
+      manualSync: false
+
+---
+# Notification Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: argocd
+data:
+  service.slack: |
+    token: $slack-token
+    username: ArgoCD
+    icon: ":kubernetes:"
+  
+  template.app-deployed: |
+    message: |
+      🚀 Application {{.app.metadata.name}} deployed successfully to {{.app.spec.destination.namespace}}
+      Revision: {{.app.status.sync.revision}}
+      {{range .app.status.conditions}}{{if eq .type "OutOfSync"}}⚠️ Out of sync: {{.message}}{{end}}{{end}}
+  
+  template.app-health-degraded: |
+    message: |
+      ❌ Application {{.app.metadata.name}} health is degraded
+      Status: {{.app.status.health.status}}
+      {{range .app.status.conditions}}Message: {{.message}}{{end}}
+  
+  trigger.on-deployed: |
+    - when: app.status.operationState.phase in ['Succeeded']
+      send: [app-deployed]
+  
+  trigger.on-health-degraded: |
+    - when: app.status.health.status == 'Degraded'
+      send: [app-health-degraded]
+  
+  subscriptions: |
+    - recipients:
+        - slack:personapass-deployments
+      triggers:
+        - on-deployed
+    - recipients:
+        - slack:personapass-alerts
+      triggers:
+        - on-health-degraded

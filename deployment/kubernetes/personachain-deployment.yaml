@@ -1,0 +1,299 @@
+# PersonaChain Kubernetes Deployment for Google Cloud
+# Production-ready blockchain node with persistent storage
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: personachain-node
+  namespace: personachain
+  labels:
+    app: personachain
+    component: validator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: personachain
+      component: validator
+  template:
+    metadata:
+      labels:
+        app: personachain
+        component: validator
+    spec:
+      containers:
+      - name: personachain
+        image: gcr.io/personachain-prod/personachain:latest
+        ports:
+        - containerPort: 26657
+          name: rpc
+          protocol: TCP
+        - containerPort: 8100
+          name: rest-api
+          protocol: TCP
+        - containerPort: 26656
+          name: p2p
+          protocol: TCP
+        env:
+        - name: CHAIN_ID
+          value: "persona-mainnet-1"
+        - name: MONIKER
+          value: "persona-gcp-validator"
+        - name: EXTERNAL_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        resources:
+          requests:
+            cpu: "1000m"
+            memory: "2Gi"
+          limits:
+            cpu: "2000m"
+            memory: "4Gi"
+        volumeMounts:
+        - name: blockchain-data
+          mountPath: /root/.personachain
+        - name: config-volume
+          mountPath: /root/.personachain/config
+        livenessProbe:
+          httpGet:
+            path: /status
+            port: 26657
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /status
+            port: 26657
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+      volumes:
+      - name: blockchain-data
+        persistentVolumeClaim:
+          claimName: personachain-storage
+      - name: config-volume
+        configMap:
+          name: personachain-config
+      nodeSelector:
+        cloud.google.com/gke-nodepool: blockchain-pool
+      tolerations:
+      - key: "blockchain"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: personachain-service
+  namespace: personachain
+  labels:
+    app: personachain
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 26657
+    targetPort: 26657
+    name: rpc
+    protocol: TCP
+  - port: 8100
+    targetPort: 8100
+    name: rest-api
+    protocol: TCP
+  - port: 26656
+    targetPort: 26656
+    name: p2p
+    protocol: TCP
+  selector:
+    app: personachain
+    component: validator
+  loadBalancerSourceRanges:
+  - 0.0.0.0/0
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: personachain-storage
+  namespace: personachain
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ssd-retain
+  resources:
+    requests:
+      storage: 100Gi
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: personachain-config
+  namespace: personachain
+data:
+  app.toml: |
+    minimum-gas-prices = "0.025uprsn"
+    pruning = "default"
+    pruning-keep-recent = "100"
+    pruning-keep-every = "0"
+    pruning-interval = "10"
+    halt-height = 0
+    halt-time = 0
+    min-retain-blocks = 0
+    inter-block-cache = true
+    index-events = ["tx.height","tx.hash"]
+    
+    [telemetry]
+    service-name = ""
+    enabled = false
+    enable-hostname = false
+    enable-hostname-label = false
+    enable-service-label = false
+    prometheus-retention-time = 0
+    global-labels = []
+    
+    [api]
+    enable = true
+    swagger = true
+    address = "tcp://0.0.0.0:1317"
+    max-open-connections = 1000
+    rpc-read-timeout = 10
+    rpc-write-timeout = 0
+    rpc-max-body-bytes = 1000000
+    enabled-unsafe-cors = true
+    
+    [rosetta]
+    enable = false
+    address = ":8080"
+    blockchain = "app"
+    network = "network"
+    retries = 3
+    offline = false
+    
+    [grpc]
+    enable = true
+    address = "0.0.0.0:9090"
+    
+    [grpc-web]
+    enable = true
+    address = "0.0.0.0:9091"
+    enable-unsafe-cors = true
+    
+    [state-sync]
+    snapshot-interval = 1000
+    snapshot-keep-recent = 2
+
+  config.toml: |
+    proxy_app = "tcp://127.0.0.1:26658"
+    moniker = "persona-gcp-validator"
+    fast_sync = true
+    db_backend = "goleveldb"
+    db_dir = "data"
+    log_level = "info"
+    log_format = "plain"
+    genesis_file = "config/genesis.json"
+    priv_validator_key_file = "config/priv_validator_key.json"
+    priv_validator_state_file = "data/priv_validator_state.json"
+    priv_validator_laddr = ""
+    node_key_file = "config/node_key.json"
+    abci = "socket"
+    filter_peers = false
+    
+    [rpc]
+    laddr = "tcp://0.0.0.0:26657"
+    cors_allowed_origins = ["*"]
+    cors_allowed_methods = ["HEAD", "GET", "POST"]
+    cors_allowed_headers = ["Origin", "Accept", "Content-Type", "X-Requested-With", "X-Server-Time"]
+    grpc_laddr = ""
+    grpc_max_open_connections = 900
+    unsafe = false
+    max_open_connections = 900
+    max_subscription_clients = 100
+    max_subscriptions_per_client = 5
+    timeout_broadcast_tx_commit = "10s"
+    max_body_bytes = 1000000
+    max_header_bytes = 1048576
+    tls_cert_file = ""
+    tls_key_file = ""
+    
+    [p2p]
+    laddr = "tcp://0.0.0.0:26656"
+    external_address = ""
+    seeds = ""
+    persistent_peers = ""
+    upnp = false
+    addr_book_file = "config/addrbook.json"
+    addr_book_strict = true
+    max_num_inbound_peers = 40
+    max_num_outbound_peers = 10
+    unconditional_peer_ids = ""
+    persistent_peers_max_dial_period = "0s"
+    flush_throttle_timeout = "100ms"
+    max_packet_msg_payload_size = 1024
+    send_rate = 5120000
+    recv_rate = 5120000
+    pex = true
+    seed_mode = false
+    private_peer_ids = ""
+    allow_duplicate_ip = false
+    handshake_timeout = "20s"
+    dial_timeout = "3s"
+    
+    [mempool]
+    recheck = true
+    broadcast = true
+    wal_dir = ""
+    size = 5000
+    max_txs_bytes = 1073741824
+    cache_size = 10000
+    keep-invalid-txs-in-cache = false
+    max_tx_bytes = 1048576
+    max_batch_bytes = 0
+    
+    [statesync]
+    enable = false
+    rpc_servers = ""
+    trust_height = 0
+    trust_hash = ""
+    trust_period = "168h0m0s"
+    discovery_time = "15s"
+    temp_dir = ""
+    
+    [fastsync]
+    version = "v0"
+    
+    [consensus]
+    wal_file = "data/cs.wal/wal"
+    timeout_propose = "3s"
+    timeout_propose_delta = "500ms"
+    timeout_prevote = "1s"
+    timeout_prevote_delta = "500ms"
+    timeout_precommit = "1s"
+    timeout_precommit_delta = "500ms"
+    timeout_commit = "5s"
+    double_sign_check_height = 0
+    skip_timeout_commit = false
+    create_empty_blocks = true
+    create_empty_blocks_interval = "0s"
+    peer_gossip_sleep_duration = "100ms"
+    peer_query_maj23_sleep_duration = "2s"
+    
+    [tx_index]
+    indexer = "kv"
+    
+    [instrumentation]
+    prometheus = false
+    prometheus_listen_addr = ":26660"
+    max_open_connections = 3
+    namespace = "tendermint"
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: personachain
+  labels:
+    name: personachain

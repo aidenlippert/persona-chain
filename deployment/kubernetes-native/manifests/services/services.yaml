@@ -1,0 +1,351 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: identity-service
+  namespace: personapass
+  labels:
+    app: identity-service
+    component: api
+    version: v1
+    app.kubernetes.io/name: identity-service
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: personapass
+  annotations:
+    description: "PersonaPass identity service"
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9091"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+    protocol: TCP
+  - name: grpc
+    port: 9090
+    targetPort: grpc
+    protocol: TCP
+  - name: metrics
+    port: 9091
+    targetPort: metrics
+    protocol: TCP
+  selector:
+    app: identity-service
+    component: api
+    version: v1
+  sessionAffinity: None
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wallet-api
+  namespace: personapass
+  labels:
+    app: wallet-api
+    component: api
+    version: v1
+    app.kubernetes.io/name: wallet-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: personapass
+  annotations:
+    description: "PersonaPass wallet API service"
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9091"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 3000
+    targetPort: http
+    protocol: TCP
+  - name: grpc
+    port: 9090
+    targetPort: grpc
+    protocol: TCP
+  - name: metrics
+    port: 9091
+    targetPort: metrics
+    protocol: TCP
+  selector:
+    app: wallet-api
+    component: api
+    version: v1
+  sessionAffinity: None
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zk-proof-service
+  namespace: personapass
+  labels:
+    app: zk-proof-service
+    component: api
+    version: v1
+    app.kubernetes.io/name: zk-proof-service
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: personapass
+  annotations:
+    description: "PersonaPass zero-knowledge proof service"
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9091"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+    protocol: TCP
+  - name: grpc
+    port: 9090
+    targetPort: grpc
+    protocol: TCP
+  - name: metrics
+    port: 9091
+    targetPort: metrics
+    protocol: TCP
+  selector:
+    app: zk-proof-service
+    component: api
+    version: v1
+  sessionAffinity: None
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: document-verification
+  namespace: personapass
+  labels:
+    app: document-verification
+    component: api
+    version: v1
+    app.kubernetes.io/name: document-verification
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: personapass
+  annotations:
+    description: "PersonaPass document verification service"
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9091"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+    protocol: TCP
+  - name: grpc
+    port: 9090
+    targetPort: grpc
+    protocol: TCP
+  - name: metrics
+    port: 9091
+    targetPort: metrics
+    protocol: TCP
+  selector:
+    app: document-verification
+    component: api
+    version: v1
+  sessionAffinity: None
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: multi-tenant-platform
+  namespace: personapass
+  labels:
+    app: multi-tenant-platform
+    component: api
+    version: v1
+    app.kubernetes.io/name: multi-tenant-platform
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: personapass
+  annotations:
+    description: "PersonaPass multi-tenant platform service"
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9091"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+    protocol: TCP
+  - name: grpc
+    port: 9090
+    targetPort: grpc
+    protocol: TCP
+  - name: metrics
+    port: 9091
+    targetPort: metrics
+    protocol: TCP
+  selector:
+    app: multi-tenant-platform
+    component: api
+    version: v1
+  sessionAffinity: None
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hsm-enterprise
+  namespace: personapass
+  labels:
+    app: hsm-enterprise
+    component: api
+    version: v1
+    app.kubernetes.io/name: hsm-enterprise
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: personapass
+  annotations:
+    description: "PersonaPass HSM enterprise integration service"
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9091"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+    protocol: TCP
+  - name: grpc
+    port: 9090
+    targetPort: grpc
+    protocol: TCP
+  - name: metrics
+    port: 9091
+    targetPort: metrics
+    protocol: TCP
+  selector:
+    app: hsm-enterprise
+    component: api
+    version: v1
+  sessionAffinity: None
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-primary
+  namespace: personapass
+  labels:
+    app: postgres
+    component: database
+    role: primary
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: personapass
+  annotations:
+    description: "PostgreSQL primary database"
+spec:
+  type: ClusterIP
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: postgres
+    protocol: TCP
+  selector:
+    app: postgres
+    component: database
+    role: primary
+  sessionAffinity: None
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-replica
+  namespace: personapass
+  labels:
+    app: postgres
+    component: database
+    role: replica
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: database
+    app.kubernetes.io/part-of: personapass
+  annotations:
+    description: "PostgreSQL read replica database"
+spec:
+  type: ClusterIP
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: postgres
+    protocol: TCP
+  selector:
+    app: postgres
+    component: database
+    role: replica
+  sessionAffinity: None
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cluster
+  namespace: personapass
+  labels:
+    app: redis
+    component: cache
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/component: cache
+    app.kubernetes.io/part-of: personapass
+  annotations:
+    description: "Redis cluster cache"
+spec:
+  type: ClusterIP
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: redis
+    protocol: TCP
+  - name: redis-sentinel
+    port: 26379
+    targetPort: sentinel
+    protocol: TCP
+  selector:
+    app: redis
+    component: cache
+  sessionAffinity: None
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-cluster
+  namespace: personapass
+  labels:
+    app: kafka
+    component: messaging
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/component: messaging
+    app.kubernetes.io/part-of: personapass
+  annotations:
+    description: "Apache Kafka message broker"
+spec:
+  type: ClusterIP
+  ports:
+  - name: kafka
+    port: 9092
+    targetPort: kafka
+    protocol: TCP
+  - name: kafka-jmx
+    port: 9999
+    targetPort: jmx
+    protocol: TCP
+  selector:
+    app: kafka
+    component: messaging
+  sessionAffinity: None

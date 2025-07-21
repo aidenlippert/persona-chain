@@ -1,0 +1,79 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@context7/mcp-server"],
+      "env": {
+        "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}"
+      }
+    },
+    "sequential": {
+      "command": "npx", 
+      "args": ["-y", "@sequential/mcp-server"],
+      "env": {
+        "SEQUENTIAL_API_KEY": "${SEQUENTIAL_API_KEY}"
+      }
+    },
+    "magic": {
+      "command": "npx",
+      "args": ["-y", "@21st-dev/magic-mcp"],
+      "env": {
+        "MAGIC_API_KEY": "${MAGIC_API_KEY}"
+      }
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp-server"]
+    },
+    "persona-chain": {
+      "command": "node",
+      "args": ["tools/mcp/persona-chain-server.js"],
+      "cwd": "/home/rocz/persona-chain",
+      "env": {
+        "PERSONA_CHAIN_RPC": "http://localhost:26657",
+        "PERSONA_CHAIN_API": "http://localhost:1317"
+      }
+    },
+    "rapidapi": {
+      "command": "node",
+      "args": ["tools/mcp/rapidapi-server.js"],
+      "cwd": "/home/rocz/persona-chain",
+      "env": {
+        "RAPIDAPI_KEY": "${RAPIDAPI_KEY}",
+        "RAPIDAPI_HOST": "${RAPIDAPI_HOST}"
+      }
+    },
+    "zk-proof": {
+      "command": "node",
+      "args": ["tools/mcp/zk-proof-server.js"],
+      "cwd": "/home/rocz/persona-chain"
+    },
+    "document-verification": {
+      "command": "node", 
+      "args": ["tools/mcp/document-verification-server.js"],
+      "cwd": "/home/rocz/persona-chain",
+      "env": {
+        "DOCUMENT_AI_KEY": "${DOCUMENT_AI_KEY}",
+        "VISION_API_KEY": "${VISION_API_KEY}"
+      }
+    },
+    "compliance": {
+      "command": "node",
+      "args": ["tools/mcp/compliance-server.js"],
+      "cwd": "/home/rocz/persona-chain",
+      "env": {
+        "DRATA_API_KEY": "${DRATA_API_KEY}",
+        "VANTA_API_KEY": "${VANTA_API_KEY}"
+      }
+    },
+    "security": {
+      "command": "node",
+      "args": ["tools/mcp/security-server.js"],
+      "cwd": "/home/rocz/persona-chain",
+      "env": {
+        "CROWDSTRIKE_API_KEY": "${CROWDSTRIKE_API_KEY}",
+        "SENTINELONE_API_KEY": "${SENTINELONE_API_KEY}"
+      }
+    }
+  }
+}

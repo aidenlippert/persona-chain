@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Persona Chain Testnet Faucet</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: bold;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .info-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .info-section h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .info-item strong {
+            color: #667eea;
+        }
+
+        .loader {
+            display: none;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .endpoints {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+
+        .endpoints h4 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .endpoints div {
+            margin-bottom: 5px;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚰 Persona Chain Faucet</h1>
+            <p>Get testnet tokens for development</p>
+        </div>
+
+        <form id="faucetForm">
+            <div class="form-group">
+                <label for="address">Persona Chain Address:</label>
+                <input 
+                    type="text" 
+                    id="address" 
+                    name="address" 
+                    placeholder="persona1..."
+                    required
+                    pattern="^persona1[a-z0-9]{38}$"
+                >
+            </div>
+            
+            <button type="submit" class="btn" id="submitBtn">
+                Request Tokens
+            </button>
+        </form>
+
+        <div class="loader" id="loader"></div>
+
+        <div id="result" class="result"></div>
+
+        <div class="info-section">
+            <h3>Faucet Information</h3>
+            <div class="info-item">
+                <span>Chain ID:</span>
+                <strong id="chainId">Loading...</strong>
+            </div>
+            <div class="info-item">
+                <span>Amount per request:</span>
+                <strong id="faucetAmount">Loading...</strong>
+            </div>
+            <div class="info-item">
+                <span>Rate limit:</span>
+                <strong id="rateLimit">Loading...</strong>
+            </div>
+        </div>
+
+        <div class="endpoints">
+            <h4>Testnet Endpoints</h4>
+            <div><strong>RPC:</strong> http://localhost:26657</div>
+            <div><strong>API:</strong> http://localhost:1317</div>
+            <div><strong>Faucet:</strong> http://localhost:8080</div>
+        </div>
+    </div>
+
+    <script>
+        // Load faucet info on page load
+        async function loadFaucetInfo() {
+            try {
+                const response = await fetch('/info');
+                const info = await response.json();
+                
+                document.getElementById('chainId').textContent = info.chainId;
+                document.getElementById('faucetAmount').textContent = `${info.faucetAmount} ${info.denom}`;
+                document.getElementById('rateLimit').textContent = `${info.maxRequestsPerHour}/hour, ${info.maxRequestsPerDay}/day`;
+            } catch (error) {
+                console.error('Failed to load faucet info:', error);
+            }
+        }
+
+        // Handle form submission
+        document.getElementById('faucetForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const loader = document.getElementById('loader');
+            const result = document.getElementById('result');
+            const address = document.getElementById('address').value;
+
+            // Validate address format
+            if (!/^persona1[a-z0-9]{38}$/.test(address)) {
+                showResult('error', 'Invalid address format. Please enter a valid Persona Chain address.');
+                return;
+            }
+
+            // Show loading state
+            submitBtn.disabled = true;
+            loader.style.display = 'block';
+            result.style.display = 'none';
+
+            try {
+                const response = await fetch('/faucet', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ address })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    showResult('success', 
+                        `✅ Success! Sent ${data.amount} ${data.denom} to ${data.address}\n` +
+                        `Transaction Hash: ${data.txHash}\n` +
+                        `Chain ID: ${data.chainId}`
+                    );
+                } else {
+                    showResult('error', data.error || data.message || 'Failed to send tokens');
+                }
+            } catch (error) {
+                showResult('error', 'Network error. Please try again later.');
+                console.error('Faucet request error:', error);
+            } finally {
+                submitBtn.disabled = false;
+                loader.style.display = 'none';
+            }
+        });
+
+        function showResult(type, message) {
+            const result = document.getElementById('result');
+            result.className = `result ${type}`;
+            result.textContent = message;
+            result.style.display = 'block';
+        }
+
+        // Load info on page load
+        loadFaucetInfo();
+    </script>
+</body>
+</html>

@@ -1,0 +1,511 @@
+# PersonaPass Blockchain - Production Kubernetes Deployment
+# High-availability Cosmos SDK blockchain with validators and full nodes
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: blockchain-config
+  namespace: personapass-prod
+  labels:
+    app: personapass-blockchain
+data:
+  CHAIN_ID: "persona-mainnet-1"
+  LOG_LEVEL: "info"
+  MINIMUM_GAS_PRICES: "0.01upersona"
+  PRUNING: "default"
+  PRUNING_KEEP_RECENT: "100"
+  PRUNING_KEEP_EVERY: "0"
+  PRUNING_INTERVAL: "10"
+  HALT_HEIGHT: "0"
+  HALT_TIME: "0"
+  MIN_RETAIN_BLOCKS: "0"
+  INTER_BLOCK_CACHE: "true"
+  INDEX_EVENTS: "[]"
+  IAVL_CACHE_SIZE: "781250"
+  IAVL_DISABLE_FASTNODE: "false"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: blockchain-secrets
+  namespace: personapass-prod
+  labels:
+    app: personapass-blockchain
+type: Opaque
+data:
+  # Base64 encoded validator keys and sensitive configuration
+  # These should be generated per environment and stored securely
+  VALIDATOR_MNEMONIC: ""
+  P2P_PRIVATE_KEY: ""
+  CONSENSUS_PRIVATE_KEY: ""
+
+---
+# Validator StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: personapass-validator
+  namespace: personapass-prod
+  labels:
+    app: personapass-blockchain
+    type: validator
+spec:
+  serviceName: personapass-validator-headless
+  replicas: 3
+  selector:
+    matchLabels:
+      app: personapass-blockchain
+      type: validator
+  template:
+    metadata:
+      labels:
+        app: personapass-blockchain
+        type: validator
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "26660"
+    spec:
+      # Security Context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+
+      # Pod Anti-Affinity for validator distribution
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: type
+                operator: In
+                values:
+                - validator
+            topologyKey: kubernetes.io/hostname
+
+      containers:
+      - name: validator
+        image: personapass/blockchain:1.0.0
+        imagePullPolicy: Always
+        
+        # Security Context
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        
+        command:
+        - /home/persona/start.sh
+        
+        env:
+        - name: MONIKER
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NODE_TYPE
+          value: "validator"
+        - name: VALIDATOR_INDEX
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        
+        envFrom:
+        - configMapRef:
+            name: blockchain-config
+        - secretRef:
+            name: blockchain-secrets
+        
+        ports:
+        - name: p2p
+          containerPort: 26656
+          protocol: TCP
+        - name: rpc
+          containerPort: 26657
+          protocol: TCP
+        - name: abci
+          containerPort: 26658
+          protocol: TCP
+        - name: prometheus
+          containerPort: 26660
+          protocol: TCP
+        - name: api
+          containerPort: 1317
+          protocol: TCP
+        - name: grpc
+          containerPort: 9090
+          protocol: TCP
+        
+        # Resource limits
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        
+        # Liveness probe
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 26657
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        
+        # Readiness probe
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 26657
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        # Startup probe
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 26657
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 20
+        
+        # Volume mounts
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: tmp
+          mountPath: /tmp
+
+      volumes:
+      - name: tmp
+        emptyDir: {}
+
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 60
+
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+      labels:
+        app: personapass-blockchain
+        type: validator
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: "fast-ssd"
+      resources:
+        requests:
+          storage: 100Gi
+
+---
+# Full Node Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: personapass-fullnode
+  namespace: personapass-prod
+  labels:
+    app: personapass-blockchain
+    type: fullnode
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: personapass-blockchain
+      type: fullnode
+  template:
+    metadata:
+      labels:
+        app: personapass-blockchain
+        type: fullnode
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "26660"
+    spec:
+      # Security Context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+
+      # Pod Anti-Affinity
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: type
+                  operator: In
+                  values:
+                  - fullnode
+              topologyKey: kubernetes.io/hostname
+
+      containers:
+      - name: fullnode
+        image: personapass/blockchain:1.0.0
+        imagePullPolicy: Always
+        
+        # Security Context
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        
+        command:
+        - /home/persona/start.sh
+        
+        env:
+        - name: MONIKER
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NODE_TYPE
+          value: "fullnode"
+        
+        envFrom:
+        - configMapRef:
+            name: blockchain-config
+        
+        ports:
+        - name: p2p
+          containerPort: 26656
+          protocol: TCP
+        - name: rpc
+          containerPort: 26657
+          protocol: TCP
+        - name: prometheus
+          containerPort: 26660
+          protocol: TCP
+        - name: api
+          containerPort: 1317
+          protocol: TCP
+        - name: grpc
+          containerPort: 9090
+          protocol: TCP
+        
+        # Resource limits
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        
+        # Liveness probe
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 26657
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        
+        # Readiness probe
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 26657
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        # Volume mounts
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: tmp
+          mountPath: /tmp
+
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: fullnode-data
+      - name: tmp
+        emptyDir: {}
+
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 60
+
+---
+# Persistent Volume Claim for Full Nodes
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: fullnode-data
+  namespace: personapass-prod
+  labels:
+    app: personapass-blockchain
+    type: fullnode
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: "standard-ssd"
+  resources:
+    requests:
+      storage: 50Gi
+
+---
+# Validator Headless Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: personapass-validator-headless
+  namespace: personapass-prod
+  labels:
+    app: personapass-blockchain
+    type: validator
+spec:
+  clusterIP: None
+  ports:
+  - name: p2p
+    port: 26656
+    targetPort: 26656
+    protocol: TCP
+  - name: rpc
+    port: 26657
+    targetPort: 26657
+    protocol: TCP
+  selector:
+    app: personapass-blockchain
+    type: validator
+
+---
+# Blockchain API Service (Load Balanced)
+apiVersion: v1
+kind: Service
+metadata:
+  name: personapass-blockchain-api
+  namespace: personapass-prod
+  labels:
+    app: personapass-blockchain
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+spec:
+  type: LoadBalancer
+  ports:
+  - name: rpc
+    port: 26657
+    targetPort: 26657
+    protocol: TCP
+  - name: api
+    port: 1317
+    targetPort: 1317
+    protocol: TCP
+  - name: grpc
+    port: 9090
+    targetPort: 9090
+    protocol: TCP
+  selector:
+    app: personapass-blockchain
+  sessionAffinity: None
+
+---
+# Full Node Auto-scaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: personapass-fullnode-hpa
+  namespace: personapass-prod
+  labels:
+    app: personapass-blockchain
+    type: fullnode
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: personapass-fullnode
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 600
+      policies:
+      - type: Pods
+        value: 1
+        periodSeconds: 300
+    scaleUp:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Pods
+        value: 1
+        periodSeconds: 60
+
+---
+# Pod Disruption Budget for Validators
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: personapass-validator-pdb
+  namespace: personapass-prod
+  labels:
+    app: personapass-blockchain
+    type: validator
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: personapass-blockchain
+      type: validator
+
+---
+# Pod Disruption Budget for Full Nodes
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: personapass-fullnode-pdb
+  namespace: personapass-prod
+  labels:
+    app: personapass-blockchain
+    type: fullnode
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: personapass-blockchain
+      type: fullnode

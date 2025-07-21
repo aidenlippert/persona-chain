@@ -1,0 +1,61 @@
+# Ignore files for Google Cloud Build
+.git/
+.gitignore
+*.md
+README.md
+
+# Node modules and build artifacts
+node_modules/
+apps/wallet/node_modules/
+apps/wallet/dist/
+**/node_modules/
+**/dist/
+**/build/
+**/.next/
+**/.nuxt/
+
+# Development files
+.env
+.env.local
+.env.development
+.env.test
+*.log
+*.pid
+coverage/
+.nyc_output/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Test files
+**/*_test.go
+**/test/
+**/*test*
+coverage.out
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Local deployment artifacts
+deployment/nodes/
+deployment/*.txt
+deployment/*.log
+deployment/*.pid
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Large binary files
+**/*.dmg
+**/*.iso
+**/*.tar.gz
+**/*.zip

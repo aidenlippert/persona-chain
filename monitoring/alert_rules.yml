@@ -1,0 +1,800 @@
+# PersonaPass Production Alert Rules
+# Comprehensive monitoring and alerting for all system components
+
+groups:
+  - name: PersonaPass SLA Monitoring
+    interval: 30s
+    rules:
+      # SLA Compliance Monitoring (99.9% availability target)
+      - alert: SLAAvailabilityViolation
+        expr: avg_over_time(personapass:slo:availability_wallet[1h]) < 0.999
+        for: 5m
+        labels:
+          severity: critical
+          component: sla
+          sla_type: availability
+        annotations:
+          summary: "SLA availability violation"
+          description: "Wallet availability {{ $value | humanizePercentage }} is below 99.9% SLA target"
+          runbook: "https://runbooks.personapass.io/sla-availability"
+
+      - alert: SLALatencyViolation
+        expr: personapass:zkproof:generation_time_p95 > 2
+        for: 10m
+        labels:
+          severity: warning
+          component: sla
+          sla_type: latency
+        annotations:
+          summary: "SLA latency violation"
+          description: "ZK proof generation P95 latency {{ $value }}s exceeds 2s SLA target"
+          runbook: "https://runbooks.personapass.io/sla-latency"
+
+      - alert: SLAErrorRateBudgetExhausted
+        expr: personapass:slo:error_rate_budget < 0
+        for: 5m
+        labels:
+          severity: critical
+          component: sla
+          sla_type: error_rate
+        annotations:
+          summary: "SLA error rate budget exhausted"
+          description: "Error rate budget has been exhausted, current deficit: {{ $value | humanizePercentage }}"
+          runbook: "https://runbooks.personapass.io/sla-error-budget"
+
+  - name: PersonaPass Application Performance
+    interval: 15s
+    rules:
+      # Wallet Application Performance
+      - alert: WalletHighResponseTime
+        expr: personapass:wallet:response_time_p95 > 3
+        for: 5m
+        labels:
+          severity: warning
+          component: wallet
+          metric_type: latency
+        annotations:
+          summary: "Wallet high response time"
+          description: "Wallet P95 response time {{ $value }}s exceeds 3s threshold"
+          impact: "User experience degradation"
+
+      - alert: WalletCriticalResponseTime
+        expr: personapass:wallet:response_time_p95 > 10
+        for: 2m
+        labels:
+          severity: critical
+          component: wallet
+          metric_type: latency
+        annotations:
+          summary: "Wallet critical response time"
+          description: "Wallet P95 response time {{ $value }}s exceeds 10s critical threshold"
+          impact: "Severe user experience impact"
+
+      - alert: WalletHighErrorRate
+        expr: personapass:wallet:error_rate > 0.05
+        for: 3m
+        labels:
+          severity: warning
+          component: wallet
+          metric_type: error_rate
+        annotations:
+          summary: "Wallet high error rate"
+          description: "Wallet error rate {{ $value | humanizePercentage }} exceeds 5% threshold"
+          impact: "User transaction failures"
+
+      - alert: WalletUnavailable
+        expr: personapass:wallet:availability < 0.99
+        for: 2m
+        labels:
+          severity: critical
+          component: wallet
+          metric_type: availability
+        annotations:
+          summary: "Wallet service unavailable"
+          description: "Wallet availability {{ $value | humanizePercentage }} below 99%"
+          impact: "Service outage - immediate attention required"
+
+      # ZK Proof System Performance
+      - alert: ZKProofGenerationSlow
+        expr: personapass:zkproof:generation_time_p95 > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: zkproof
+          metric_type: latency
+        annotations:
+          summary: "ZK proof generation slow"
+          description: "ZK proof P95 generation time {{ $value }}s exceeds 5s threshold"
+          impact: "Delayed credential operations"
+
+      - alert: ZKProofGenerationCritical
+        expr: personapass:zkproof:generation_time_p95 > 15
+        for: 2m
+        labels:
+          severity: critical
+          component: zkproof
+          metric_type: latency
+        annotations:
+          summary: "ZK proof generation critically slow"
+          description: "ZK proof P95 generation time {{ $value }}s exceeds 15s critical threshold"
+          impact: "Service degradation - user operations timing out"
+
+      - alert: ZKProofLowSuccessRate
+        expr: personapass:zkproof:success_rate < 0.95
+        for: 5m
+        labels:
+          severity: critical
+          component: zkproof
+          metric_type: success_rate
+        annotations:
+          summary: "ZK proof low success rate"
+          description: "ZK proof success rate {{ $value | humanizePercentage }} below 95%"
+          impact: "Credential verification failures"
+
+      - alert: ZKProofVolumeSpike
+        expr: rate(personapass:zkproof:daily_volume[5m]) > 1000
+        for: 10m
+        labels:
+          severity: warning
+          component: zkproof
+          metric_type: volume
+        annotations:
+          summary: "ZK proof volume spike"
+          description: "ZK proof generation rate {{ $value }}/min indicates unusual activity"
+          impact: "Potential system overload"
+
+  - name: PersonaPass Blockchain Health
+    interval: 15s
+    rules:
+      # Validator Performance
+      - alert: ValidatorOffline
+        expr: up{job="personapass-validators"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: blockchain
+          metric_type: availability
+        annotations:
+          summary: "Validator offline"
+          description: "Validator {{ $labels.validator_name }} is offline"
+          impact: "Reduced network security and block production capacity"
+          runbook: "https://runbooks.personapass.io/validator-offline"
+
+      - alert: ValidatorMissingBlocks
+        expr: personapass:validators:missed_blocks > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: blockchain
+          metric_type: consensus
+        annotations:
+          summary: "Validator missing blocks"
+          description: "Validator {{ $labels.validator_name }} missed {{ $value }} blocks"
+          impact: "Reduced validator participation"
+
+      - alert: ValidatorSlashing
+        expr: increase(personapass:validators:missed_blocks[10m]) > 50
+        for: 0m
+        labels:
+          severity: critical
+          component: blockchain
+          metric_type: consensus
+        annotations:
+          summary: "Validator at risk of slashing"
+          description: "Validator {{ $labels.validator_name }} missed {{ $value }} blocks in 10 minutes"
+          impact: "Imminent slashing risk - immediate intervention required"
+
+      - alert: BlockProductionSlow
+        expr: personapass:validators:block_time < 0.8
+        for: 10m
+        labels:
+          severity: warning
+          component: blockchain
+          metric_type: consensus
+        annotations:
+          summary: "Block production slow"
+          description: "Block production rate {{ $value }} blocks/min below expected 1 block/min"
+          impact: "Network performance degradation"
+
+      - alert: NetworkPartition
+        expr: personapass:network:peer_count < 3
+        for: 5m
+        labels:
+          severity: critical
+          component: blockchain
+          metric_type: network
+        annotations:
+          summary: "Network partition detected"
+          description: "Peer count {{ $value }} indicates potential network partition"
+          impact: "Consensus issues - network split risk"
+
+      - alert: ConsensusRoundsHigh
+        expr: personapass:network:consensus_rounds > 5
+        for: 10m
+        labels:
+          severity: warning
+          component: blockchain
+          metric_type: consensus
+        annotations:
+          summary: "High consensus rounds"
+          description: "Average consensus rounds {{ $value }} indicates network stress"
+          impact: "Delayed block finalization"
+
+  - name: PersonaPass Identity Protocols
+    interval: 30s
+    rules:
+      # DID Operations
+      - alert: DIDOperationFailures
+        expr: rate(personapass_did_operations_total{status="failed"}[5m]) / rate(personapass_did_operations_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: did
+          metric_type: error_rate
+        annotations:
+          summary: "High DID operation failure rate"
+          description: "DID operation failure rate {{ $value | humanizePercentage }} exceeds 5%"
+          impact: "User identity management issues"
+
+      - alert: DIDResolutionSlow
+        expr: histogram_quantile(0.95, rate(personapass_did_resolution_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          component: did
+          metric_type: latency
+        annotations:
+          summary: "DID resolution slow"
+          description: "DID resolution P95 latency {{ $value }}s exceeds 2s threshold"
+          impact: "Delayed identity verification"
+
+      # Verifiable Credentials
+      - alert: VCIssuanceFailures
+        expr: rate(personapass_vc_operations_total{operation="issue", status="failed"}[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: vc
+          metric_type: error_rate
+        annotations:
+          summary: "High VC issuance failure rate"
+          description: "VC issuance failures {{ $value }}/min exceeds threshold"
+          impact: "Credential issuance disruption"
+
+      - alert: VCVerificationFailures
+        expr: rate(personapass_vc_operations_total{operation="verify", status="failed"}[5m]) > 5
+        for: 5m
+        labels:
+          severity: critical
+          component: vc
+          metric_type: error_rate
+        annotations:
+          summary: "High VC verification failure rate"
+          description: "VC verification failures {{ $value }}/min indicates systemic issue"
+          impact: "Credential verification system failure"
+
+      # OpenID4VP/VCI Protocols
+      - alert: OpenID4VPPresentationFailures
+        expr: rate(personapass_openid4vp_presentations_total{status="failed"}[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: openid4vp
+          metric_type: error_rate
+        annotations:
+          summary: "OpenID4VP presentation failures"
+          description: "OpenID4VP presentation failures {{ $value }}/min exceeds threshold"
+          impact: "Credential presentation issues"
+
+      - alert: OpenID4VCICredentialOfferFailures
+        expr: rate(personapass_openid4vci_credential_offers_total{status="failed"}[5m]) > 3
+        for: 5m
+        labels:
+          severity: warning
+          component: openid4vci
+          metric_type: error_rate
+        annotations:
+          summary: "OpenID4VCI credential offer failures"
+          description: "OpenID4VCI offer failures {{ $value }}/min indicates integration issues"
+          impact: "Credential acquisition problems"
+
+      # EUDI Compliance
+      - alert: EUDIComplianceScoreLow
+        expr: personapass:eudi:compliance_score < 0.9
+        for: 15m
+        labels:
+          severity: warning
+          component: eudi
+          metric_type: compliance
+        annotations:
+          summary: "EUDI compliance score low"
+          description: "EUDI compliance score {{ $value }} below 90% threshold"
+          impact: "Regulatory compliance risk"
+
+      - alert: EUDIARFConformanceLow
+        expr: personapass:eudi:arf_conformance < 0.85
+        for: 15m
+        labels:
+          severity: critical
+          component: eudi
+          metric_type: compliance
+        annotations:
+          summary: "EUDI ARF conformance low"
+          description: "EUDI ARF conformance {{ $value }} below 85% threshold"
+          impact: "European regulation compliance failure"
+
+  - name: PersonaPass Security Monitoring
+    interval: 30s
+    rules:
+      # Authentication Security
+      - alert: WebAuthnFailureSpike
+        expr: rate(personapass_webauthn_operations_total{status="failed"}[5m]) > 20
+        for: 3m
+        labels:
+          severity: warning
+          component: security
+          metric_type: authentication
+        annotations:
+          summary: "WebAuthn failure spike"
+          description: "WebAuthn failures {{ $value }}/min indicates potential attack"
+          impact: "Authentication system under stress"
+
+      - alert: BiometricEnrollmentAnomalies
+        expr: rate(personapass_biometric_enrollments_total[1h]) > 100
+        for: 30m
+        labels:
+          severity: warning
+          component: security
+          metric_type: biometric
+        annotations:
+          summary: "Unusual biometric enrollment activity"
+          description: "Biometric enrollment rate {{ $value }}/hour exceeds normal patterns"
+          impact: "Potential security anomaly"
+
+      - alert: SuspiciousSecurityEvents
+        expr: rate(personapass_security_events_total{severity="high"}[5m]) > 5
+        for: 2m
+        labels:
+          severity: critical
+          component: security
+          metric_type: events
+        annotations:
+          summary: "High-severity security events"
+          description: "{{ $value }} high-severity security events/min detected"
+          impact: "Active security threat"
+          runbook: "https://runbooks.personapass.io/security-incident"
+
+      # Certificate and Encryption
+      - alert: SSLCertificateExpiring
+        expr: (probe_ssl_earliest_cert_expiry{job="ssl-expiry"} - time()) / 86400 < 30
+        for: 6h
+        labels:
+          severity: warning
+          component: security
+          metric_type: certificate
+        annotations:
+          summary: "SSL certificate expiring"
+          description: "Certificate for {{ $labels.instance }} expires in {{ $value }} days"
+          impact: "Upcoming service disruption if not renewed"
+
+      - alert: SSLCertificateExpiringSoon
+        expr: (probe_ssl_earliest_cert_expiry{job="ssl-expiry"} - time()) / 86400 < 7
+        for: 1h
+        labels:
+          severity: critical
+          component: security
+          metric_type: certificate
+        annotations:
+          summary: "SSL certificate expiring very soon"
+          description: "Certificate for {{ $labels.instance }} expires in {{ $value }} days"
+          impact: "Imminent service disruption"
+          runbook: "https://runbooks.personapass.io/ssl-renewal"
+
+  - name: PersonaPass Infrastructure
+    interval: 30s
+    rules:
+      # Kubernetes Cluster Health
+      - alert: PodCrashLooping
+        expr: rate(kube_pod_container_status_restarts_total[15m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          component: kubernetes
+          metric_type: stability
+        annotations:
+          summary: "Pod crash looping"
+          description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is crash looping"
+          impact: "Service instability"
+
+      - alert: PodNotReady
+        expr: kube_pod_status_ready{condition="false"} == 1
+        for: 10m
+        labels:
+          severity: warning
+          component: kubernetes
+          metric_type: health
+        annotations:
+          summary: "Pod not ready"
+          description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} not ready for 10 minutes"
+          impact: "Reduced service capacity"
+
+      - alert: NodeNotReady
+        expr: kube_node_status_condition{condition="Ready", status="false"} == 1
+        for: 5m
+        labels:
+          severity: critical
+          component: kubernetes
+          metric_type: infrastructure
+        annotations:
+          summary: "Kubernetes node not ready"
+          description: "Node {{ $labels.node }} is not ready"
+          impact: "Cluster capacity reduced"
+          runbook: "https://runbooks.personapass.io/node-recovery"
+
+      - alert: NodeHighCPUUsage
+        expr: personapass:cpu:utilization_by_node > 85
+        for: 10m
+        labels:
+          severity: warning
+          component: infrastructure
+          metric_type: resource
+        annotations:
+          summary: "Node high CPU usage"
+          description: "Node {{ $labels.instance }} CPU usage {{ $value }}% exceeds 85%"
+          impact: "Performance degradation risk"
+
+      - alert: NodeHighMemoryUsage
+        expr: personapass:memory:utilization_percentage > 90
+        for: 5m
+        labels:
+          severity: critical
+          component: infrastructure
+          metric_type: resource
+        annotations:
+          summary: "Node high memory usage"
+          description: "Node {{ $labels.instance }} memory usage {{ $value }}% exceeds 90%"
+          impact: "OOM kill risk"
+
+      - alert: PersistentVolumeUsageHigh
+        expr: personapass:storage:utilization_by_pvc > 85
+        for: 15m
+        labels:
+          severity: warning
+          component: storage
+          metric_type: resource
+        annotations:
+          summary: "Persistent volume usage high"
+          description: "PVC {{ $labels.persistentvolumeclaim }} usage {{ $value }}% exceeds 85%"
+          impact: "Storage exhaustion risk"
+
+      - alert: PersistentVolumeUsageCritical
+        expr: personapass:storage:utilization_by_pvc > 95
+        for: 5m
+        labels:
+          severity: critical
+          component: storage
+          metric_type: resource
+        annotations:
+          summary: "Persistent volume usage critical"
+          description: "PVC {{ $labels.persistentvolumeclaim }} usage {{ $value }}% exceeds 95%"
+          impact: "Imminent storage exhaustion"
+
+  - name: PersonaPass Business Metrics
+    interval: 300s  # 5 minutes
+    rules:
+      # User Activity Anomalies
+      - alert: DailyActiveUsersLow
+        expr: personapass:users:active_daily < 100
+        for: 1h
+        labels:
+          severity: warning
+          component: business
+          metric_type: user_activity
+        annotations:
+          summary: "Daily active users below expected"
+          description: "Daily active users {{ $value }} below expected threshold of 100"
+          impact: "Potential user engagement issue"
+
+      - alert: UserRegistrationDrop
+        expr: rate(personapass:users:new_registrations[24h]) < 10
+        for: 4h
+        labels:
+          severity: warning
+          component: business
+          metric_type: user_growth
+        annotations:
+          summary: "User registration rate dropped"
+          description: "New user registrations {{ $value }}/day below expected rate"
+          impact: "Reduced user growth"
+
+      # Transaction Volume
+      - alert: TransactionVolumeLow
+        expr: personapass:transactions:daily_volume < 1000
+        for: 2h
+        labels:
+          severity: warning
+          component: business
+          metric_type: transaction_volume
+        annotations:
+          summary: "Transaction volume low"
+          description: "Daily transaction volume {{ $value }} below expected threshold"
+          impact: "Reduced platform utilization"
+
+      - alert: TransactionSuccessRateLow
+        expr: personapass:transactions:success_rate < 0.95
+        for: 30m
+        labels:
+          severity: critical
+          component: business
+          metric_type: transaction_success
+        annotations:
+          summary: "Transaction success rate low"
+          description: "Transaction success rate {{ $value | humanizePercentage }} below 95%"
+          impact: "User experience degradation"
+
+      # Mobile Platform Performance
+      - alert: AndroidPerformanceDegraded
+        expr: personapass:mobile:android_performance < 0.8
+        for: 1h
+        labels:
+          severity: warning
+          component: mobile
+          metric_type: performance
+        annotations:
+          summary: "Android app performance degraded"
+          description: "Android performance score {{ $value }} below 80%"
+          impact: "Mobile user experience issues"
+
+      - alert: DeviceCompatibilityIssues
+        expr: personapass:mobile:device_compatibility < 0.9
+        for: 1h
+        labels:
+          severity: warning
+          component: mobile
+          metric_type: compatibility
+        annotations:
+          summary: "Device compatibility issues"
+          description: "Device compatibility score {{ $value }} below 90%"
+          impact: "Reduced mobile platform accessibility"
+
+  - name: PersonaPass Infrastructure Alerts
+    rules:
+      # Node Health Alerts
+      - alert: ValidatorNodeDown
+        expr: up{job="persona-validators"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: blockchain
+        annotations:
+          summary: "Validator node is down"
+          description: "Validator {{ $labels.instance }} has been down for more than 1 minute"
+
+      - alert: FullNodeDown
+        expr: up{job="persona-fullnodes"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          component: blockchain
+        annotations:
+          summary: "Full node is down"
+          description: "Full node {{ $labels.instance }} has been down for more than 2 minutes"
+
+      - alert: LoadBalancerDown
+        expr: up{job="persona-loadbalancer"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Load balancer is down"
+          description: "PersonaPass load balancer has been unreachable for more than 30 seconds"
+
+      # Frontend Health Alerts
+      - alert: FrontendDown
+        expr: probe_success{job="blackbox-http", instance="https://personapass.xyz"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: frontend
+        annotations:
+          summary: "PersonaPass frontend is unreachable"
+          description: "https://personapass.xyz has been unreachable for more than 2 minutes"
+
+      - alert: FrontendSlowResponse
+        expr: probe_duration_seconds{job="blackbox-http", instance="https://personapass.xyz"} > 3
+        for: 5m
+        labels:
+          severity: warning
+          component: frontend
+        annotations:
+          summary: "PersonaPass frontend responding slowly"
+          description: "Frontend response time is {{ $value }}s, exceeding 3s threshold"
+
+  - name: PersonaPass Resource Alerts
+    rules:
+      # CPU Usage Alerts
+      - alert: HighCPUUsage
+        expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage on {{ $labels.instance }} is {{ $value }}%, exceeding 80% threshold"
+
+      - alert: CriticalCPUUsage
+        expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 2m
+        labels:
+          severity: critical
+          component: system
+        annotations:
+          summary: "Critical CPU usage detected"
+          description: "CPU usage on {{ $labels.instance }} is {{ $value }}%, exceeding 90% critical threshold"
+
+      # Memory Usage Alerts
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage on {{ $labels.instance }} is {{ $value }}%, exceeding 85% threshold"
+
+      - alert: CriticalMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          component: system
+        annotations:
+          summary: "Critical memory usage detected"
+          description: "Memory usage on {{ $labels.instance }} is {{ $value }}%, exceeding 95% critical threshold"
+
+      # Disk Usage Alerts
+      - alert: HighDiskUsage
+        expr: (1 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High disk usage detected"
+          description: "Disk usage on {{ $labels.instance }} is {{ $value }}%, exceeding 80% threshold"
+
+      - alert: CriticalDiskUsage
+        expr: (1 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})) * 100 > 90
+        for: 2m
+        labels:
+          severity: critical
+          component: system
+        annotations:
+          summary: "Critical disk usage detected"
+          description: "Disk usage on {{ $labels.instance }} is {{ $value }}%, exceeding 90% critical threshold"
+
+  - name: PersonaPass Database Alerts
+    rules:
+      # Database Connection Alerts (if PostgreSQL monitoring is available)
+      - alert: DatabaseConnectionsHigh
+        expr: pg_stat_database_numbackends / pg_settings_max_connections * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Database connections high"
+          description: "Database connections are {{ $value }}% of maximum, exceeding 80% threshold"
+
+      - alert: DatabaseConnectionsCritical
+        expr: pg_stat_database_numbackends / pg_settings_max_connections * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "Database connections critical"
+          description: "Database connections are {{ $value }}% of maximum, exceeding 95% critical threshold"
+
+      # Database Query Performance
+      - alert: SlowDatabaseQueries
+        expr: avg_over_time(pg_stat_database_tup_fetched[5m]) / avg_over_time(pg_stat_database_tup_returned[5m]) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Slow database queries detected"
+          description: "Database query efficiency ratio is {{ $value }}, indicating slow queries"
+
+  - name: PersonaPass Application Alerts
+    rules:
+      # DID Module Alerts
+      - alert: DIDCreationFailureRate
+        expr: rate(did_creation_failures_total[5m]) / rate(did_creation_attempts_total[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: warning
+          component: did-module
+        annotations:
+          summary: "High DID creation failure rate"
+          description: "DID creation failure rate is {{ $value | humanizePercentage }}, exceeding 5% threshold"
+
+      # Credential Module Alerts
+      - alert: CredentialIssuanceFailureRate
+        expr: rate(credential_issuance_failures_total[5m]) / rate(credential_issuance_attempts_total[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: warning
+          component: vc-module
+        annotations:
+          summary: "High credential issuance failure rate"
+          description: "Credential issuance failure rate is {{ $value | humanizePercentage }}, exceeding 5% threshold"
+
+      # Blockchain Consensus Alerts
+      - alert: BlockProductionSlow
+        expr: increase(cosmos_tendermint_consensus_height[5m]) < 1
+        for: 3m
+        labels:
+          severity: critical
+          component: blockchain
+        annotations:
+          summary: "Block production has stopped"
+          description: "No new blocks produced in the last 5 minutes"
+
+      - alert: ValidatorMissedBlocks
+        expr: increase(cosmos_tendermint_consensus_validator_missed_blocks[10m]) > 5
+        for: 2m
+        labels:
+          severity: warning
+          component: blockchain
+        annotations:
+          summary: "Validator missing blocks"
+          description: "Validator {{ $labels.validator }} missed {{ $value }} blocks in the last 10 minutes"
+
+  - name: PersonaPass Security Alerts
+    rules:
+      # Rate Limiting and Security
+      - alert: UnusualRequestRate
+        expr: rate(http_requests_total[1m]) > 1000
+        for: 2m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "Unusual request rate detected"
+          description: "Request rate is {{ $value }} requests/second, potentially indicating an attack"
+
+      - alert: HighFailedAuthenticationRate
+        expr: rate(authentication_failures_total[5m]) > 50
+        for: 3m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "High authentication failure rate"
+          description: "Authentication failure rate is {{ $value }} failures/second, potentially indicating brute force attack"
+
+      # Certificate Expiration
+      - alert: TLSCertificateExpiring
+        expr: probe_ssl_earliest_cert_expiry{job="blackbox-http"} - time() < 7 * 24 * 3600
+        for: 1h
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "TLS certificate expiring soon"
+          description: "TLS certificate for {{ $labels.instance }} expires in {{ $value | humanizeDuration }}"
+
+      - alert: TLSCertificateExpiringSoon
+        expr: probe_ssl_earliest_cert_expiry{job="blackbox-http"} - time() < 24 * 3600
+        for: 1h
+        labels:
+          severity: critical
+          component: security
+        annotations:
+          summary: "TLS certificate expiring very soon"
+          description: "TLS certificate for {{ $labels.instance }} expires in {{ $value | humanizeDuration }}"

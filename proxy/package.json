@@ -1,0 +1,13 @@
+{
+  "name": "personachain-proxy",
+  "version": "1.0.0",
+  "description": "HTTPS proxy for PersonaChain blockchain to resolve Mixed Content errors",
+  "main": "api/personachain.js",
+  "scripts": {
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "vercel": "^32.0.0"
+  }
+}

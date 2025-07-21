@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mixed Content Test</title>
+</head>
+<body>
+    <h1>Testing Mixed Content Resolution</h1>
+    <div id="result"></div>
+    
+    <script>
+        async function testConnection() {
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                console.log('Testing HTTP request to PersonaChain...');
+                resultDiv.innerHTML = '<p>🧪 Testing connection to PersonaChain...</p>';
+                
+                const response = await fetch('http://34.170.121.182:26657/health');
+                const data = await response.text();
+                
+                resultDiv.innerHTML = `
+                    <p>✅ SUCCESS! HTTP request worked!</p>
+                    <p>Status: ${response.status}</p>
+                    <p>Response: ${data}</p>
+                    <p>🎉 Mixed Content error is resolved!</p>
+                `;
+                
+                console.log('✅ HTTP request successful!', response.status);
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <p>❌ FAILED: ${error.message}</p>
+                    <p>Mixed Content error still present</p>
+                `;
+                console.error('❌ HTTP request failed:', error);
+            }
+        }
+        
+        // Test immediately
+        testConnection();
+    </script>
+</body>
+</html>

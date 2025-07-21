@@ -1,0 +1,192 @@
+# Default values for persona-chain
+global:
+  namespace: persona-chain
+  imageRegistry: ghcr.io/persona-chain
+  imagePullPolicy: IfNotPresent
+
+# Blockchain node configuration
+blockchain:
+  enabled: true
+  image:
+    repository: persona-chain
+    tag: latest
+  replicas: 1
+  chainId: "persona-chain"
+  minimumGasPrices: "0stake"
+  
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "1000m"
+    limits:
+      memory: "4Gi"
+      cpu: "2000m"
+  
+  persistence:
+    enabled: true
+    size: 100Gi
+    storageClass: ""
+  
+  service:
+    type: LoadBalancer
+    rpcPort: 26657
+    p2pPort: 26656
+    grpcPort: 9090
+    apiPort: 1317
+  
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# API Service configuration
+apiService:
+  enabled: true
+  image:
+    repository: api-service
+    tag: latest
+  replicas: 2
+  
+  env:
+    PORT: 3001
+    NODE_ENV: production
+  
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  
+  service:
+    type: ClusterIP
+    port: 3001
+  
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      nginx.ingress.kubernetes.io/rewrite-target: /
+    hosts:
+      - host: api.persona-chain.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+
+# DB Service configuration
+dbService:
+  enabled: true
+  image:
+    repository: db-service
+    tag: latest
+  replicas: 1
+  
+  env:
+    PORT: 3002
+    NODE_ENV: production
+  
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  
+  service:
+    type: ClusterIP
+    port: 3002
+
+# Frontend configuration
+frontend:
+  enabled: true
+  image:
+    repository: frontend
+    tag: latest
+  replicas: 2
+  
+  env:
+    NODE_ENV: production
+  
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "250m"
+  
+  service:
+    type: ClusterIP
+    port: 3000
+  
+  ingress:
+    enabled: true
+    className: "nginx"
+    annotations:
+      nginx.ingress.kubernetes.io/rewrite-target: /
+    hosts:
+      - host: persona-chain.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+
+# PostgreSQL configuration
+postgresql:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "15"
+  
+  auth:
+    database: persona_chain
+    username: persona_user
+    password: persona_password
+  
+  persistence:
+    enabled: true
+    size: 20Gi
+    storageClass: ""
+  
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+# Redis configuration
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: "7-alpine"
+  
+  persistence:
+    enabled: false
+    size: 8Gi
+  
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "200m"
+
+# Monitoring configuration
+monitoring:
+  enabled: false
+  prometheus:
+    enabled: false
+  grafana:
+    enabled: false
+
+# Backup configuration
+backup:
+  enabled: false
+  schedule: "0 2 * * *"
+  retention: "7d"

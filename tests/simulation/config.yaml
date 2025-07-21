@@ -1,0 +1,63 @@
+# Simulation test configuration for Persona Chain
+simulation:
+  # Test parameters
+  enabled: true
+  verbose: true
+  commit: true
+  
+  # Simulation parameters
+  seed: 42
+  num_blocks: 500
+  block_size: 200
+  period: 1
+  
+  # Genesis parameters
+  genesis_time: "2023-01-01T00:00:00Z"
+  chain_id: "persona-chain-sim"
+  
+  # Operation weights for different modules
+  operation_weights:
+    # DID module operations
+    did_create: 100
+    did_update: 50
+    did_deactivate: 20
+    
+    # VC module operations
+    vc_issue: 80
+    vc_revoke: 20
+    
+    # ZK module operations
+    zk_register_circuit: 30
+    zk_submit_proof: 60
+    zk_deactivate_circuit: 10
+    
+    # Guardian module operations
+    guardian_add: 40
+    guardian_propose_recovery: 20
+    guardian_approve_recovery: 30
+    guardian_reject_recovery: 15
+    guardian_execute_recovery: 10
+    guardian_remove: 10
+  
+  # Account parameters
+  accounts:
+    num_initial_accounts: 100
+    initial_balance: "1000000000stake"
+  
+  # Invariant checking
+  invariants:
+    enabled: true
+    check_period: 10  # Check every 10 blocks
+    all_invariants: true
+    
+  # Export/import testing
+  export:
+    enabled: true
+    export_state_on_stop: true
+    export_params_path: "./simulation-params.json"
+    
+  # Logging and output
+  logging:
+    verbose: true
+    log_operation_trace: true
+    log_invariant_failures: true

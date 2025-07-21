@@ -1,0 +1,19 @@
+apiVersion: v2
+name: persona-chain
+description: A Helm chart for Persona Chain - Decentralized Identity and Zero-Knowledge Proof Platform
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - blockchain
+  - identity
+  - did
+  - verifiable-credentials
+  - zero-knowledge
+  - cosmos-sdk
+home: https://github.com/persona-chain/persona-chain
+sources:
+  - https://github.com/persona-chain/persona-chain
+maintainers:
+  - name: Persona Chain Team
+    email: team@persona-chain.org

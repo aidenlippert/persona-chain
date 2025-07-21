@@ -1,0 +1,15 @@
+{
+  "app_state": {
+    "did": {
+      "did_documents": []
+    },
+    "vc": {
+      "credentials": []
+    },
+    "zk": {
+      "proofs": []
+    }
+  },
+  "chain_id": "persona-mainnet-1",
+  "genesis_time": "2025-07-20T19:53:59-07:00"
+}

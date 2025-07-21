@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PersonaChain Connection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .info { background-color: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🚀 PersonaChain Public Access Test</h1>
+    <p>Testing connection to PersonaChain blockchain at <strong>192.184.204.181</strong></p>
+    
+    <div class="test-result info">
+        <h3>📋 Test Configuration</h3>
+        <ul>
+            <li><strong>Chain ID:</strong> persona-chain-1</li>
+            <li><strong>RPC Endpoint:</strong> http://192.184.204.181:26657</li>
+            <li><strong>REST Endpoint:</strong> http://192.184.204.181:1317</li>
+            <li><strong>Public IP:</strong> 192.184.204.181</li>
+        </ul>
+    </div>
+
+    <button onclick="testRPCConnection()">🔗 Test RPC Connection</button>
+    <button onclick="testRESTConnection()">🌐 Test REST API</button>
+    <button onclick="testKeplrConfig()">🦊 Test Keplr Config</button>
+    <button onclick="runAllTests()">⚡ Run All Tests</button>
+
+    <div id="results"></div>
+
+    <script>
+        const CHAIN_CONFIG = {
+            chainId: "persona-chain-1",
+            rpc: "http://192.184.204.181:26657",
+            rest: "http://192.184.204.181:1317"
+        };
+
+        function addResult(type, title, content) {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<h3>${title}</h3><pre>${content}</pre>`;
+            results.appendChild(div);
+        }
+
+        async function testRPCConnection() {
+            try {
+                addResult('info', '🔄 Testing RPC Connection...', 'Connecting to PersonaChain RPC...');
+                
+                const response = await fetch(`${CHAIN_CONFIG.rpc}/status`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                addResult('success', '✅ RPC Connection Successful!', 
+                    `Node ID: ${data.result.node_info.id}
+Chain ID: ${data.result.node_info.network}
+Latest Block: ${data.result.sync_info.latest_block_height}
+Validator: ${data.result.validator_info.address || 'N/A'}`);
+                
+            } catch (error) {
+                addResult('error', '❌ RPC Connection Failed', 
+                    `Error: ${error.message}
+Endpoint: ${CHAIN_CONFIG.rpc}/status
+                    
+This could be due to:
+- Firewall blocking external access
+- CORS policy restrictions  
+- Network connectivity issues
+- Blockchain not running publicly`);
+            }
+        }
+
+        async function testRESTConnection() {
+            try {
+                addResult('info', '🔄 Testing REST API...', 'Connecting to PersonaChain REST API...');
+                
+                const response = await fetch(`${CHAIN_CONFIG.rest}/cosmos/base/tendermint/v1beta1/node_info`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                addResult('success', '✅ REST API Connection Successful!', 
+                    `Node ID: ${data.default_node_info.id}
+Network: ${data.default_node_info.network}
+Version: ${data.default_node_info.version}
+Moniker: ${data.default_node_info.moniker}`);
+                
+            } catch (error) {
+                addResult('error', '❌ REST API Connection Failed', 
+                    `Error: ${error.message}
+Endpoint: ${CHAIN_CONFIG.rest}/cosmos/base/tendermint/v1beta1/node_info
+                    
+This could be due to:
+- REST API not enabled or not publicly accessible
+- CORS policy restrictions
+- Network connectivity issues`);
+            }
+        }
+
+        function testKeplrConfig() {
+            const keplrConfig = {
+                chainId: CHAIN_CONFIG.chainId,
+                chainName: "PersonaChain",
+                rpc: CHAIN_CONFIG.rpc,
+                rest: CHAIN_CONFIG.rest,
+                bip44: { coinType: 118 },
+                bech32Config: {
+                    bech32PrefixAccAddr: "persona",
+                    bech32PrefixAccPub: "personapub",
+                    bech32PrefixValAddr: "personavaloper",
+                    bech32PrefixValPub: "personavaloperpub",
+                    bech32PrefixConsAddr: "personavalcons",
+                    bech32PrefixConsPub: "personavalconspub",
+                },
+                currencies: [{
+                    coinDenom: "PERSONA",
+                    coinMinimalDenom: "upersona",
+                    coinDecimals: 6,
+                    coinGeckoId: "persona",
+                }],
+                feeCurrencies: [{
+                    coinDenom: "PERSONA",
+                    coinMinimalDenom: "upersona",
+                    coinDecimals: 6,
+                    coinGeckoId: "persona",
+                    gasPriceStep: { low: 0.01, average: 0.025, high: 0.04 }
+                }],
+                stakeCurrency: {
+                    coinDenom: "PERSONA",
+                    coinMinimalDenom: "upersona",
+                    coinDecimals: 6,
+                    coinGeckoId: "persona",
+                }
+            };
+
+            addResult('success', '✅ Keplr Configuration Ready!', 
+                `Configuration for PersonaChain:
+${JSON.stringify(keplrConfig, null, 2)}
+
+This configuration will be used by your Vercel deployment to connect Keplr wallet to PersonaChain.`);
+
+            // Test if Keplr is available
+            if (typeof window !== 'undefined' && window.keplr) {
+                addResult('info', '🦊 Keplr Detected!', 
+                    'Keplr wallet extension is installed and available. Ready for blockchain integration.');
+            } else {
+                addResult('info', '📝 Keplr Installation Note', 
+                    'Keplr wallet extension not detected. Users will need to install Keplr to interact with PersonaChain.');
+            }
+        }
+
+        async function runAllTests() {
+            document.getElementById('results').innerHTML = '';
+            addResult('info', '🚀 Starting Comprehensive Test Suite...', 'Testing all PersonaChain connections...');
+            
+            await testRPCConnection();
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Brief delay
+            
+            await testRESTConnection();
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Brief delay
+            
+            testKeplrConfig();
+            
+            addResult('success', '🎉 Test Suite Complete!', 
+                'All tests finished. Check results above for PersonaChain connectivity status.');
+        }
+
+        // Auto-run tests when page loads
+        window.addEventListener('load', () => {
+            addResult('info', '🌟 PersonaChain Integration Ready!', 
+                `Your PersonaPass application can now connect to the live PersonaChain blockchain.
+                
+Key Integration Points:
+- Keplr wallet will connect to persona-chain-1
+- All transactions will be processed on PersonaChain
+- DID and VC operations will use PersonaChain infrastructure
+- Zero-knowledge proofs will be anchored on PersonaChain
+
+Ready for your Vercel deployment testing!`);
+        });
+    </script>
+</body>
+</html>

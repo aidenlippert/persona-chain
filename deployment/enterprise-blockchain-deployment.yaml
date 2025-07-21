@@ -1,0 +1,597 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: personachain-enterprise
+  labels:
+    app: personachain
+    tier: enterprise
+    environment: production
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: personachain-enterprise-config
+  namespace: personachain-enterprise
+data:
+  # Enterprise Configuration
+  chain_id: "personachain-enterprise-1"
+  moniker: "PersonaChain Enterprise Node"
+  
+  # Network Configuration
+  p2p_port: "26656"
+  rpc_port: "26657"
+  grpc_port: "9090"
+  grpc_web_port: "9091"
+  api_port: "1317"
+  
+  # Consensus Configuration
+  consensus_timeout_propose: "3s"
+  consensus_timeout_prevote: "1s"
+  consensus_timeout_precommit: "1s"
+  consensus_timeout_commit: "5s"
+  
+  # Enterprise Features
+  enterprise_mode: "true"
+  audit_enabled: "true"
+  compliance_enabled: "true"
+  governance_enabled: "true"
+  cross_chain_enabled: "true"
+  layer2_enabled: "true"
+  ibc_enabled: "true"
+  
+  # Performance Optimizations
+  max_batch_size: "1000"
+  state_sync_enabled: "true"
+  pruning: "nothing"
+  index_events: "true"
+  
+  # Security Configuration
+  cors_allowed_origins: "*"
+  cors_allowed_methods: "GET,POST,PUT,DELETE,OPTIONS"
+  cors_allowed_headers: "Origin,Content-Type,Accept,Authorization,X-Requested-With"
+  
+  # HSM Configuration
+  hsm_enabled: "true"
+  hsm_provider: "google-cloud-hsm"
+  hsm_key_ring: "personachain-enterprise"
+  hsm_location: "us-central1"
+  
+  # Monitoring Configuration
+  prometheus_enabled: "true"
+  metrics_enabled: "true"
+  telemetry_enabled: "true"
+  
+  # Logging Configuration
+  log_level: "info"
+  log_format: "json"
+  
+  app.toml: |
+    # PersonaChain Enterprise Node Configuration
+    
+    [api]
+    enable = true
+    swagger = true
+    address = "tcp://0.0.0.0:1317"
+    max-open-connections = 1000
+    rpc-read-timeout = 10
+    rpc-write-timeout = 10
+    rpc-max-body-bytes = 1000000
+    enabled-unsafe-cors = true
+    
+    [grpc]
+    enable = true
+    address = "0.0.0.0:9090"
+    max-recv-msg-size = 10485760
+    max-send-msg-size = 2147483647
+    
+    [grpc-web]
+    enable = true
+    address = "0.0.0.0:9091"
+    enable-unsafe-cors = true
+    
+    [state-sync]
+    snapshot-interval = 1000
+    snapshot-keep-recent = 2
+    
+    [telemetry]
+    service-name = "personachain-enterprise"
+    enabled = true
+    enable-hostname = true
+    enable-hostname-label = true
+    enable-service-label = true
+    prometheus-retention-time = 60
+    global-labels = [
+      ["chain_id", "personachain-enterprise-1"],
+      ["environment", "production"]
+    ]
+    
+    [enterprise]
+    enabled = true
+    audit-enabled = true
+    compliance-enabled = true
+    governance-enabled = true
+    cross-chain-enabled = true
+    layer2-enabled = true
+    ibc-enabled = true
+    
+    [enterprise.hsm]
+    enabled = true
+    provider = "google-cloud-hsm"
+    key-ring = "personachain-enterprise"
+    location = "us-central1"
+    
+    [enterprise.governance]
+    multisig-enabled = true
+    timelock-enabled = true
+    role-based-access = true
+    proposal-voting-period = "168h"
+    proposal-deposit-period = "24h"
+    
+    [enterprise.layer2]
+    optimistic-rollup-enabled = true
+    zk-rollup-enabled = true
+    state-channels-enabled = true
+    plasma-enabled = true
+    
+    [enterprise.cross-chain]
+    ibc-enabled = true
+    bridge-enabled = true
+    supported-chains = ["ethereum", "polygon", "bsc", "avalanche"]
+    
+    [enterprise.security]
+    rate-limiting-enabled = true
+    emergency-pause-enabled = true
+    automated-responses-enabled = true
+    
+    [enterprise.compliance]
+    audit-trail-enabled = true
+    compliance-reports-enabled = true
+    regulatory-compliance = ["gdpr", "ccpa", "sox"]
+    
+    [enterprise.performance]
+    batch-processing-enabled = true
+    parallel-processing-enabled = true
+    merkle-tree-optimization = true
+    
+  config.toml: |
+    # PersonaChain Enterprise Tendermint Configuration
+    
+    proxy_app = "tcp://127.0.0.1:26658"
+    moniker = "PersonaChain Enterprise Node"
+    
+    [rpc]
+    laddr = "tcp://0.0.0.0:26657"
+    cors_allowed_origins = ["*"]
+    cors_allowed_methods = ["HEAD", "GET", "POST"]
+    cors_allowed_headers = ["Origin", "Accept", "Content-Type", "X-Requested-With", "X-Server-Time"]
+    grpc_laddr = ""
+    grpc_max_open_connections = 900
+    unsafe = false
+    max_open_connections = 900
+    max_subscription_clients = 100
+    max_subscriptions_per_client = 5
+    timeout_broadcast_tx_commit = "10s"
+    max_body_bytes = 1000000
+    max_header_bytes = 1048576
+    tls_cert_file = ""
+    tls_key_file = ""
+    
+    [p2p]
+    laddr = "tcp://0.0.0.0:26656"
+    external_address = ""
+    seeds = ""
+    persistent_peers = ""
+    upnp = false
+    addr_book_file = "config/addrbook.json"
+    addr_book_strict = true
+    max_num_inbound_peers = 40
+    max_num_outbound_peers = 10
+    persistent_peers_max_dial_period = "0s"
+    flush_throttle_timeout = "100ms"
+    max_packet_msg_payload_size = 1024
+    send_rate = 5120000
+    recv_rate = 5120000
+    pex = true
+    seed_mode = false
+    private_peer_ids = ""
+    allow_duplicate_ip = false
+    handshake_timeout = "20s"
+    dial_timeout = "3s"
+    
+    [mempool]
+    recheck = true
+    broadcast = true
+    wal_dir = ""
+    size = 5000
+    max_pending_txs = 5000
+    cache_size = 10000
+    keep-invalid-txs-in-cache = false
+    max_tx_bytes = 1048576
+    max_batch_bytes = 0
+    
+    [consensus]
+    wal_file = "data/cs.wal/wal"
+    timeout_propose = "3s"
+    timeout_propose_delta = "500ms"
+    timeout_prevote = "1s"
+    timeout_prevote_delta = "500ms"
+    timeout_precommit = "1s"
+    timeout_precommit_delta = "500ms"
+    timeout_commit = "5s"
+    double_sign_check_height = 0
+    skip_timeout_commit = false
+    create_empty_blocks = true
+    create_empty_blocks_interval = "0s"
+    peer_gossip_sleep_duration = "100ms"
+    peer_query_maj23_sleep_duration = "2s"
+    
+    [storage]
+    discard_abci_responses = false
+    
+    [tx_index]
+    indexer = "kv"
+    
+    [instrumentation]
+    prometheus = true
+    prometheus_listen_addr = ":26660"
+    max_open_connections = 3
+    namespace = "tendermint"
+    
+    [statesync]
+    enable = false
+    rpc_servers = ""
+    trust_height = 0
+    trust_hash = ""
+    trust_period = "168h0m0s"
+    discovery_time = "15s"
+    temp_dir = ""
+    
+    [fastsync]
+    version = "v0"
+    
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: personachain-enterprise
+  namespace: personachain-enterprise
+  labels:
+    app: personachain
+    tier: enterprise
+spec:
+  serviceName: personachain-enterprise
+  replicas: 3
+  selector:
+    matchLabels:
+      app: personachain
+      tier: enterprise
+  template:
+    metadata:
+      labels:
+        app: personachain
+        tier: enterprise
+    spec:
+      securityContext:
+        fsGroup: 1000
+        runAsUser: 1000
+        runAsNonRoot: true
+      containers:
+      - name: personachain
+        image: personachain/enterprise:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 26657
+          name: rpc
+        - containerPort: 26656
+          name: p2p
+        - containerPort: 9090
+          name: grpc
+        - containerPort: 9091
+          name: grpc-web
+        - containerPort: 1317
+          name: api
+        - containerPort: 26660
+          name: prometheus
+        env:
+        - name: CHAIN_ID
+          valueFrom:
+            configMapKeyRef:
+              name: personachain-enterprise-config
+              key: chain_id
+        - name: MONIKER
+          valueFrom:
+            configMapKeyRef:
+              name: personachain-enterprise-config
+              key: moniker
+        - name: ENTERPRISE_MODE
+          valueFrom:
+            configMapKeyRef:
+              name: personachain-enterprise-config
+              key: enterprise_mode
+        - name: HSM_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: personachain-enterprise-config
+              key: hsm_enabled
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/etc/gcp/service-account.json"
+        volumeMounts:
+        - name: data
+          mountPath: /root/.personachain
+        - name: config
+          mountPath: /root/.personachain/config
+        - name: gcp-service-account
+          mountPath: /etc/gcp
+          readOnly: true
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2000m"
+          limits:
+            memory: "8Gi"
+            cpu: "4000m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 26657
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 26657
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 26657
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          failureThreshold: 30
+      volumes:
+      - name: config
+        configMap:
+          name: personachain-enterprise-config
+      - name: gcp-service-account
+        secret:
+          secretName: gcp-service-account
+      initContainers:
+      - name: init-genesis
+        image: personachain/enterprise:latest
+        command:
+        - sh
+        - -c
+        - |
+          if [ ! -f /root/.personachain/config/genesis.json ]; then
+            echo "Initializing genesis..."
+            personachaind init $MONIKER --chain-id $CHAIN_ID --home /root/.personachain
+            
+            # Configure enterprise features
+            personachaind add-genesis-account $(personachaind keys show validator -a --keyring-backend test) 1000000000000stake --home /root/.personachain
+            personachaind gentx validator 1000000000stake --chain-id $CHAIN_ID --keyring-backend test --home /root/.personachain
+            personachaind collect-gentxs --home /root/.personachain
+            
+            # Enable enterprise modules
+            sed -i 's/"enable_enterprise": false/"enable_enterprise": true/' /root/.personachain/config/genesis.json
+            sed -i 's/"enable_governance": false/"enable_governance": true/' /root/.personachain/config/genesis.json
+            sed -i 's/"enable_ibc": false/"enable_ibc": true/' /root/.personachain/config/genesis.json
+            sed -i 's/"enable_layer2": false/"enable_layer2": true/' /root/.personachain/config/genesis.json
+          fi
+        env:
+        - name: CHAIN_ID
+          valueFrom:
+            configMapKeyRef:
+              name: personachain-enterprise-config
+              key: chain_id
+        - name: MONIKER
+          valueFrom:
+            configMapKeyRef:
+              name: personachain-enterprise-config
+              key: moniker
+        volumeMounts:
+        - name: data
+          mountPath: /root/.personachain
+        - name: config
+          mountPath: /root/.personachain/config/app.toml
+          subPath: app.toml
+        - name: config
+          mountPath: /root/.personachain/config/config.toml
+          subPath: config.toml
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: "fast-ssd"
+      resources:
+        requests:
+          storage: 1Ti
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: personachain-enterprise-rpc
+  namespace: personachain-enterprise
+  labels:
+    app: personachain
+    tier: enterprise
+    service: rpc
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 26657
+    targetPort: 26657
+    name: rpc
+  - port: 26656
+    targetPort: 26656
+    name: p2p
+  selector:
+    app: personachain
+    tier: enterprise
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: personachain-enterprise-api
+  namespace: personachain-enterprise
+  labels:
+    app: personachain
+    tier: enterprise
+    service: api
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 1317
+    targetPort: 1317
+    name: api
+  - port: 9090
+    targetPort: 9090
+    name: grpc
+  - port: 9091
+    targetPort: 9091
+    name: grpc-web
+  selector:
+    app: personachain
+    tier: enterprise
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: personachain-enterprise-monitoring
+  namespace: personachain-enterprise
+  labels:
+    app: personachain
+    tier: enterprise
+    service: monitoring
+spec:
+  type: ClusterIP
+  ports:
+  - port: 26660
+    targetPort: 26660
+    name: prometheus
+  selector:
+    app: personachain
+    tier: enterprise
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: personachain-enterprise-ingress
+  namespace: personachain-enterprise
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "Origin, Content-Type, Accept, Authorization, X-Requested-With"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+spec:
+  tls:
+  - hosts:
+    - api.personachain.com
+    - rpc.personachain.com
+    secretName: personachain-tls
+  rules:
+  - host: api.personachain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: personachain-enterprise-api
+            port:
+              number: 1317
+  - host: rpc.personachain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: personachain-enterprise-rpc
+            port:
+              number: 26657
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gcp-service-account
+  namespace: personachain-enterprise
+type: Opaque
+data:
+  service-account.json: # Base64 encoded GCP service account JSON
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: personachain-enterprise-monitor
+  namespace: personachain-enterprise
+  labels:
+    app: personachain
+    tier: enterprise
+spec:
+  selector:
+    matchLabels:
+      app: personachain
+      tier: enterprise
+      service: monitoring
+  endpoints:
+  - port: prometheus
+    interval: 30s
+    path: /metrics
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: personachain-enterprise-pdb
+  namespace: personachain-enterprise
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: personachain
+      tier: enterprise
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: personachain-enterprise-hpa
+  namespace: personachain-enterprise
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: personachain-enterprise
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60

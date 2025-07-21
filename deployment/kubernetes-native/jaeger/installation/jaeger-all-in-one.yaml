@@ -1,0 +1,336 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+  namespace: monitoring
+  labels:
+    app: jaeger
+    component: all-in-one
+    app.kubernetes.io/name: jaeger
+    app.kubernetes.io/component: all-in-one
+    app.kubernetes.io/part-of: monitoring
+    app.kubernetes.io/version: "1.51.0"
+  annotations:
+    description: "Jaeger distributed tracing for PersonaPass platform"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: jaeger
+      component: all-in-one
+  template:
+    metadata:
+      labels:
+        app: jaeger
+        component: all-in-one
+        app.kubernetes.io/name: jaeger
+        app.kubernetes.io/component: all-in-one
+        app.kubernetes.io/part-of: monitoring
+        app.kubernetes.io/version: "1.51.0"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "14269"
+        prometheus.io/path: "/metrics"
+        sidecar.istio.io/inject: "false"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: jaeger
+        image: jaegertracing/all-in-one:1.51.0
+        imagePullPolicy: IfNotPresent
+        args:
+        - "--memory.max-traces=50000"
+        - "--query.base-path=/jaeger"
+        - "--admin.http.host-port=:14269"
+        - "--collector.otlp.enabled=true"
+        - "--collector.otlp.grpc.host-port=:14250"
+        - "--collector.otlp.http.host-port=:14268"
+        - "--log-level=info"
+        ports:
+        - name: jaeger-ui
+          containerPort: 16686
+          protocol: TCP
+        - name: jaeger-grpc
+          containerPort: 14250
+          protocol: TCP
+        - name: jaeger-http
+          containerPort: 14268
+          protocol: TCP
+        - name: admin-http
+          containerPort: 14269
+          protocol: TCP
+        - name: jaeger-agent
+          containerPort: 6831
+          protocol: UDP
+        - name: jaeger-compact
+          containerPort: 6832
+          protocol: UDP
+        - name: config-rest
+          containerPort: 5778
+          protocol: TCP
+        env:
+        - name: COLLECTOR_OTLP_ENABLED
+          value: "true"
+        - name: SPAN_STORAGE_TYPE
+          value: "memory"
+        - name: JAEGER_DISABLED
+          value: "false"
+        - name: JAEGER_SAMPLER_TYPE
+          value: "const"
+        - name: JAEGER_SAMPLER_PARAM
+          value: "1"
+        - name: JAEGER_PROPAGATION
+          value: "jaeger,b3"
+        - name: METRICS_STORAGE_TYPE
+          value: "prometheus"
+        - name: PROMETHEUS_SERVER_URL
+          value: "http://prometheus.monitoring:9090"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+            ephemeral-storage: 1Gi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+            ephemeral-storage: 2Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 65534
+          runAsGroup: 65534
+          capabilities:
+            drop:
+            - ALL
+        livenessProbe:
+          httpGet:
+            path: /
+            port: admin-http
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 15
+          timeoutSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: admin-http
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir:
+          sizeLimit: 1Gi
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      tolerations:
+      - key: "kubernetes.io/arch"
+        operator: "Equal"
+        value: "amd64"
+        effect: "NoSchedule"
+      terminationGracePeriodSeconds: 30
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-query
+  namespace: monitoring
+  labels:
+    app: jaeger
+    component: query
+    app.kubernetes.io/name: jaeger
+    app.kubernetes.io/component: query
+    app.kubernetes.io/part-of: monitoring
+  annotations:
+    description: "Jaeger query service for UI access"
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "14269"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+  - name: jaeger-ui
+    port: 16686
+    targetPort: jaeger-ui
+    protocol: TCP
+  - name: admin-http
+    port: 14269
+    targetPort: admin-http
+    protocol: TCP
+  selector:
+    app: jaeger
+    component: all-in-one
+  sessionAffinity: None
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-collector
+  namespace: monitoring
+  labels:
+    app: jaeger
+    component: collector
+    app.kubernetes.io/name: jaeger
+    app.kubernetes.io/component: collector
+    app.kubernetes.io/part-of: monitoring
+  annotations:
+    description: "Jaeger collector service for trace ingestion"
+spec:
+  type: ClusterIP
+  ports:
+  - name: jaeger-grpc
+    port: 14250
+    targetPort: jaeger-grpc
+    protocol: TCP
+  - name: jaeger-http
+    port: 14268
+    targetPort: jaeger-http
+    protocol: TCP
+  - name: config-rest
+    port: 5778
+    targetPort: config-rest
+    protocol: TCP
+  selector:
+    app: jaeger
+    component: all-in-one
+  sessionAffinity: None
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-agent
+  namespace: monitoring
+  labels:
+    app: jaeger
+    component: agent
+    app.kubernetes.io/name: jaeger
+    app.kubernetes.io/component: agent
+    app.kubernetes.io/part-of: monitoring
+  annotations:
+    description: "Jaeger agent service for trace collection"
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - name: agent-zipkin-compact
+    port: 5775
+    targetPort: 5775
+    protocol: UDP
+  - name: agent-compact
+    port: 6831
+    targetPort: jaeger-agent
+    protocol: UDP
+  - name: agent-binary
+    port: 6832
+    targetPort: jaeger-compact
+    protocol: UDP
+  selector:
+    app: jaeger
+    component: all-in-one
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jaeger-ingress
+  namespace: monitoring
+  labels:
+    app: jaeger
+    component: ingress
+    app.kubernetes.io/name: jaeger
+    app.kubernetes.io/component: ingress
+    app.kubernetes.io/part-of: monitoring
+  annotations:
+    description: "Jaeger UI ingress for external access"
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: jaeger-basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: "Jaeger Tracing Authentication Required"
+spec:
+  tls:
+  - hosts:
+    - jaeger.personapass.com
+    secretName: jaeger-tls
+  rules:
+  - host: jaeger.personapass.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: jaeger-query
+            port:
+              number: 16686
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: jaeger-basic-auth
+  namespace: monitoring
+  labels:
+    app: jaeger
+    component: auth
+    app.kubernetes.io/name: jaeger
+    app.kubernetes.io/component: auth
+    app.kubernetes.io/part-of: monitoring
+  annotations:
+    description: "Basic authentication for Jaeger UI"
+type: Opaque
+data:
+  # Default: admin / PersonaPass2024! (base64 encoded)
+  auth: YWRtaW46JGFwcjEkTTdnbHM2SUckTi9yLjJhYlZvUWpwZ3Fkb3B0S1ouMQ==
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: jaeger
+  namespace: monitoring
+  labels:
+    app: jaeger
+    component: servicemonitor
+    app.kubernetes.io/name: jaeger
+    app.kubernetes.io/component: servicemonitor
+    app.kubernetes.io/part-of: monitoring
+  annotations:
+    description: "ServiceMonitor for Jaeger metrics collection"
+spec:
+  selector:
+    matchLabels:
+      app: jaeger
+      component: query
+  endpoints:
+  - port: admin-http
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+  namespaceSelector:
+    matchNames:
+    - monitoring

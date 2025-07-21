@@ -1,0 +1,11 @@
+🚀 VERCEL ENVIRONMENT VARIABLES TO ADD
+=====================================
+
+Copy and paste these into your Vercel dashboard:
+
+VITE_BLOCKCHAIN_RPC=https://person.aidenlippert.workers.dev/rpc
+VITE_BLOCKCHAIN_REST=https://person.aidenlippert.workers.dev/api
+VITE_CHAIN_ID=persona-chain-1
+VITE_BLOCKCHAIN_NETWORK=persona-chain
+
+⚠️ IMPORTANT: These will override any hardcoded values and connect to your live PersonaChain through HTTPS!

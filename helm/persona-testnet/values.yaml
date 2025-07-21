@@ -1,0 +1,145 @@
+# Persona Chain Testnet Helm Values
+
+# Global configuration
+global:
+  chainId: "persona-testnet-1"
+  namespace: "persona-testnet"
+  
+# Docker image configuration
+image:
+  repository: "persona-chain/testnet"
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+# Service configuration
+service:
+  type: LoadBalancer
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+
+# Validator nodes configuration
+validators:
+  count: 4
+  names:
+    - "validator-01"
+    - "validator-02" 
+    - "validator-03"
+    - "validator-04"
+  
+  # Resource limits
+  resources:
+    limits:
+      cpu: "2000m"
+      memory: "4Gi"
+    requests:
+      cpu: "1000m"
+      memory: "2Gi"
+  
+  # Storage
+  storage:
+    size: "10Gi"
+    storageClass: "gp2"
+  
+  # Network ports
+  ports:
+    rpc: [26657, 26667, 26677, 26687]
+    api: [1317, 1318, 1319, 1320]
+    grpc: [9090, 9091, 9092, 9093]
+    p2p: [26656, 26666, 26676, 26686]
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+  hosts:
+    - host: rpc.persona-testnet.dev
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: persona-rpc
+              port:
+                number: 26657
+    - host: api.persona-testnet.dev
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: persona-api
+              port:
+                number: 1317
+  tls:
+    - secretName: persona-testnet-tls
+      hosts:
+        - rpc.persona-testnet.dev
+        - api.persona-testnet.dev
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+    port: 26660
+  grafana:
+    enabled: true
+
+# Faucet configuration
+faucet:
+  enabled: true
+  image:
+    repository: "persona-chain/faucet"
+    tag: "latest"
+  port: 8080
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+
+# Block explorer configuration
+explorer:
+  enabled: true
+  image:
+    repository: "ping-pub/explorer"
+    tag: "latest"
+  port: 3000
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+
+# Security configuration
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+
+# Node selector and tolerations
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Auto-scaling configuration
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80

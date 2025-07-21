@@ -1,0 +1,231 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: connectors
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: connector-config
+  namespace: connectors
+data:
+  NODE_ENV: "production"
+  LOG_LEVEL: "info"
+  REDIS_HOST: "redis-service.connectors.svc.cluster.local"
+  REDIS_PORT: "6379"
+  FRONTEND_URL: "https://app.personapass.io"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: connector-secrets
+  namespace: connectors
+type: Opaque
+stringData:
+  JWT_SECRET: "change-me-in-production"
+  ISSUER_DID: "did:web:personapass.io"
+  ISSUER_PRIVATE_KEY: |
+    {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "...",
+      "d": "..."
+    }
+  ISSUER_PUBLIC_KEY: |
+    {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "..."
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: connector-github
+  namespace: connectors
+  labels:
+    app: connector-github
+    connector: github
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: connector-github
+  template:
+    metadata:
+      labels:
+        app: connector-github
+        connector: github
+    spec:
+      serviceAccountName: connector-service-account
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: connector
+        image: ghcr.io/personapass/connector-github:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3001
+          protocol: TCP
+        env:
+        - name: PORT
+          value: "3001"
+        - name: CONNECTOR_TYPE
+          value: "github"
+        envFrom:
+        - configMapRef:
+            name: connector-config
+        - secretRef:
+            name: connector-secrets
+        - secretRef:
+            name: github-oauth-secrets
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: connector-github
+  namespace: connectors
+  labels:
+    app: connector-github
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 3001
+    protocol: TCP
+  selector:
+    app: connector-github
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: connector-github-hpa
+  namespace: connectors
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: connector-github
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: connector-github-pdb
+  namespace: connectors
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: connector-github
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: connector-network-policy
+  namespace: connectors
+spec:
+  podSelector:
+    matchLabels:
+      connector: github
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+    - podSelector:
+        matchLabels:
+          app: envoy
+    ports:
+    - protocol: TCP
+      port: 3001
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: connectors
+    ports:
+    - protocol: TCP
+      port: 6379
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: connector-service-account
+  namespace: connectors
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: connector-role
+  namespace: connectors
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  resourceNames: ["connector-secrets", "github-oauth-secrets"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: connector-rolebinding
+  namespace: connectors
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: connector-role
+subjects:
+- kind: ServiceAccount
+  name: connector-service-account
+  namespace: connectors

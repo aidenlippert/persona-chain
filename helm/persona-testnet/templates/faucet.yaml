@@ -1,0 +1,69 @@
+{{- if .Values.faucet.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "persona-testnet.fullname" . }}-faucet
+  labels:
+    {{- include "persona-testnet.labels" . | nindent 4 }}
+    component: faucet
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "persona-testnet.selectorLabels" . | nindent 6 }}
+      component: faucet
+  template:
+    metadata:
+      labels:
+        {{- include "persona-testnet.selectorLabels" . | nindent 8 }}
+        component: faucet
+    spec:
+      containers:
+      - name: faucet
+        image: "{{ .Values.faucet.image.repository }}:{{ .Values.faucet.image.tag }}"
+        ports:
+        - name: http
+          containerPort: {{ .Values.faucet.port }}
+          protocol: TCP
+        env:
+        - name: RPC_ENDPOINT
+          value: "http://{{ include "persona-testnet.fullname" . }}-rpc:26657"
+        - name: CHAIN_ID
+          value: {{ .Values.global.chainId }}
+        - name: DENOM
+          value: "uprsn"
+        - name: FAUCET_ADDRESS
+          value: "persona1testnetfaucet1234567890abcdefghijklmn"
+        resources:
+          {{- toYaml .Values.faucet.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "persona-testnet.fullname" . }}-faucet
+  labels:
+    {{- include "persona-testnet.labels" . | nindent 4 }}
+    component: faucet
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+  - port: {{ .Values.faucet.port }}
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    {{- include "persona-testnet.selectorLabels" . | nindent 4 }}
+    component: faucet
+{{- end }}

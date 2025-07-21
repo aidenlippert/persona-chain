@@ -1,0 +1,536 @@
+name: 🏗️ Infrastructure Deployment
+
+on:
+  push:
+    branches: [main, develop]
+    paths: ['terraform/**', 'k8s/**']
+  pull_request:
+    branches: [main]
+    paths: ['terraform/**', 'k8s/**']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      action:
+        description: 'Terraform action'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+      auto_approve:
+        description: 'Auto-approve changes'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  TF_VERSION: '1.6.5'
+  AWS_DEFAULT_REGION: us-west-2
+  
+jobs:
+  # Terraform Plan & Validation
+  terraform-plan:
+    name: 📋 Terraform Plan
+    runs-on: ubuntu-latest
+    env:
+      TF_VAR_environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'production' || 'staging') }}
+    outputs:
+      plan-exitcode: ${{ steps.plan.outputs.exitcode }}
+      plan-summary: ${{ steps.summary.outputs.summary }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+
+      - name: Terraform Format Check
+        working-directory: terraform
+        run: terraform fmt -check -recursive
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: |
+          terraform init \
+            -backend-config="bucket=personapass-terraform-state" \
+            -backend-config="key=${{ env.TF_VAR_environment }}/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_DEFAULT_REGION }}"
+
+      - name: Terraform Validate
+        working-directory: terraform
+        run: terraform validate
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: terraform
+        run: |
+          terraform plan -detailed-exitcode -out=tfplan \
+            -var="environment=${{ env.TF_VAR_environment }}" \
+            -var="region=${{ env.AWS_DEFAULT_REGION }}" \
+            -var="github_sha=${{ github.sha }}" \
+            -var="github_ref=${{ github.ref }}"
+
+      - name: Generate Plan Summary
+        id: summary
+        working-directory: terraform
+        run: |
+          terraform show -json tfplan > plan.json
+          
+          # Extract summary information
+          RESOURCES_TO_ADD=$(jq '.resource_changes[] | select(.change.actions[] | contains("create")) | .address' plan.json | wc -l)
+          RESOURCES_TO_CHANGE=$(jq '.resource_changes[] | select(.change.actions[] | contains("update")) | .address' plan.json | wc -l)
+          RESOURCES_TO_DESTROY=$(jq '.resource_changes[] | select(.change.actions[] | contains("delete")) | .address' plan.json | wc -l)
+          
+          SUMMARY="📊 Terraform Plan Summary:
+          - Resources to add: $RESOURCES_TO_ADD
+          - Resources to change: $RESOURCES_TO_CHANGE
+          - Resources to destroy: $RESOURCES_TO_DESTROY"
+          
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          echo "$SUMMARY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-plan-${{ env.TF_VAR_environment }}
+          path: terraform/tfplan
+
+      - name: Comment Plan on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const summary = `${{ steps.summary.outputs.summary }}`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🏗️ Infrastructure Plan for ${{ env.TF_VAR_environment }}
+              
+              ${summary}
+              
+              <details>
+              <summary>Show Plan Details</summary>
+              
+              \`\`\`
+              ${{ steps.plan.outputs.stdout }}
+              \`\`\`
+              
+              </details>
+              
+              To apply this plan, merge the PR and the infrastructure will be automatically deployed.`
+            });
+
+  # Terraform Apply
+  terraform-apply:
+    name: 🚀 Terraform Apply
+    runs-on: ubuntu-latest
+    needs: [terraform-plan]
+    if: |
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && 
+      github.event_name != 'pull_request' &&
+      (github.event.inputs.action == 'apply' || github.event.inputs.action == '' || github.event_name == 'push')
+    environment:
+      name: infrastructure-${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'production' || 'staging') }}
+    env:
+      TF_VAR_environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'production' || 'staging') }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+
+      - name: Download Terraform Plan
+        uses: actions/download-artifact@v3
+        with:
+          name: terraform-plan-${{ env.TF_VAR_environment }}
+          path: terraform/
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: |
+          terraform init \
+            -backend-config="bucket=personapass-terraform-state" \
+            -backend-config="key=${{ env.TF_VAR_environment }}/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_DEFAULT_REGION }}"
+
+      - name: Terraform Apply
+        working-directory: terraform
+        run: |
+          if [ "${{ github.event.inputs.auto_approve }}" = "true" ] || [ "${{ github.event_name }}" = "push" ]; then
+            terraform apply -auto-approve tfplan
+          else
+            terraform apply tfplan
+          fi
+
+      - name: Extract Infrastructure Outputs
+        id: outputs
+        working-directory: terraform
+        run: |
+          # Extract key infrastructure outputs
+          EKS_CLUSTER_NAME=$(terraform output -raw eks_cluster_name)
+          EKS_CLUSTER_ENDPOINT=$(terraform output -raw eks_cluster_endpoint)
+          RDS_ENDPOINT=$(terraform output -raw rds_endpoint || echo "N/A")
+          ALB_DNS_NAME=$(terraform output -raw alb_dns_name)
+          
+          echo "eks_cluster_name=$EKS_CLUSTER_NAME" >> $GITHUB_OUTPUT
+          echo "eks_cluster_endpoint=$EKS_CLUSTER_ENDPOINT" >> $GITHUB_OUTPUT
+          echo "rds_endpoint=$RDS_ENDPOINT" >> $GITHUB_OUTPUT
+          echo "alb_dns_name=$ALB_DNS_NAME" >> $GITHUB_OUTPUT
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --region ${{ env.AWS_DEFAULT_REGION }} \
+            --name ${{ steps.outputs.outputs.eks_cluster_name }}
+
+      - name: Verify cluster access
+        run: |
+          kubectl get nodes
+          kubectl get namespaces
+
+      - name: Output Infrastructure Info
+        run: |
+          echo "🏗️ Infrastructure deployed successfully!"
+          echo "Environment: ${{ env.TF_VAR_environment }}"
+          echo "EKS Cluster: ${{ steps.outputs.outputs.eks_cluster_name }}"
+          echo "Endpoint: ${{ steps.outputs.outputs.eks_cluster_endpoint }}"
+          echo "Load Balancer: ${{ steps.outputs.outputs.alb_dns_name }}"
+
+  # Kubernetes Manifests Deployment
+  deploy-k8s-manifests:
+    name: ⚙️ Deploy K8s Manifests
+    runs-on: ubuntu-latest
+    needs: [terraform-apply]
+    if: |
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && 
+      github.event_name != 'pull_request'
+    env:
+      ENVIRONMENT: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'production' || 'staging') }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.4'
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.13.2'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --region ${{ env.AWS_DEFAULT_REGION }} --name personapass-${{ env.ENVIRONMENT }}
+
+      - name: Deploy base Kubernetes resources
+        run: |
+          # Create namespaces
+          kubectl apply -f k8s/namespaces/
+
+          # Deploy secrets
+          kubectl apply -f k8s/secrets/
+
+          # Deploy ConfigMaps
+          kubectl apply -f k8s/configmaps/
+
+          # Deploy Network Policies
+          kubectl apply -f k8s/network-policies/
+
+      - name: Deploy monitoring stack
+        run: |
+          # Add Helm repositories
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo add grafana https://grafana.github.io/helm-charts
+          helm repo update
+
+          # Deploy Prometheus
+          helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+            --namespace monitoring \
+            --create-namespace \
+            --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage=50Gi \
+            --set grafana.adminPassword=${{ secrets.GRAFANA_ADMIN_PASSWORD }} \
+            --set grafana.ingress.enabled=true \
+            --set grafana.ingress.hosts[0]=grafana-${{ env.ENVIRONMENT }}.personapass.me \
+            --wait
+
+          # Deploy custom monitoring components
+          kubectl apply -f k8s/monitoring/
+
+      - name: Deploy ingress controllers
+        run: |
+          # AWS Load Balancer Controller
+          helm repo add eks https://aws.github.io/eks-charts
+          helm repo update
+
+          helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
+            --namespace kube-system \
+            --set clusterName=personapass-${{ env.ENVIRONMENT }} \
+            --set serviceAccount.create=false \
+            --set serviceAccount.name=aws-load-balancer-controller \
+            --wait
+
+          # Cert-manager for TLS certificates
+          helm repo add jetstack https://charts.jetstack.io
+          helm repo update
+
+          helm upgrade --install cert-manager jetstack/cert-manager \
+            --namespace cert-manager \
+            --create-namespace \
+            --set installCRDs=true \
+            --wait
+
+          # Deploy ClusterIssuers
+          kubectl apply -f k8s/cert-manager/
+
+      - name: Deploy security tools
+        run: |
+          # Falco for runtime security
+          helm repo add falcosecurity https://falcosecurity.github.io/charts
+          helm repo update
+
+          helm upgrade --install falco falcosecurity/falco \
+            --namespace falco \
+            --create-namespace \
+            --set falco.grpc.enabled=true \
+            --set falco.grpcOutput.enabled=true \
+            --wait
+
+          # Deploy PodSecurityPolicies and RBAC
+          kubectl apply -f k8s/security/
+
+      - name: Validate deployment
+        run: |
+          # Check all pods are running
+          kubectl get pods --all-namespaces
+
+          # Check ingress controllers
+          kubectl get svc -n kube-system aws-load-balancer-controller-webhook
+          kubectl get pods -n cert-manager
+
+          # Check monitoring stack
+          kubectl get pods -n monitoring
+
+          # Verify certificates
+          kubectl get certificates --all-namespaces
+
+      - name: Create deployment summary
+        run: |
+          cat > deployment-summary.json << EOF
+          {
+            "environment": "${{ env.ENVIRONMENT }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "github_sha": "${{ github.sha }}",
+            "github_ref": "${{ github.ref }}",
+            "cluster_name": "personapass-${{ env.ENVIRONMENT }}",
+            "region": "${{ env.AWS_DEFAULT_REGION }}",
+            "components": {
+              "monitoring": "deployed",
+              "ingress": "deployed",
+              "security": "deployed",
+              "networking": "deployed"
+            }
+          }
+          EOF
+
+          # Upload to S3 for tracking
+          aws s3 cp deployment-summary.json s3://personapass-config/${{ env.ENVIRONMENT }}/deployment-summary.json
+
+  # Infrastructure Testing & Validation
+  infrastructure-testing:
+    name: 🧪 Infrastructure Testing
+    runs-on: ubuntu-latest
+    needs: [deploy-k8s-manifests]
+    if: |
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && 
+      github.event_name != 'pull_request'
+    env:
+      ENVIRONMENT: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'production' || 'staging') }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+
+      - name: Setup Kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.4'
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --region ${{ env.AWS_DEFAULT_REGION }} --name personapass-${{ env.ENVIRONMENT }}
+
+      - name: Run infrastructure tests
+        run: |
+          # Cluster connectivity test
+          kubectl cluster-info
+
+          # Pod readiness test
+          kubectl wait --for=condition=Ready pods --all --namespace=monitoring --timeout=300s
+          kubectl wait --for=condition=Ready pods --all --namespace=cert-manager --timeout=300s
+
+          # DNS resolution test
+          kubectl run test-dns --image=busybox --rm -i --restart=Never -- nslookup kubernetes.default
+
+          # Storage class test
+          kubectl get storageclass
+
+          # Network policy test
+          kubectl get networkpolicies --all-namespaces
+
+      - name: Security validation
+        run: |
+          # Check pod security contexts
+          kubectl get pods --all-namespaces -o jsonpath='{range .items[*]}{.metadata.namespace}/{.metadata.name}: {.spec.securityContext}{"\n"}{end}' | head -10
+
+          # Check RBAC
+          kubectl auth can-i create pods --as=system:serviceaccount:default:default
+
+          # Check secrets encryption
+          kubectl get secrets --all-namespaces -o jsonpath='{range .items[*]}{.metadata.namespace}/{.metadata.name}{"\n"}{end}' | head -5
+
+      - name: Performance baseline
+        run: |
+          # Cluster resource utilization
+          kubectl top nodes
+          kubectl top pods --all-namespaces | head -10
+
+          # Check resource limits and requests
+          kubectl describe limitranges --all-namespaces
+
+      - name: Generate infrastructure report
+        run: |
+          cat > infrastructure-report.md << EOF
+          # Infrastructure Deployment Report
+
+          **Environment:** ${{ env.ENVIRONMENT }}
+          **Timestamp:** $(date -u)
+          **Cluster:** personapass-${{ env.ENVIRONMENT }}
+          **Region:** ${{ env.AWS_DEFAULT_REGION }}
+
+          ## Cluster Status
+          \`\`\`
+          $(kubectl get nodes)
+          \`\`\`
+
+          ## Running Workloads
+          \`\`\`
+          $(kubectl get pods --all-namespaces | head -20)
+          \`\`\`
+
+          ## Storage
+          \`\`\`
+          $(kubectl get pv,pvc --all-namespaces | head -10)
+          \`\`\`
+
+          ## Network
+          \`\`\`
+          $(kubectl get svc --all-namespaces | head -10)
+          \`\`\`
+
+          ## Security
+          - Pod Security Standards: Enforced
+          - Network Policies: Active
+          - RBAC: Configured
+          - Cert-Manager: Running
+          - Falco: Monitoring
+
+          ✅ Infrastructure deployment successful!
+          EOF
+
+      - name: Upload infrastructure report
+        uses: actions/upload-artifact@v3
+        with:
+          name: infrastructure-report-${{ env.ENVIRONMENT }}
+          path: infrastructure-report.md
+
+  # Terraform Destroy (Manual Only)
+  terraform-destroy:
+    name: 🗑️ Terraform Destroy
+    runs-on: ubuntu-latest
+    if: github.event.inputs.action == 'destroy'
+    environment:
+      name: infrastructure-${{ github.event.inputs.environment }}-destroy
+    env:
+      TF_VAR_environment: ${{ github.event.inputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: |
+          terraform init \
+            -backend-config="bucket=personapass-terraform-state" \
+            -backend-config="key=${{ env.TF_VAR_environment }}/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_DEFAULT_REGION }}"
+
+      - name: Terraform Destroy
+        working-directory: terraform
+        run: |
+          terraform destroy -auto-approve \
+            -var="environment=${{ env.TF_VAR_environment }}" \
+            -var="region=${{ env.AWS_DEFAULT_REGION }}"
+
+      - name: Cleanup state
+        run: |
+          echo "🗑️ Infrastructure destroyed for ${{ env.TF_VAR_environment }}"

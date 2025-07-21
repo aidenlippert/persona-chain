@@ -1,0 +1,47 @@
+# Multi-stage Docker build for Persona Chain testnet
+FROM golang:1.21-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache git make build-base
+
+# Set working directory
+WORKDIR /app
+
+# Copy go mod files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build a minimal testnet binary (skip complex dependencies)
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags '-w -s' -o testnet-daemon ./cmd/testnet-daemon
+
+# Final stage - minimal runtime image
+FROM alpine:latest
+
+# Install runtime dependencies
+RUN apk add --no-cache bash curl jq
+
+# Create app user
+RUN addgroup -g 1000 cosmos && \
+    adduser -u 1000 -G cosmos -s /bin/bash -D cosmos
+
+# Copy binary from builder
+COPY --from=builder /app/testnet-daemon /usr/local/bin/
+
+# Create directories
+RUN mkdir -p /home/cosmos/.persona && \
+    chown -R cosmos:cosmos /home/cosmos
+
+# Switch to cosmos user
+USER cosmos
+WORKDIR /home/cosmos
+
+# Expose ports
+EXPOSE 26656 26657 1317 9090
+
+# Default command
+CMD ["testnet-daemon"]

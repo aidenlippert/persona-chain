@@ -1,0 +1,73 @@
+# PersonaChain HTTPS Ingress
+# Provides SSL termination for blockchain RPC and REST APIs
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: personachain-ingress
+  namespace: personachain
+  annotations:
+    kubernetes.io/ingress.class: gce
+    kubernetes.io/ingress.global-static-ip-name: personachain-ip
+    networking.gke.io/managed-certificates: personachain-ssl-cert
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+spec:
+  rules:
+  - host: rpc.personachain.xyz
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: personachain-service
+            port:
+              number: 26657
+  - host: api.personachain.xyz
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: personachain-service
+            port:
+              number: 1317
+
+---
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: personachain-ssl-cert
+  namespace: personachain
+spec:
+  domains:
+    - rpc.personachain.xyz
+    - api.personachain.xyz
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: personachain-service-nodeport
+  namespace: personachain
+  labels:
+    app: personachain
+spec:
+  type: NodePort
+  ports:
+  - port: 26657
+    targetPort: 26657
+    name: rpc
+    protocol: TCP
+  - port: 1317
+    targetPort: 1317
+    name: rest-api
+    protocol: TCP
+  selector:
+    app: personachain
+    component: validator

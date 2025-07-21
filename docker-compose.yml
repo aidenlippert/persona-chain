@@ -1,0 +1,208 @@
+
+services:
+  persona-testnet:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: persona-testnet
+    ports:
+      # RPC ports
+      - "26657:26657"
+      - "26667:26667" 
+      - "26677:26677"
+      - "26687:26687"
+      # API ports
+      - "1317:1317"
+      - "1318:1318"
+      - "1319:1319"
+      - "1320:1320"
+      # gRPC ports
+      - "9090:9090"
+      - "9091:9091"
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      - CHAIN_ID=persona-testnet-1
+      - VALIDATORS_COUNT=4
+    volumes:
+      - testnet_data:/home/persona/testnet/testnet-data
+      - testnet_logs:/home/persona/testnet/testnet-data/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:1317/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - persona-network
+
+  faucet:
+    image: persona-chain/faucet:latest
+    container_name: persona-faucet
+    ports:
+      - "8080:8080"
+    environment:
+      - RPC_ENDPOINT=http://persona-testnet:26657
+      - CHAIN_ID=persona-testnet-1
+      - DENOM=uprsn
+      - FAUCET_ADDRESS=persona1testnetfaucet1234567890abcdefghijklmn
+    depends_on:
+      persona-testnet:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - persona-network
+
+  explorer:
+    image: ping-pub/explorer:latest
+    container_name: persona-explorer
+    ports:
+      - "3000:3000"
+    environment:
+      - CHAIN_ID=persona-testnet-1
+      - API_ENDPOINT=http://persona-testnet:1317
+      - RPC_ENDPOINT=http://persona-testnet:26657
+    depends_on:
+      persona-testnet:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - persona-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: persona-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    depends_on:
+      - persona-testnet
+    restart: unless-stopped
+    networks:
+      - persona-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: persona-grafana
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana-dashboard-personapass-overview.json:/etc/grafana/provisioning/dashboards/personapass-overview.json
+      - ./monitoring/grafana-dashboard-zk-performance.json:/etc/grafana/provisioning/dashboards/zk-performance.json
+      - ./monitoring/grafana-provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=personapass-admin-2025
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/provisioning/dashboards/personapass-overview.json
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - persona-network
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: persona-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - persona-network
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: persona-node-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    restart: unless-stopped
+    networks:
+      - persona-network
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:latest
+    container_name: persona-blackbox-exporter
+    ports:
+      - "9115:9115"
+    volumes:
+      - ./monitoring/blackbox.yml:/etc/blackbox_exporter/config.yml
+    restart: unless-stopped
+    networks:
+      - persona-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: persona-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    networks:
+      - persona-network
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: persona-redis-exporter
+    ports:
+      - "9121:9121"
+    environment:
+      - REDIS_ADDR=redis://persona-redis:6379
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - persona-network
+
+volumes:
+  testnet_data:
+    driver: local
+  testnet_logs:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  alertmanager_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  persona-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/24

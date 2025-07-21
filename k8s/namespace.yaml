@@ -1,0 +1,134 @@
+# PersonaPass Production Namespace with Security Policies
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: personapass-prod
+  labels:
+    name: personapass-prod
+    environment: production
+    security.level: high
+    compliance.required: "true"
+  annotations:
+    description: "PersonaPass production environment with enhanced security"
+    contact: "devops@personapass.io"
+---
+# Network Policy - Deny all traffic by default
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: personapass-prod
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+# Network Policy - Allow wallet to blockchain communication
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-wallet-blockchain
+  namespace: personapass-prod
+spec:
+  podSelector:
+    matchLabels:
+      app: personapass-wallet
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: personapass-blockchain
+    ports:
+    - protocol: TCP
+      port: 26657
+    - protocol: TCP
+      port: 1317
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 443
+---
+# Network Policy - Allow blockchain internal communication
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-blockchain-internal
+  namespace: personapass-prod
+spec:
+  podSelector:
+    matchLabels:
+      app: personapass-blockchain
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: personapass-wallet
+    ports:
+    - protocol: TCP
+      port: 26657
+    - protocol: TCP
+      port: 1317
+  - from:
+    - podSelector:
+        matchLabels:
+          app: personapass-blockchain
+    ports:
+    - protocol: TCP
+      port: 26656
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: personapass-blockchain
+    ports:
+    - protocol: TCP
+      port: 26656
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+---
+# Resource Quota
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: personapass-quota
+  namespace: personapass-prod
+spec:
+  hard:
+    requests.cpu: "10"
+    requests.memory: 20Gi
+    limits.cpu: "20"
+    limits.memory: 40Gi
+    persistentvolumeclaims: "10"
+    services: "20"
+    secrets: "50"
+    configmaps: "50"
+---
+# Limit Range
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: personapass-limits
+  namespace: personapass-prod
+spec:
+  limits:
+  - default:
+      cpu: "1"
+      memory: "2Gi"
+    defaultRequest:
+      cpu: "100m"
+      memory: "256Mi"
+    type: Container

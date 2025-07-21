@@ -1,0 +1,123 @@
+{
+  "mcpServers": {
+    "persona-chain-api": {
+      "command": "node",
+      "args": ["mcp-server.js"],
+      "cwd": "/home/rocz/persona-chain",
+      "env": {
+        "API_BASE_URL": "http://localhost:8080"
+      }
+    }
+  },
+  "endpoints": {
+    "getRequirements": {
+      "method": "POST",
+      "path": "/api/getRequirements",
+      "description": "Get required credential templates for a specific use case and DID",
+      "parameters": {
+        "did": {
+          "type": "string",
+          "required": true,
+          "description": "The DID to check requirements for"
+        },
+        "useCase": {
+          "type": "string",
+          "required": true,
+          "description": "The use case identifier (e.g., 'store', 'bank', 'doctor')"
+        }
+      },
+      "response": {
+        "requirements": {
+          "type": "array",
+          "items": "string",
+          "description": "Array of required template IDs"
+        },
+        "did": "string",
+        "useCase": "string",
+        "timestamp": "number"
+      }
+    },
+    "getVc": {
+      "method": "GET",
+      "path": "/api/getVc",
+      "description": "Retrieve a verifiable credential for a specific DID and template",
+      "parameters": {
+        "did": {
+          "type": "string",
+          "required": true,
+          "description": "The DID that owns the credential"
+        },
+        "templateId": {
+          "type": "string", 
+          "required": true,
+          "description": "The template ID of the credential to retrieve"
+        }
+      },
+      "response": {
+        "proof": {
+          "type": "object",
+          "description": "Zero-knowledge proof data"
+        },
+        "publicInputs": {
+          "type": "object",
+          "description": "Public inputs for proof verification"
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Credential metadata"
+        },
+        "credential": {
+          "type": "object",
+          "description": "The full credential object"
+        }
+      }
+    },
+    "createCredentialFromTemplate": {
+      "method": "POST",
+      "path": "/api/issueCredential",
+      "description": "Create a new verifiable credential from a template",
+      "parameters": {
+        "templateId": {
+          "type": "string",
+          "required": true,
+          "description": "The template ID to use"
+        },
+        "formData": {
+          "type": "object",
+          "required": true,
+          "description": "Form data matching the template's field requirements"
+        },
+        "creator": {
+          "type": "string",
+          "required": true,
+          "description": "The wallet address of the credential creator"
+        },
+        "subjectDid": {
+          "type": "string",
+          "required": true,
+          "description": "The DID of the credential subject"
+        }
+      }
+    }
+  },
+  "useCases": {
+    "store": ["proof-of-age"],
+    "bar": ["proof-of-age"],
+    "hotel": ["proof-of-age", "location-proof"],
+    "doctor": ["proof-of-age", "health-credential"],
+    "bank": ["proof-of-age", "employment-verification", "financial-status"],
+    "rental": ["employment-verification", "financial-status", "location-proof"],
+    "employer": ["education-credential", "employment-verification"],
+    "travel": ["health-credential", "financial-status", "location-proof"],
+    "graduate_school": ["education-credential"],
+    "investment": ["financial-status", "employment-verification"]
+  },
+  "templateCategories": [
+    "identity",
+    "professional", 
+    "academic",
+    "financial",
+    "health",
+    "location"
+  ]
+}

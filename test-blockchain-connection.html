@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PersonaChain Connection Test</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .status {
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+        }
+        .success { border-color: #4ade80; color: #4ade80; }
+        .error { border-color: #f87171; color: #f87171; }
+        .pending { border-color: #fbbf24; color: #fbbf24; }
+        pre {
+            background: #000;
+            padding: 10px;
+            border-radius: 4px;
+            overflow: auto;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 PersonaChain Connection Test</h1>
+    
+    <div class="status pending" id="config-status">
+        <h3>Configuration Check</h3>
+        <pre id="config-details">Checking configuration...</pre>
+    </div>
+
+    <div class="status pending" id="rpc-status">
+        <h3>RPC Connection</h3>
+        <pre id="rpc-details">Testing RPC connection...</pre>
+    </div>
+
+    <div class="status pending" id="rest-status">
+        <h3>REST API Connection</h3>
+        <pre id="rest-details">Testing REST API connection...</pre>
+    </div>
+
+    <div class="status pending" id="keplr-status">
+        <h3>Keplr Integration</h3>
+        <pre id="keplr-details">Checking Keplr configuration...</pre>
+    </div>
+
+    <div style="margin-top: 30px;">
+        <button onclick="testAll()">Run All Tests</button>
+        <button onclick="testKeplr()">Test Keplr Connection</button>
+    </div>
+
+    <script>
+        // Configuration that should match your build
+        const CONFIG = {
+            network: 'persona-chain',
+            chainId: 'persona-chain-1',
+            rpc: 'https://person.aidenlippert.workers.dev/rpc',
+            rest: 'https://person.aidenlippert.workers.dev/api'
+        };
+
+        async function updateStatus(elementId, success, message) {
+            const element = document.getElementById(elementId);
+            element.className = `status ${success ? 'success' : 'error'}`;
+            document.getElementById(elementId.replace('-status', '-details')).textContent = message;
+        }
+
+        async function checkConfiguration() {
+            try {
+                updateStatus('config-status', true, JSON.stringify(CONFIG, null, 2));
+                return true;
+            } catch (error) {
+                updateStatus('config-status', false, `Error: ${error.message}`);
+                return false;
+            }
+        }
+
+        async function testRPC() {
+            try {
+                const response = await fetch(`${CONFIG.rpc}/status`);
+                const data = await response.json();
+                updateStatus('rpc-status', true, `Connected! Chain ID: ${data.result.node_info.network}`);
+                return true;
+            } catch (error) {
+                updateStatus('rpc-status', false, `Error: ${error.message}`);
+                return false;
+            }
+        }
+
+        async function testREST() {
+            try {
+                const response = await fetch(`${CONFIG.rest}/cosmos/base/tendermint/v1beta1/node_info`);
+                const data = await response.json();
+                updateStatus('rest-status', true, `Connected! Network: ${data.node_info.network}`);
+                return true;
+            } catch (error) {
+                updateStatus('rest-status', false, `Error: ${error.message}`);
+                return false;
+            }
+        }
+
+        async function testKeplr() {
+            try {
+                if (!window.keplr) {
+                    updateStatus('keplr-status', false, 'Keplr not installed');
+                    return false;
+                }
+
+                const chainConfig = {
+                    chainId: CONFIG.chainId,
+                    chainName: "PersonaChain",
+                    rpc: CONFIG.rpc,
+                    rest: CONFIG.rest,
+                    bip44: { coinType: 118 },
+                    bech32Config: {
+                        bech32PrefixAccAddr: "persona",
+                        bech32PrefixAccPub: "personapub",
+                        bech32PrefixValAddr: "personavaloper",
+                        bech32PrefixValPub: "personavaloperpub",
+                        bech32PrefixConsAddr: "personavalcons",
+                        bech32PrefixConsPub: "personavalconspub"
+                    },
+                    currencies: [{
+                        coinDenom: "PRSN",
+                        coinMinimalDenom: "uprsn",
+                        coinDecimals: 6
+                    }],
+                    feeCurrencies: [{
+                        coinDenom: "PRSN",
+                        coinMinimalDenom: "uprsn",
+                        coinDecimals: 6,
+                        gasPriceStep: {
+                            low: 0.01,
+                            average: 0.025,
+                            high: 0.04
+                        }
+                    }],
+                    stakeCurrency: {
+                        coinDenom: "PRSN",
+                        coinMinimalDenom: "uprsn",
+                        coinDecimals: 6
+                    }
+                };
+
+                await window.keplr.experimentalSuggestChain(chainConfig);
+                updateStatus('keplr-status', true, 'Keplr configuration loaded successfully!');
+                return true;
+            } catch (error) {
+                updateStatus('keplr-status', false, `Error: ${error.message}`);
+                return false;
+            }
+        }
+
+        async function testAll() {
+            await checkConfiguration();
+            await testRPC();
+            await testREST();
+            await testKeplr();
+        }
+
+        // Run tests on load
+        window.addEventListener('load', testAll);
+    </script>
+</body>
+</html>

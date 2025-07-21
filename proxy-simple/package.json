@@ -1,0 +1,8 @@
+{
+  "name": "personachain-https-proxy",
+  "version": "1.0.0",
+  "description": "HTTPS proxy for PersonaChain blockchain endpoints",
+  "scripts": {
+    "deploy": "vercel --prod"
+  }
+}

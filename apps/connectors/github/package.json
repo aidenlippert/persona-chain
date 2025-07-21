@@ -1,0 +1,14 @@
+{
+  "name": "github-connector",
+  "version": "1.0.0",
+  "description": "GitHub OAuth connector for PersonaPass",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "nodemon --watch src --exec tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

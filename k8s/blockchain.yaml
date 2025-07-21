@@ -1,0 +1,126 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: blockchain-config
+  namespace: persona-chain
+data:
+  CHAIN_ID: "persona-chain"
+  MINIMUM_GAS_PRICES: "0stake"
+  RPC_LADDR: "tcp://0.0.0.0:26657"
+  P2P_LADDR: "tcp://0.0.0.0:26656"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: blockchain-pvc
+  namespace: persona-chain
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: persona-chain-node
+  namespace: persona-chain
+spec:
+  serviceName: persona-chain-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: persona-chain-node
+  template:
+    metadata:
+      labels:
+        app: persona-chain-node
+    spec:
+      containers:
+      - name: persona-chain
+        image: ghcr.io/persona-chain/persona-chain:latest
+        ports:
+        - containerPort: 26657
+          name: rpc
+        - containerPort: 26656
+          name: p2p
+        - containerPort: 9090
+          name: grpc
+        - containerPort: 1317
+          name: api
+        envFrom:
+        - configMapRef:
+            name: blockchain-config
+        volumeMounts:
+        - name: blockchain-data
+          mountPath: /root/.persona-chain
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        command:
+        - persona-chaind
+        - start
+        - --minimum-gas-prices=$(MINIMUM_GAS_PRICES)
+        - --rpc.laddr=$(RPC_LADDR)
+        - --p2p.laddr=$(P2P_LADDR)
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 26657
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 26657
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: blockchain-data
+        persistentVolumeClaim:
+          claimName: blockchain-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: persona-chain-service
+  namespace: persona-chain
+spec:
+  selector:
+    app: persona-chain-node
+  ports:
+  - name: rpc
+    port: 26657
+    targetPort: 26657
+  - name: p2p
+    port: 26656
+    targetPort: 26656
+  - name: grpc
+    port: 9090
+    targetPort: 9090
+  - name: api
+    port: 1317
+    targetPort: 1317
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: persona-chain-loadbalancer
+  namespace: persona-chain
+spec:
+  selector:
+    app: persona-chain-node
+  ports:
+  - name: rpc
+    port: 26657
+    targetPort: 26657
+  - name: api
+    port: 1317
+    targetPort: 1317
+  type: LoadBalancer

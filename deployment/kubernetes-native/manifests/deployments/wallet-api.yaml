@@ -1,0 +1,251 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wallet-api
+  namespace: personapass
+  labels:
+    app: wallet-api
+    component: api
+    version: v1
+    app.kubernetes.io/name: wallet-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: personapass
+    app.kubernetes.io/version: "1.0.0"
+  annotations:
+    description: "PersonaPass wallet API service"
+    deployment.kubernetes.io/revision: "1"
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 2
+  selector:
+    matchLabels:
+      app: wallet-api
+      component: api
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: wallet-api
+        component: api
+        version: v1
+        app.kubernetes.io/name: wallet-api
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: personapass
+        app.kubernetes.io/version: "1.0.0"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+        sidecar.istio.io/inject: "true"
+        sidecar.istio.io/proxyCPU: "50m"
+        sidecar.istio.io/proxyMemory: "64Mi"
+    spec:
+      serviceAccountName: wallet-api
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: wallet-api
+        image: personapass/wallet-api:1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 3000
+          protocol: TCP
+        - name: grpc
+          containerPort: 9090
+          protocol: TCP
+        - name: metrics
+          containerPort: 9091
+          protocol: TCP
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: LOG_LEVEL
+          value: "info"
+        - name: HTTP_PORT
+          value: "3000"
+        - name: GRPC_PORT
+          value: "9090"
+        - name: METRICS_PORT
+          value: "9091"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: database-credentials
+              key: url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: redis-credentials
+              key: url
+        - name: IDENTITY_SERVICE_URL
+          value: "http://identity-service.personapass:8080"
+        - name: ZK_PROOF_SERVICE_URL
+          value: "http://zk-proof-service.personapass:8080"
+        - name: BLOCKCHAIN_RPC_URL
+          valueFrom:
+            secretKeyRef:
+              name: blockchain-credentials
+              key: rpc-url
+        - name: WALLET_ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: encryption-keys
+              key: wallet-key
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://jaeger-collector.observability:14268/api/traces"
+        - name: OTEL_SERVICE_NAME
+          value: "wallet-api"
+        - name: OTEL_RESOURCE_ATTRIBUTES
+          value: "service.name=wallet-api,service.version=1.0.0"
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+        - name: tls-certs
+          mountPath: /app/certs
+          readOnly: true
+        - name: temp
+          mountPath: /tmp
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+            ephemeral-storage: 500Mi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+            ephemeral-storage: 1Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          capabilities:
+            drop:
+            - ALL
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health/startup
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 30
+      volumes:
+      - name: config
+        configMap:
+          name: wallet-api-config
+      - name: tls-certs
+        secret:
+          secretName: wallet-api-tls
+      - name: temp
+        emptyDir:
+          sizeLimit: 1Gi
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - wallet-api
+              topologyKey: kubernetes.io/hostname
+      tolerations:
+      - key: "kubernetes.io/arch"
+        operator: "Equal"
+        value: "amd64"
+        effect: "NoSchedule"
+      nodeSelector:
+        kubernetes.io/arch: amd64
+      terminationGracePeriodSeconds: 30
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: wallet-api
+  namespace: personapass
+  labels:
+    app: wallet-api
+    app.kubernetes.io/name: wallet-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: personapass
+  annotations:
+    description: "Service account for wallet API"
+automountServiceAccountToken: true
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: wallet-api
+  namespace: personapass
+  labels:
+    app: wallet-api
+    app.kubernetes.io/name: wallet-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: personapass
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: wallet-api
+  namespace: personapass
+  labels:
+    app: wallet-api
+    app.kubernetes.io/name: wallet-api
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: personapass
+subjects:
+- kind: ServiceAccount
+  name: wallet-api
+  namespace: personapass
+roleRef:
+  kind: Role
+  name: wallet-api
+  apiGroup: rbac.authorization.k8s.io

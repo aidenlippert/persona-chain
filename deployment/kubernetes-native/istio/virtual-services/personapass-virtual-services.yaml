@@ -1,0 +1,395 @@
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: identity-service-vs
+  namespace: personapass
+  labels:
+    app.kubernetes.io/name: identity-service-vs
+    app.kubernetes.io/component: virtual-service
+    app.kubernetes.io/part-of: istio
+  annotations:
+    description: "Virtual service for identity service routing"
+spec:
+  hosts:
+  - "api.personapass.com"
+  gateways:
+  - personapass-gateway
+  http:
+  - match:
+    - uri:
+        prefix: "/api/v1/identity"
+    - uri:
+        prefix: "/api/v1/auth"
+    - uri:
+        prefix: "/api/v1/did"
+    route:
+    - destination:
+        host: identity-service.personapass.svc.cluster.local
+        port:
+          number: 8080
+      weight: 100
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+      retryOn: gateway-error,connect-failure,refused-stream
+    fault:
+      delay:
+        percentage:
+          value: 0.1
+        fixedDelay: 5s
+    headers:
+      request:
+        set:
+          x-service: "identity-service"
+          x-version: "v1"
+      response:
+        add:
+          x-served-by: "identity-service"
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: wallet-api-vs
+  namespace: personapass
+  labels:
+    app.kubernetes.io/name: wallet-api-vs
+    app.kubernetes.io/component: virtual-service
+    app.kubernetes.io/part-of: istio
+  annotations:
+    description: "Virtual service for wallet API routing"
+spec:
+  hosts:
+  - "wallet.personapass.com"
+  gateways:
+  - personapass-gateway
+  http:
+  - match:
+    - uri:
+        prefix: "/api/v1/wallet"
+    - uri:
+        prefix: "/api/v1/credentials"
+    - uri:
+        prefix: "/api/v1/presentations"
+    route:
+    - destination:
+        host: wallet-api.personapass.svc.cluster.local
+        port:
+          number: 3000
+      weight: 90
+    - destination:
+        host: wallet-api.personapass.svc.cluster.local
+        port:
+          number: 3000
+        subset: canary
+      weight: 10
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+      retryOn: gateway-error,connect-failure,refused-stream
+    fault:
+      abort:
+        percentage:
+          value: 0.1
+        httpStatus: 503
+    headers:
+      request:
+        set:
+          x-service: "wallet-api"
+          x-version: "v1"
+      response:
+        add:
+          x-served-by: "wallet-api"
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: zk-proof-service-vs
+  namespace: personapass
+  labels:
+    app.kubernetes.io/name: zk-proof-service-vs
+    app.kubernetes.io/component: virtual-service
+    app.kubernetes.io/part-of: istio
+  annotations:
+    description: "Virtual service for ZK proof service routing"
+spec:
+  hosts:
+  - "api.personapass.com"
+  gateways:
+  - personapass-gateway
+  http:
+  - match:
+    - uri:
+        prefix: "/api/v1/proofs"
+    - uri:
+        prefix: "/api/v1/zkp"
+    - uri:
+        prefix: "/api/v1/circuits"
+    route:
+    - destination:
+        host: zk-proof-service.personapass.svc.cluster.local
+        port:
+          number: 8080
+      weight: 100
+    timeout: 60s
+    retries:
+      attempts: 2
+      perTryTimeout: 30s
+      retryOn: gateway-error,connect-failure,refused-stream
+    headers:
+      request:
+        set:
+          x-service: "zk-proof-service"
+          x-version: "v1"
+      response:
+        add:
+          x-served-by: "zk-proof-service"
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: document-verification-vs
+  namespace: personapass
+  labels:
+    app.kubernetes.io/name: document-verification-vs
+    app.kubernetes.io/component: virtual-service
+    app.kubernetes.io/part-of: istio
+  annotations:
+    description: "Virtual service for document verification routing"
+spec:
+  hosts:
+  - "api.personapass.com"
+  gateways:
+  - personapass-gateway
+  http:
+  - match:
+    - uri:
+        prefix: "/api/v1/documents"
+    - uri:
+        prefix: "/api/v1/verification"
+    - uri:
+        prefix: "/api/v1/ocr"
+    route:
+    - destination:
+        host: document-verification.personapass.svc.cluster.local
+        port:
+          number: 8080
+      weight: 100
+    timeout: 45s
+    retries:
+      attempts: 2
+      perTryTimeout: 20s
+      retryOn: gateway-error,connect-failure,refused-stream
+    headers:
+      request:
+        set:
+          x-service: "document-verification"
+          x-version: "v1"
+      response:
+        add:
+          x-served-by: "document-verification"
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: multi-tenant-platform-vs
+  namespace: personapass
+  labels:
+    app.kubernetes.io/name: multi-tenant-platform-vs
+    app.kubernetes.io/component: virtual-service
+    app.kubernetes.io/part-of: istio
+  annotations:
+    description: "Virtual service for multi-tenant platform routing"
+spec:
+  hosts:
+  - "admin.personapass.com"
+  gateways:
+  - personapass-gateway
+  http:
+  - match:
+    - uri:
+        prefix: "/api/v1/tenants"
+    - uri:
+        prefix: "/api/v1/billing"
+    - uri:
+        prefix: "/api/v1/analytics"
+    - uri:
+        prefix: "/api/v1/onboarding"
+    route:
+    - destination:
+        host: multi-tenant-platform.personapass.svc.cluster.local
+        port:
+          number: 8080
+      weight: 100
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+      retryOn: gateway-error,connect-failure,refused-stream
+    headers:
+      request:
+        set:
+          x-service: "multi-tenant-platform"
+          x-version: "v1"
+      response:
+        add:
+          x-served-by: "multi-tenant-platform"
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: hsm-enterprise-vs
+  namespace: personapass
+  labels:
+    app.kubernetes.io/name: hsm-enterprise-vs
+    app.kubernetes.io/component: virtual-service
+    app.kubernetes.io/part-of: istio
+  annotations:
+    description: "Virtual service for HSM enterprise routing"
+spec:
+  hosts:
+  - "api.personapass.com"
+  gateways:
+  - personapass-gateway
+  http:
+  - match:
+    - uri:
+        prefix: "/api/v1/hsm"
+    - uri:
+        prefix: "/api/v1/keys"
+    - uri:
+        prefix: "/api/v1/crypto"
+    route:
+    - destination:
+        host: hsm-enterprise.personapass.svc.cluster.local
+        port:
+          number: 8080
+      weight: 100
+    timeout: 30s
+    retries:
+      attempts: 2
+      perTryTimeout: 15s
+      retryOn: gateway-error,connect-failure,refused-stream
+    headers:
+      request:
+        set:
+          x-service: "hsm-enterprise"
+          x-version: "v1"
+      response:
+        add:
+          x-served-by: "hsm-enterprise"
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: grafana-vs
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: grafana-vs
+    app.kubernetes.io/component: virtual-service
+    app.kubernetes.io/part-of: istio
+  annotations:
+    description: "Virtual service for Grafana monitoring interface"
+spec:
+  hosts:
+  - "grafana.personapass.com"
+  gateways:
+  - monitoring-gateway
+  http:
+  - match:
+    - uri:
+        prefix: "/"
+    route:
+    - destination:
+        host: grafana.monitoring.svc.cluster.local
+        port:
+          number: 3000
+      weight: 100
+    timeout: 30s
+    headers:
+      request:
+        set:
+          x-service: "grafana"
+      response:
+        add:
+          x-served-by: "grafana"
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: prometheus-vs
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: prometheus-vs
+    app.kubernetes.io/component: virtual-service
+    app.kubernetes.io/part-of: istio
+  annotations:
+    description: "Virtual service for Prometheus monitoring interface"
+spec:
+  hosts:
+  - "prometheus.personapass.com"
+  gateways:
+  - monitoring-gateway
+  http:
+  - match:
+    - uri:
+        prefix: "/"
+    route:
+    - destination:
+        host: prometheus.monitoring.svc.cluster.local
+        port:
+          number: 9090
+      weight: 100
+    timeout: 30s
+    headers:
+      request:
+        set:
+          x-service: "prometheus"
+      response:
+        add:
+          x-served-by: "prometheus"
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: jaeger-vs
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: jaeger-vs
+    app.kubernetes.io/component: virtual-service
+    app.kubernetes.io/part-of: istio
+  annotations:
+    description: "Virtual service for Jaeger tracing interface"
+spec:
+  hosts:
+  - "jaeger.personapass.com"
+  gateways:
+  - monitoring-gateway
+  http:
+  - match:
+    - uri:
+        prefix: "/"
+    route:
+    - destination:
+        host: jaeger-query.observability.svc.cluster.local
+        port:
+          number: 16686
+      weight: 100
+    timeout: 30s
+    headers:
+      request:
+        set:
+          x-service: "jaeger"
+      response:
+        add:
+          x-served-by: "jaeger"

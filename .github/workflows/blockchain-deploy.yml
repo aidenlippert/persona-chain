@@ -1,0 +1,496 @@
+name: ⛓️ Blockchain Network Deployment
+
+on:
+  push:
+    branches: [main, develop]
+    paths: ['x/**', 'contracts/**', 'cmd/**']
+  pull_request:
+    branches: [main]
+    paths: ['x/**', 'contracts/**', 'cmd/**']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'testnet'
+        type: choice
+        options:
+          - testnet
+          - mainnet
+      validator_count:
+        description: 'Number of validators'
+        required: false
+        default: '4'
+        type: string
+      network_upgrade:
+        description: 'Network upgrade required'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  CHAIN_ID_TESTNET: personachain-testnet-1
+  CHAIN_ID_MAINNET: personachain-1
+  GO_VERSION: '1.21'
+
+jobs:
+  # Build & Test Chain
+  build-chain:
+    name: 🏗️ Build Chain
+    runs-on: ubuntu-latest
+    outputs:
+      chain-version: ${{ steps.version.outputs.version }}
+      chain-binary: ${{ steps.build.outputs.binary }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=$(git describe --tags --always --dirty)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Chain version: $VERSION"
+
+      - name: Run tests
+        run: |
+          go test -v ./x/... -timeout 10m
+          go test -v ./app/... -timeout 5m
+
+      - name: Build chain binary
+        id: build
+        run: |
+          make build
+          BINARY_PATH="./build/personachaind"
+          echo "binary=$BINARY_PATH" >> $GITHUB_OUTPUT
+          
+          # Verify binary
+          $BINARY_PATH version
+          $BINARY_PATH config
+
+      - name: Upload chain binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: personachaind-${{ steps.version.outputs.version }}
+          path: ./build/personachaind
+
+  # Build & Test Smart Contracts
+  build-contracts:
+    name: 📋 Build Contracts
+    runs-on: ubuntu-latest
+    outputs:
+      contract-hashes: ${{ steps.contracts.outputs.hashes }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: wasm32-unknown-unknown
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            contracts/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('contracts/**/Cargo.lock') }}
+
+      - name: Build contracts
+        working-directory: contracts
+        run: |
+          # Build all CosmWasm contracts
+          for contract in verifier zkproof guardian; do
+            echo "Building $contract contract..."
+            cd $contract
+            cargo wasm
+            cargo schema
+            cd ..
+          done
+
+      - name: Run contract tests
+        working-directory: contracts
+        run: |
+          cargo test --all
+
+      - name: Optimize contracts
+        working-directory: contracts
+        run: |
+          # Install optimizer
+          docker pull cosmwasm/rust-optimizer:0.12.13
+          
+          # Optimize all contracts
+          docker run --rm -v "$(pwd)":/code \
+            --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
+            --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
+            cosmwasm/rust-optimizer:0.12.13
+
+      - name: Calculate contract hashes
+        id: contracts
+        working-directory: contracts
+        run: |
+          # Calculate checksums of optimized contracts
+          HASHES=""
+          for wasm in artifacts/*.wasm; do
+            HASH=$(sha256sum $wasm | cut -d' ' -f1)
+            CONTRACT=$(basename $wasm .wasm)
+            HASHES="$HASHES$CONTRACT:$HASH,"
+          done
+          echo "hashes=${HASHES%,}" >> $GITHUB_OUTPUT
+
+      - name: Upload contract artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: cosmwasm-contracts
+          path: contracts/artifacts/
+
+  # Container Images
+  build-images:
+    name: 🐳 Build Images
+    runs-on: ubuntu-latest
+    needs: [build-chain, build-contracts]
+    strategy:
+      matrix:
+        component: [node, relayer]
+    outputs:
+      node-image: ${{ steps.node-meta.outputs.tags }}
+      relayer-image: ${{ steps.relayer-meta.outputs.tags }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download chain binary
+        uses: actions/download-artifact@v3
+        with:
+          name: personachaind-${{ needs.build-chain.outputs.chain-version }}
+          path: ./build/
+
+      - name: Make binary executable
+        run: chmod +x ./build/personachaind
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for ${{ matrix.component }}
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/personapass/${{ matrix.component }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ needs.build-chain.outputs.chain-version }}
+
+      - name: Build and push ${{ matrix.component }} image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile.${{ matrix.component }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            CHAIN_VERSION=${{ needs.build-chain.outputs.chain-version }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+
+      # Set component-specific outputs
+      - name: Set node image output
+        if: matrix.component == 'node'
+        id: node-meta
+        run: echo "tags=${{ steps.meta.outputs.tags }}" >> $GITHUB_OUTPUT
+
+      - name: Set relayer image output
+        if: matrix.component == 'relayer'
+        id: relayer-meta
+        run: echo "tags=${{ steps.meta.outputs.tags }}" >> $GITHUB_OUTPUT
+
+  # Deploy Testnet
+  deploy-testnet:
+    name: 🧪 Deploy Testnet
+    runs-on: ubuntu-latest
+    needs: [build-images, build-contracts]
+    if: github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch'
+    environment:
+      name: testnet
+      url: https://testnet-rpc.personapass.me
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.4'
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.13.2'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --region us-west-2 --name personapass-testnet
+
+      - name: Download contract artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: cosmwasm-contracts
+          path: ./contracts/artifacts/
+
+      - name: Deploy blockchain network
+        run: |
+          # Deploy with Helm
+          helm upgrade --install personachain-testnet ./k8s/helm/blockchain \
+            --namespace personachain-testnet \
+            --create-namespace \
+            --set chain.id=${{ env.CHAIN_ID_TESTNET }} \
+            --set chain.version=${{ needs.build-chain.outputs.chain-version }} \
+            --set image.node=${{ needs.build-images.outputs.node-image }} \
+            --set image.relayer=${{ needs.build-images.outputs.relayer-image }} \
+            --set validators.count=${{ github.event.inputs.validator_count || '4' }} \
+            --set network.environment=testnet \
+            --set ingress.rpc.host=testnet-rpc.personapass.me \
+            --set ingress.api.host=testnet-api.personapass.me \
+            --set monitoring.enabled=true \
+            --wait --timeout=900s
+
+      - name: Wait for network sync
+        run: |
+          echo "Waiting for blockchain network to sync..."
+          kubectl wait --for=condition=Ready pod -l app=personachain-validator -n personachain-testnet --timeout=600s
+          
+          # Check validator status
+          kubectl exec -n personachain-testnet personachain-validator-0 -- \
+            personachaind status
+
+      - name: Deploy smart contracts
+        run: |
+          # Store and instantiate contracts
+          CONTRACTS=("verifier" "zkproof" "guardian")
+          
+          for contract in "${CONTRACTS[@]}"; do
+            echo "Deploying $contract contract..."
+            
+            # Store contract
+            STORE_OUTPUT=$(kubectl exec -n personachain-testnet personachain-validator-0 -- \
+              personachaind tx wasm store /contracts/artifacts/${contract}.wasm \
+              --from validator --chain-id ${{ env.CHAIN_ID_TESTNET }} \
+              --gas auto --gas-adjustment 1.3 \
+              --broadcast-mode block --yes \
+              --output json)
+            
+            CODE_ID=$(echo $STORE_OUTPUT | jq -r '.logs[0].events[] | select(.type=="store_code") | .attributes[] | select(.key=="code_id") | .value')
+            
+            # Instantiate contract
+            kubectl exec -n personachain-testnet personachain-validator-0 -- \
+              personachaind tx wasm instantiate $CODE_ID '{}' \
+              --from validator --label "${contract}-testnet" \
+              --chain-id ${{ env.CHAIN_ID_TESTNET }} \
+              --gas auto --gas-adjustment 1.3 \
+              --broadcast-mode block --yes
+          done
+
+      - name: Run network tests
+        run: |
+          # Test RPC endpoints
+          curl -f https://testnet-rpc.personapass.me/status
+          curl -f https://testnet-api.personapass.me/cosmos/base/tendermint/v1beta1/node_info
+          
+          # Test custom modules
+          curl -f https://testnet-api.personapass.me/personachain/did/v1/dids
+          curl -f https://testnet-api.personapass.me/personachain/vc/v1/credentials
+
+      - name: Update network info
+        run: |
+          # Create network info for frontend
+          cat > network-info.json << EOF
+          {
+            "chainId": "${{ env.CHAIN_ID_TESTNET }}",
+            "chainName": "PersonaChain Testnet",
+            "rpc": "https://testnet-rpc.personapass.me",
+            "rest": "https://testnet-api.personapass.me",
+            "contracts": {
+              "verifier": "${{ needs.build-contracts.outputs.contract-hashes }}",
+              "zkproof": "",
+              "guardian": ""
+            },
+            "version": "${{ needs.build-chain.outputs.chain-version }}",
+            "deployedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+          
+          # Upload to S3 for frontend consumption
+          aws s3 cp network-info.json s3://personapass-config/testnet/network-info.json
+
+  # Deploy Mainnet (Production)
+  deploy-mainnet:
+    name: 🚀 Deploy Mainnet
+    runs-on: ubuntu-latest
+    needs: [deploy-testnet]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    environment:
+      name: mainnet
+      url: https://rpc.personapass.me
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.4'
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 'v3.13.2'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --region us-west-2 --name personapass-mainnet
+
+      - name: Pre-deployment validation
+        run: |
+          # Validate testnet health before mainnet deployment
+          curl -f https://testnet-rpc.personapass.me/status
+          
+          # Check if network upgrade is required
+          if [ "${{ github.event.inputs.network_upgrade }}" = "true" ]; then
+            echo "Network upgrade mode enabled"
+          fi
+
+      - name: Deploy mainnet (controlled rollout)
+        run: |
+          # Deploy validators one by one for zero downtime
+          helm upgrade --install personachain-mainnet ./k8s/helm/blockchain \
+            --namespace personachain-mainnet \
+            --create-namespace \
+            --set chain.id=${{ env.CHAIN_ID_MAINNET }} \
+            --set chain.version=${{ needs.build-chain.outputs.chain-version }} \
+            --set image.node=${{ needs.build-images.outputs.node-image }} \
+            --set image.relayer=${{ needs.build-images.outputs.relayer-image }} \
+            --set validators.count=7 \
+            --set network.environment=mainnet \
+            --set ingress.rpc.host=rpc.personapass.me \
+            --set ingress.api.host=api.personapass.me \
+            --set monitoring.enabled=true \
+            --set security.enabled=true \
+            --wait --timeout=1200s
+
+      - name: Mainnet health checks
+        run: |
+          # Wait for network stability
+          sleep 180
+          
+          # Comprehensive health checks
+          curl -f https://rpc.personapass.me/status
+          curl -f https://api.personapass.me/cosmos/base/tendermint/v1beta1/node_info
+          
+          # Verify consensus
+          VALIDATORS=$(curl -s https://rpc.personapass.me/validators | jq '.result.validators | length')
+          if [ $VALIDATORS -lt 4 ]; then
+            echo "Insufficient validators: $VALIDATORS"
+            exit 1
+          fi
+
+      - name: Update mainnet network info
+        run: |
+          cat > network-info.json << EOF
+          {
+            "chainId": "${{ env.CHAIN_ID_MAINNET }}",
+            "chainName": "PersonaChain",
+            "rpc": "https://rpc.personapass.me",
+            "rest": "https://api.personapass.me",
+            "contracts": {
+              "verifier": "${{ needs.build-contracts.outputs.contract-hashes }}",
+              "zkproof": "",
+              "guardian": ""
+            },
+            "version": "${{ needs.build-chain.outputs.chain-version }}",
+            "deployedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+          
+          aws s3 cp network-info.json s3://personapass-config/mainnet/network-info.json
+
+      - name: Notify successful deployment
+        run: |
+          echo "🚀 PersonaChain Mainnet successfully deployed!"
+          echo "Version: ${{ needs.build-chain.outputs.chain-version }}"
+          echo "RPC: https://rpc.personapass.me"
+          echo "API: https://api.personapass.me"
+
+  # Performance & Load Testing
+  load-testing:
+    name: ⚡ Load Testing
+    runs-on: ubuntu-latest
+    needs: [deploy-testnet]
+    if: github.ref == 'refs/heads/develop'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run load tests
+        run: |
+          # Transaction throughput test
+          go run scripts/load-test/main.go \
+            --rpc-endpoint https://testnet-rpc.personapass.me \
+            --duration 300s \
+            --concurrent-users 100 \
+            --tx-types did,vc,zkproof
+
+      - name: Upload load test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: load-test-results
+          path: load-test-results.json

@@ -1,0 +1,36 @@
+#!/bin/bash
+
+echo "🚀 PersonaChain Vercel Deployment Helper"
+echo "======================================"
+echo ""
+
+# Check current git status
+echo "📋 Current git status:"
+git status --short | head -20
+echo ""
+
+echo "🔧 Steps to deploy your updated wallet to Vercel:"
+echo ""
+echo "1. Initialize git remote (if not already done):"
+echo "   git remote add origin <your-github-repo-url>"
+echo ""
+echo "2. Stage the critical changes:"
+echo "   git add apps/wallet/src/config/index.ts"
+echo "   git add apps/wallet/src/services/keplrService.ts"
+echo "   git add apps/wallet/dist/"
+echo ""
+echo "3. Commit the changes:"
+echo "   git commit -m 'fix: Add persona-chain to blockchain network enum for Vercel'"
+echo ""
+echo "4. Push to your repository:"
+echo "   git push origin sprint7/crypto-auth-hardening"
+echo ""
+echo "5. Vercel will automatically deploy!"
+echo ""
+echo "⚠️  IMPORTANT: After deployment, add these environment variables in Vercel:"
+echo ""
+echo "VITE_BLOCKCHAIN_RPC=https://person.aidenlippert.workers.dev/rpc"
+echo "VITE_BLOCKCHAIN_REST=https://person.aidenlippert.workers.dev/api"
+echo "VITE_CHAIN_ID=persona-chain-1"
+echo ""
+echo "NOTE: Do NOT set VITE_BLOCKCHAIN_NETWORK - let it use the default from code!"

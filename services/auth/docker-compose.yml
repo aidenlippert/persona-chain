@@ -1,0 +1,243 @@
+# PersonaChain Authentication Service Docker Compose
+version: '3.8'
+
+services:
+  # Authentication Service
+  auth-service:
+    build:
+      context: .
+      target: production
+    container_name: persona-auth-service
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=postgres
+      - REDIS_HOST=redis
+      - AUTH_PORT=8080
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - persona-auth-network
+    volumes:
+      - ./logs:/app/logs
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=100m
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: persona-auth-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-persona_chain_auth}
+      POSTGRES_USER: ${DB_USER:-persona}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-persona}
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    networks:
+      - persona-auth-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-persona} -d ${DB_NAME:-persona_chain_auth}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=100m
+      - /var/run/postgresql:rw,noexec,nosuid,size=10m
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: persona-auth-redis
+    restart: unless-stopped
+    command: 
+      - redis-server
+      - --appendonly yes
+      - --requirepass ${REDIS_PASSWORD:-redis_password}
+      - --maxmemory 256mb
+      - --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - persona-auth-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+
+  # NGINX Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: persona-auth-proxy
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/ssl/certs:ro
+      - nginx_cache:/var/cache/nginx
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - auth-service
+    networks:
+      - persona-auth-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+
+  # Monitoring with Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: persona-auth-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - persona-auth-network
+    security_opt:
+      - no-new-privileges:true
+
+  # Grafana Dashboard
+  grafana:
+    image: grafana/grafana:latest
+    container_name: persona-auth-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    networks:
+      - persona-auth-network
+    security_opt:
+      - no-new-privileges:true
+
+  # Log Management with Loki
+  loki:
+    image: grafana/loki:latest
+    container_name: persona-auth-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/tmp/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - persona-auth-network
+    security_opt:
+      - no-new-privileges:true
+
+  # Log Shipping with Promtail
+  promtail:
+    image: grafana/promtail:latest
+    container_name: persona-auth-promtail
+    restart: unless-stopped
+    volumes:
+      - ./promtail-config.yml:/etc/promtail/config.yml:ro
+      - ./logs:/var/log/auth:ro
+      - /var/log:/var/log/host:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    networks:
+      - persona-auth-network
+    security_opt:
+      - no-new-privileges:true
+
+  # Backup Service
+  backup:
+    image: postgres:15-alpine
+    container_name: persona-auth-backup
+    restart: "no"
+    volumes:
+      - postgres_data:/data:ro
+      - ./backups:/backups
+      - ./backup-script.sh:/backup-script.sh:ro
+    environment:
+      PGPASSWORD: ${DB_PASSWORD:-persona}
+    command: /backup-script.sh
+    depends_on:
+      - postgres
+    networks:
+      - persona-auth-network
+    profiles:
+      - backup
+
+networks:
+  persona-auth-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  loki_data:
+    driver: local
+  nginx_cache:
+    driver: local
+  nginx_logs:
+    driver: local
+
+# Production deployment with secrets
+secrets:
+  db_password:
+    external: true
+  jwt_secret:
+    external: true
+  redis_password:
+    external: true

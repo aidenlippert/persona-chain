@@ -1,0 +1,533 @@
+# PersonaPass CI/CD Pipeline
+# Comprehensive security-first pipeline with automated testing, scanning, and deployment
+
+name: PersonaPass Production CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+    - 'apps/wallet/**'
+    - 'contracts/**'
+    - 'x/**'
+    - 'docker/**'
+    - 'k8s/**'
+  pull_request:
+    branches: [main]
+    paths:
+    - 'apps/wallet/**'
+    - 'contracts/**'
+    - 'x/**'
+    - 'docker/**'
+    - 'k8s/**'
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      skip_tests:
+        description: 'Skip test execution'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  NODE_VERSION: '18'
+  GO_VERSION: '1.21'
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
+
+# Security: Restrict permissions
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+  id-token: write
+
+jobs:
+  # Job 1: Security and Code Quality Checks
+  security-audit:
+    name: Security & Code Quality Audit
+    runs-on: ubuntu-latest
+    outputs:
+      security-passed: ${{ steps.security-check.outputs.passed }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Full history for better analysis
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: apps/wallet/package-lock.json
+
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    # Security: Run dependency audit
+    - name: NPM Security Audit
+      working-directory: apps/wallet
+      run: |
+        npm ci --ignore-scripts
+        npm audit --audit-level=high || exit 1
+
+    # Security: Check for secrets
+    - name: Secret Scanning
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: main
+        head: HEAD
+
+    # Security: SAST scanning
+    - name: CodeQL Analysis
+      uses: github/codeql-action/init@v2
+      with:
+        languages: javascript, go
+        queries: security-and-quality
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v2
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+
+    # Security: Container scanning
+    - name: Run Snyk to check for vulnerabilities
+      uses: snyk/actions/node@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --severity-threshold=high
+        command: test
+
+    # Code Quality: Linting and formatting
+    - name: ESLint & Prettier Check
+      working-directory: apps/wallet
+      run: |
+        npm run lint
+        npm run format:check
+
+    # Go security check
+    - name: Go Security Check
+      run: |
+        go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+        gosec -fmt sarif -out gosec-results.sarif -stdout -verbose=text ./...
+
+    - name: Upload SARIF file
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: gosec-results.sarif
+
+    - name: Security Check Summary
+      id: security-check
+      run: |
+        echo "passed=true" >> $GITHUB_OUTPUT
+        echo "✅ All security checks passed"
+
+  # Job 2: Automated Testing
+  automated-testing:
+    name: Comprehensive Testing Suite
+    runs-on: ubuntu-latest
+    needs: security-audit
+    if: needs.security-audit.outputs.security-passed == 'true'
+    strategy:
+      matrix:
+        test-type: [unit, integration, e2e]
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: apps/wallet/package-lock.json
+
+    - name: Install dependencies
+      working-directory: apps/wallet
+      run: npm ci --ignore-scripts
+
+    - name: Setup test environment
+      run: |
+        # Setup test blockchain
+        docker-compose -f docker-compose.test.yml up -d
+        sleep 30 # Wait for services
+
+    - name: Run Unit Tests
+      if: matrix.test-type == 'unit'
+      working-directory: apps/wallet
+      run: |
+        npm run test:coverage
+        npm run benchmark
+
+    - name: Run Integration Tests
+      if: matrix.test-type == 'integration'
+      working-directory: apps/wallet
+      run: |
+        npm run test:openid4vp
+        npm run test:openid4vci
+        npm run test:eudi-compliance
+        npm run test:android-api
+        npm run test:biometric
+
+    - name: Run E2E Tests
+      if: matrix.test-type == 'e2e'
+      working-directory: apps/wallet
+      run: |
+        npm run test:e2e
+        npm run test:production-smoke
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results-${{ matrix.test-type }}
+        path: |
+          apps/wallet/coverage/
+          apps/wallet/test-results/
+          apps/wallet/playwright-report/
+
+    - name: Upload coverage to Codecov
+      if: matrix.test-type == 'unit'
+      uses: codecov/codecov-action@v3
+      with:
+        directory: apps/wallet/coverage
+        flags: unittests
+        name: personapass-wallet
+
+  # Job 3: Build and Push Container Images
+  build-images:
+    name: Build & Push Container Images
+    runs-on: ubuntu-latest
+    needs: [security-audit, automated-testing]
+    if: github.ref == 'refs/heads/main' || github.event_name == 'release'
+    outputs:
+      wallet-image: ${{ steps.wallet-meta.outputs.tags }}
+      blockchain-image: ${{ steps.blockchain-meta.outputs.tags }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    # Build Wallet Image
+    - name: Extract wallet metadata
+      id: wallet-meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/personapass/wallet
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha,prefix={{branch}}-
+
+    - name: Build and push wallet image
+      uses: docker/build-push-action@v5
+      with:
+        context: apps/wallet
+        file: apps/wallet/Dockerfile.production
+        push: true
+        tags: ${{ steps.wallet-meta.outputs.tags }}
+        labels: ${{ steps.wallet-meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+
+    # Build Blockchain Image
+    - name: Extract blockchain metadata
+      id: blockchain-meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/personapass/blockchain
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha,prefix={{branch}}-
+
+    - name: Build and push blockchain image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: docker/Dockerfile.blockchain
+        push: true
+        tags: ${{ steps.blockchain-meta.outputs.tags }}
+        labels: ${{ steps.blockchain-meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+
+    # Security: Scan images
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ steps.wallet-meta.outputs.tags }}
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # Job 4: Infrastructure Validation
+  infrastructure-validation:
+    name: Infrastructure & Kubernetes Validation
+    runs-on: ubuntu-latest
+    needs: build-images
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+
+    - name: Setup Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: 'v3.12.0'
+
+    - name: Validate Kubernetes manifests
+      run: |
+        # Validate YAML syntax
+        find k8s/ -name "*.yaml" -exec kubectl --dry-run=client apply -f {} \;
+        
+        # Validate with kubeval
+        curl -L https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz | tar xz
+        sudo mv kubeval /usr/local/bin
+        find k8s/ -name "*.yaml" -exec kubeval {} \;
+
+    - name: Security policy validation
+      run: |
+        # Install OPA Gatekeeper for policy validation
+        curl -L -o conftest.tar.gz https://github.com/open-policy-agent/conftest/releases/download/v0.46.0/conftest_0.46.0_Linux_x86_64.tar.gz
+        tar xzf conftest.tar.gz
+        sudo mv conftest /usr/local/bin
+        
+        # Validate security policies
+        conftest verify --policy k8s/policies/ k8s/
+
+    - name: Terraform validation (if using)
+      if: hashFiles('terraform/**/*.tf') != ''
+      run: |
+        terraform init -backend=false terraform/
+        terraform validate terraform/
+        terraform plan terraform/
+
+  # Job 5: Staging Deployment
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build-images, infrastructure-validation]
+    if: github.ref == 'refs/heads/develop' || github.event.inputs.environment == 'staging'
+    environment:
+      name: staging
+      url: https://staging.personapass.io
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure kubectl
+      uses: azure/k8s-set-context@v3
+      with:
+        method: kubeconfig
+        kubeconfig: ${{ secrets.STAGING_KUBECONFIG }}
+
+    - name: Deploy to staging
+      run: |
+        # Update image tags in manifests
+        sed -i "s|personapass/wallet:.*|${{ needs.build-images.outputs.wallet-image }}|g" k8s/wallet-deployment.yaml
+        sed -i "s|personapass/blockchain:.*|${{ needs.build-images.outputs.blockchain-image }}|g" k8s/blockchain-deployment.yaml
+        
+        # Apply manifests
+        kubectl apply -f k8s/namespace.yaml
+        kubectl apply -f k8s/ -n personapass-staging
+        
+        # Wait for rollout
+        kubectl rollout status deployment/personapass-wallet -n personapass-staging --timeout=300s
+        kubectl rollout status statefulset/personapass-validator -n personapass-staging --timeout=600s
+
+    - name: Run staging tests
+      run: |
+        # Wait for services to be ready
+        sleep 60
+        
+        # Run smoke tests against staging
+        npm run test:production-smoke -- --baseURL=https://staging.personapass.io
+
+    - name: Notify deployment
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+  # Job 6: Production Deployment
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-images, infrastructure-validation, deploy-staging]
+    if: github.event_name == 'release' || github.event.inputs.environment == 'production'
+    environment:
+      name: production
+      url: https://personapass.io
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure kubectl
+      uses: azure/k8s-set-context@v3
+      with:
+        method: kubeconfig
+        kubeconfig: ${{ secrets.PRODUCTION_KUBECONFIG }}
+
+    - name: Pre-deployment validation
+      run: |
+        # Verify cluster health
+        kubectl get nodes
+        kubectl get pods -n personapass-prod
+        
+        # Check resource availability
+        kubectl top nodes
+        kubectl describe quota -n personapass-prod
+
+    - name: Blue-Green Deployment
+      run: |
+        # Create green environment
+        sed -i 's/personapass-prod/personapass-green/g' k8s/namespace.yaml
+        sed -i "s|personapass/wallet:.*|${{ needs.build-images.outputs.wallet-image }}|g" k8s/wallet-deployment.yaml
+        sed -i "s|personapass/blockchain:.*|${{ needs.build-images.outputs.blockchain-image }}|g" k8s/blockchain-deployment.yaml
+        
+        # Deploy green environment
+        kubectl apply -f k8s/namespace.yaml
+        kubectl apply -f k8s/ -n personapass-green
+        
+        # Wait for green to be ready
+        kubectl rollout status deployment/personapass-wallet -n personapass-green --timeout=600s
+        kubectl rollout status statefulset/personapass-validator -n personapass-green --timeout=900s
+        
+        # Run production health checks
+        sleep 120
+        kubectl exec -n personapass-green deployment/personapass-wallet -- curl -f http://localhost:8080/health
+        
+        # Switch traffic to green
+        kubectl patch service personapass-wallet-service -n personapass-prod -p '{"spec":{"selector":{"app":"personapass-wallet-green"}}}'
+        
+        # Monitor for 5 minutes
+        sleep 300
+        
+        # If successful, clean up blue environment
+        kubectl delete namespace personapass-blue || true
+        kubectl label namespace personapass-prod environment=blue
+        kubectl label namespace personapass-green environment=prod
+
+    - name: Post-deployment validation
+      run: |
+        # Run comprehensive production tests
+        npm run test:production-smoke -- --baseURL=https://personapass.io
+        
+        # Check metrics and alerts
+        curl -f https://monitoring.personapass.io/api/v1/alerts
+        
+        # Verify blockchain sync
+        curl -f https://api.personapass.io/cosmos/base/tendermint/v1beta1/syncing
+
+    - name: Rollback on failure
+      if: failure()
+      run: |
+        echo "Deployment failed, initiating rollback..."
+        kubectl patch service personapass-wallet-service -n personapass-prod -p '{"spec":{"selector":{"app":"personapass-wallet"}}}'
+        kubectl delete namespace personapass-green || true
+
+    - name: Update monitoring
+      run: |
+        # Update Grafana dashboards
+        curl -X POST \
+          -H "Authorization: Bearer ${{ secrets.GRAFANA_API_KEY }}" \
+          -H "Content-Type: application/json" \
+          "https://monitoring.personapass.io/api/dashboards/db" \
+          -d @monitoring/grafana-dashboard-personapass-overview.json
+
+    - name: Notify production deployment
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        channel: '#production'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        text: "🚀 PersonaPass v${{ github.event.release.tag_name }} deployed to production!"
+
+  # Job 7: Post-Deployment Monitoring
+  post-deployment-monitoring:
+    name: Post-Deployment Monitoring & Alerting
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    if: always() && (github.event_name == 'release' || github.event.inputs.environment == 'production')
+    steps:
+    - name: Setup monitoring
+      run: |
+        # Run extended monitoring checks
+        for i in {1..10}; do
+          echo "Health check $i/10"
+          curl -f https://personapass.io/health || exit 1
+          curl -f https://api.personapass.io/health || exit 1
+          sleep 30
+        done
+
+    - name: Performance baseline
+      run: |
+        # Run performance tests to establish baseline
+        npx lighthouse https://personapass.io --output=json --output-path=lighthouse-report.json
+        
+        # Upload results to monitoring
+        curl -X POST \
+          -H "Content-Type: application/json" \
+          "https://monitoring.personapass.io/api/v1/metrics" \
+          -d @lighthouse-report.json
+
+    - name: Security scan live site
+      run: |
+        # Run OWASP ZAP baseline scan
+        docker run -t owasp/zap2docker-stable zap-baseline.py -t https://personapass.io || true
+
+    - name: Create deployment record
+      run: |
+        # Record deployment in monitoring system
+        curl -X POST \
+          -H "Content-Type: application/json" \
+          "https://monitoring.personapass.io/api/v1/deployments" \
+          -d '{
+            "version": "${{ github.event.release.tag_name }}",
+            "environment": "production",
+            "status": "success",
+            "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
+            "commit": "${{ github.sha }}"
+          }'

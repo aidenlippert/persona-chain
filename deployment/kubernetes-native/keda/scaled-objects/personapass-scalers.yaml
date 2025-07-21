@@ -1,0 +1,396 @@
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: identity-service-scaler
+  namespace: personapass
+  labels:
+    app: identity-service
+    app.kubernetes.io/name: identity-service-scaler
+    app.kubernetes.io/component: autoscaler
+    app.kubernetes.io/part-of: keda
+  annotations:
+    description: "KEDA scaler for identity service based on multiple metrics"
+spec:
+  scaleTargetRef:
+    name: identity-service
+    kind: Deployment
+    apiVersion: apps/v1
+  pollingInterval: 30
+  cooldownPeriod: 300
+  idleReplicaCount: 1
+  minReplicaCount: 2
+  maxReplicaCount: 20
+  fallback:
+    failureThreshold: 3
+    replicas: 3
+  advanced:
+    restoreToOriginalReplicaCount: false
+    horizontalPodAutoscalerConfig:
+      name: identity-service-hpa
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 300
+          policies:
+          - type: Percent
+            value: 10
+            periodSeconds: 60
+          - type: Pods
+            value: 2
+            periodSeconds: 60
+          selectPolicy: Min
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          policies:
+          - type: Percent
+            value: 100
+            periodSeconds: 15
+          - type: Pods
+            value: 4
+            periodSeconds: 15
+          selectPolicy: Max
+  triggers:
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus.monitoring:9090
+      metricName: http_requests_per_second
+      threshold: "100"
+      query: sum(rate(http_requests_total{service="identity-service"}[1m]))
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus.monitoring:9090
+      metricName: cpu_usage_percentage
+      threshold: "70"
+      query: avg(rate(container_cpu_usage_seconds_total{pod=~"identity-service-.*"}[1m])) * 100
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus.monitoring:9090
+      metricName: memory_usage_percentage
+      threshold: "80"
+      query: avg(container_memory_working_set_bytes{pod=~"identity-service-.*"}) / avg(container_spec_memory_limit_bytes{pod=~"identity-service-.*"}) * 100
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus.monitoring:9090
+      metricName: response_time_p95
+      threshold: "1000"
+      query: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{service="identity-service"}[5m])) by (le)) * 1000
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: wallet-api-scaler
+  namespace: personapass
+  labels:
+    app: wallet-api
+    app.kubernetes.io/name: wallet-api-scaler
+    app.kubernetes.io/component: autoscaler
+    app.kubernetes.io/part-of: keda
+  annotations:
+    description: "KEDA scaler for wallet API based on HTTP requests and queue depth"
+spec:
+  scaleTargetRef:
+    name: wallet-api
+    kind: Deployment
+    apiVersion: apps/v1
+  pollingInterval: 30
+  cooldownPeriod: 300
+  idleReplicaCount: 1
+  minReplicaCount: 2
+  maxReplicaCount: 15
+  fallback:
+    failureThreshold: 3
+    replicas: 2
+  advanced:
+    restoreToOriginalReplicaCount: false
+    horizontalPodAutoscalerConfig:
+      name: wallet-api-hpa
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 300
+          policies:
+          - type: Percent
+            value: 20
+            periodSeconds: 60
+          selectPolicy: Max
+        scaleUp:
+          stabilizationWindowSeconds: 30
+          policies:
+          - type: Percent
+            value: 50
+            periodSeconds: 30
+          - type: Pods
+            value: 3
+            periodSeconds: 30
+          selectPolicy: Max
+  triggers:
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus.monitoring:9090
+      metricName: http_requests_per_second
+      threshold: "50"
+      query: sum(rate(http_requests_total{service="wallet-api"}[1m]))
+  - type: redis
+    metadata:
+      address: redis-cluster.personapass:6379
+      listName: wallet_tasks
+      listLength: "10"
+      enableTLS: "false"
+    authenticationRef:
+      name: redis-auth
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: zk-proof-service-scaler
+  namespace: personapass
+  labels:
+    app: zk-proof-service
+    app.kubernetes.io/name: zk-proof-service-scaler
+    app.kubernetes.io/component: autoscaler
+    app.kubernetes.io/part-of: keda
+  annotations:
+    description: "KEDA scaler for ZK proof service based on compute-intensive workloads"
+spec:
+  scaleTargetRef:
+    name: zk-proof-service
+    kind: Deployment
+    apiVersion: apps/v1
+  pollingInterval: 60
+  cooldownPeriod: 600
+  idleReplicaCount: 0
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  fallback:
+    failureThreshold: 3
+    replicas: 2
+  advanced:
+    restoreToOriginalReplicaCount: false
+    horizontalPodAutoscalerConfig:
+      name: zk-proof-service-hpa
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 600
+          policies:
+          - type: Pods
+            value: 1
+            periodSeconds: 120
+          selectPolicy: Max
+        scaleUp:
+          stabilizationWindowSeconds: 60
+          policies:
+          - type: Pods
+            value: 2
+            periodSeconds: 60
+          selectPolicy: Max
+  triggers:
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus.monitoring:9090
+      metricName: zk_proof_queue_length
+      threshold: "5"
+      query: sum(proof_generation_queue_length{service="zk-proof-service"})
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus.monitoring:9090
+      metricName: cpu_usage_percentage
+      threshold: "60"
+      query: avg(rate(container_cpu_usage_seconds_total{pod=~"zk-proof-service-.*"}[1m])) * 100
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: document-verification-scaler
+  namespace: personapass
+  labels:
+    app: document-verification
+    app.kubernetes.io/name: document-verification-scaler
+    app.kubernetes.io/component: autoscaler
+    app.kubernetes.io/part-of: keda
+  annotations:
+    description: "KEDA scaler for document verification based on processing queue"
+spec:
+  scaleTargetRef:
+    name: document-verification
+    kind: Deployment
+    apiVersion: apps/v1
+  pollingInterval: 30
+  cooldownPeriod: 300
+  idleReplicaCount: 1
+  minReplicaCount: 1
+  maxReplicaCount: 8
+  fallback:
+    failureThreshold: 3
+    replicas: 2
+  triggers:
+  - type: kafka
+    metadata:
+      bootstrapServers: kafka-cluster.personapass:9092
+      consumerGroup: document-verification-group
+      topic: document-processing
+      lagThreshold: "10"
+    authenticationRef:
+      name: kafka-auth
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus.monitoring:9090
+      metricName: pending_documents
+      threshold: "20"
+      query: sum(document_verification_pending_total{service="document-verification"})
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: multi-tenant-platform-scaler
+  namespace: personapass
+  labels:
+    app: multi-tenant-platform
+    app.kubernetes.io/name: multi-tenant-platform-scaler
+    app.kubernetes.io/component: autoscaler
+    app.kubernetes.io/part-of: keda
+  annotations:
+    description: "KEDA scaler for multi-tenant platform based on tenant activity"
+spec:
+  scaleTargetRef:
+    name: multi-tenant-platform
+    kind: Deployment
+    apiVersion: apps/v1
+  pollingInterval: 30
+  cooldownPeriod: 300
+  idleReplicaCount: 1
+  minReplicaCount: 2
+  maxReplicaCount: 12
+  fallback:
+    failureThreshold: 3
+    replicas: 3
+  triggers:
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus.monitoring:9090
+      metricName: active_tenants
+      threshold: "50"
+      query: sum(increase(tenant_requests_total[1m]))
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus.monitoring:9090
+      metricName: billing_operations_per_minute
+      threshold: "30"
+      query: sum(rate(billing_operations_total{service="multi-tenant-platform"}[1m])) * 60
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: hsm-enterprise-scaler
+  namespace: personapass
+  labels:
+    app: hsm-enterprise
+    app.kubernetes.io/name: hsm-enterprise-scaler
+    app.kubernetes.io/component: autoscaler
+    app.kubernetes.io/part-of: keda
+  annotations:
+    description: "KEDA scaler for HSM enterprise based on cryptographic operations"
+spec:
+  scaleTargetRef:
+    name: hsm-enterprise
+    kind: Deployment
+    apiVersion: apps/v1
+  pollingInterval: 30
+  cooldownPeriod: 300
+  idleReplicaCount: 1
+  minReplicaCount: 2
+  maxReplicaCount: 6
+  fallback:
+    failureThreshold: 3
+    replicas: 2
+  triggers:
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus.monitoring:9090
+      metricName: crypto_operations_per_second
+      threshold: "20"
+      query: sum(rate(hsm_operations_total{service="hsm-enterprise"}[1m]))
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus.monitoring:9090
+      metricName: hsm_queue_depth
+      threshold: "10"
+      query: sum(hsm_operation_queue_length{service="hsm-enterprise"})
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: redis-auth
+  namespace: personapass
+  labels:
+    app.kubernetes.io/name: redis-auth
+    app.kubernetes.io/component: trigger-auth
+    app.kubernetes.io/part-of: keda
+spec:
+  secretTargetRef:
+  - parameter: password
+    name: redis-credentials
+    key: password
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: kafka-auth
+  namespace: personapass
+  labels:
+    app.kubernetes.io/name: kafka-auth
+    app.kubernetes.io/component: trigger-auth
+    app.kubernetes.io/part-of: keda
+spec:
+  secretTargetRef:
+  - parameter: sasl
+    name: kafka-credentials
+    key: sasl
+  - parameter: username
+    name: kafka-credentials
+    key: username
+  - parameter: password
+    name: kafka-credentials
+    key: password
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: scheduler-based-scaler
+  namespace: personapass
+  labels:
+    app: background-jobs
+    app.kubernetes.io/name: scheduler-scaler
+    app.kubernetes.io/component: autoscaler
+    app.kubernetes.io/part-of: keda
+  annotations:
+    description: "Time-based scaler for predictive scaling during peak hours"
+spec:
+  scaleTargetRef:
+    name: background-jobs
+    kind: Deployment
+    apiVersion: apps/v1
+  pollingInterval: 60
+  cooldownPeriod: 300
+  idleReplicaCount: 0
+  minReplicaCount: 1
+  maxReplicaCount: 5
+  triggers:
+  - type: cron
+    metadata:
+      timezone: "UTC"
+      start: "0 8 * * 1-5"
+      end: "0 18 * * 1-5"
+      desiredReplicas: "3"
+  - type: cron
+    metadata:
+      timezone: "UTC"
+      start: "0 18 * * 1-5"
+      end: "0 8 * * 1-5"
+      desiredReplicas: "1"

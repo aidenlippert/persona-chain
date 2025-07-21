@@ -1,0 +1,191 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: personapass-connectors
+  namespace: personapass
+  labels:
+    app: connectors
+    component: backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: connectors
+  template:
+    metadata:
+      labels:
+        app: connectors
+        component: backend
+    spec:
+      serviceAccountName: connectors-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      containers:
+      - name: connectors
+        image: personapass/connectors:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "8080"
+        - name: REDIS_HOST
+          value: "redis-service"
+        - name: REDIS_PORT
+          value: "6379"
+        envFrom:
+        - secretRef:
+            name: connector-secrets
+        - configMapRef:
+            name: connector-config
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: temp
+          mountPath: /tmp
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: temp
+        emptyDir: {}
+      - name: logs
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: connector-service
+  namespace: personapass
+  labels:
+    app: connectors
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: connectors
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: connectors-sa
+  namespace: personapass
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: connector-config
+  namespace: personapass
+data:
+  LOG_LEVEL: "info"
+  ALLOWED_ORIGINS: "https://wallet.personapass.xyz,https://app.personapass.xyz"
+  GITHUB_REDIRECT_URI: "https://wallet.personapass.xyz/credentials/callback"
+  LINKEDIN_REDIRECT_URI: "https://wallet.personapass.xyz/credentials/callback"
+  PLAID_ENV: "production"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: connector-secrets
+  namespace: personapass
+type: Opaque
+stringData:
+  JWT_SECRET: "your-production-jwt-secret"
+  REDIS_PASSWORD: "your-redis-password"
+  GITHUB_CLIENT_ID: "your-github-client-id"
+  GITHUB_CLIENT_SECRET: "your-github-client-secret"
+  LINKEDIN_CLIENT_ID: "your-linkedin-client-id"
+  LINKEDIN_CLIENT_SECRET: "your-linkedin-client-secret"
+  PLAID_CLIENT_ID: "your-plaid-client-id"
+  PLAID_SECRET: "your-plaid-secret"
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: connector-ingress
+  namespace: personapass
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.2 TLSv1.3"
+    nginx.ingress.kubernetes.io/ssl-ciphers: "ECDHE+AESGCM:ECDHE+AES256:!aNULL:!MD5:!DSS"
+spec:
+  tls:
+  - hosts:
+    - api.personapass.xyz
+    secretName: connector-tls
+  rules:
+  - host: api.personapass.xyz
+    http:
+      paths:
+      - path: /api/connectors
+        pathType: Prefix
+        backend:
+          service:
+            name: connector-service
+            port:
+              number: 80
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: connector-hpa
+  namespace: personapass
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: personapass-connectors
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80

@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "persona-testnet.fullname" . }}
+  labels:
+    {{- include "persona-testnet.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "persona-testnet.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "persona-testnet.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: persona-testnet
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- with .Values.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        ports:
+        # RPC ports
+        {{- range $index, $port := .Values.validators.ports.rpc }}
+        - name: rpc-{{ $index }}
+          containerPort: {{ $port }}
+          protocol: TCP
+        {{- end }}
+        # API ports
+        {{- range $index, $port := .Values.validators.ports.api }}
+        - name: api-{{ $index }}
+          containerPort: {{ $port }}
+          protocol: TCP
+        {{- end }}
+        # gRPC ports
+        {{- range $index, $port := .Values.validators.ports.grpc }}
+        - name: grpc-{{ $index }}
+          containerPort: {{ $port }}
+          protocol: TCP
+        {{- end }}
+        # P2P ports
+        {{- range $index, $port := .Values.validators.ports.p2p }}
+        - name: p2p-{{ $index }}
+          containerPort: {{ $port }}
+          protocol: TCP
+        {{- end }}
+        env:
+        - name: CHAIN_ID
+          value: {{ .Values.global.chainId }}
+        - name: VALIDATORS_COUNT
+          value: "{{ .Values.validators.count }}"
+        resources:
+          {{- toYaml .Values.validators.resources | nindent 10 }}
+        volumeMounts:
+        - name: testnet-data
+          mountPath: /home/persona/testnet/testnet-data
+        - name: testnet-config
+          mountPath: /home/persona/testnet/config
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 1317
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 1317
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+      volumes:
+      - name: testnet-data
+        persistentVolumeClaim:
+          claimName: {{ include "persona-testnet.fullname" . }}-data
+      - name: testnet-config
+        configMap:
+          name: {{ include "persona-testnet.fullname" . }}-config
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

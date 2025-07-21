@@ -1,0 +1,103 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "persona-testnet.fullname" . }}-config
+  labels:
+    {{- include "persona-testnet.labels" . | nindent 4 }}
+data:
+  chain-id: {{ .Values.global.chainId }}
+  validators-count: "{{ .Values.validators.count }}"
+  
+  # Genesis template
+  genesis-template.json: |
+    {
+      "genesis_time": "2025-01-01T00:00:00Z",
+      "chain_id": "{{ .Values.global.chainId }}",
+      "initial_height": "1",
+      "consensus_params": {
+        "block": {
+          "max_bytes": "22020096",
+          "max_gas": "50000000",
+          "time_iota_ms": "1000"
+        },
+        "evidence": {
+          "max_age_num_blocks": "100000",
+          "max_age_duration": "172800000000000",
+          "max_bytes": "1048576"
+        },
+        "validator": {
+          "pub_key_types": ["ed25519"]
+        },
+        "version": {}
+      },
+      "app_hash": "",
+      "app_state": {
+        "auth": {
+          "params": {
+            "max_memo_characters": "256",
+            "tx_sig_limit": "7",
+            "tx_size_cost_per_byte": "10",
+            "sig_verify_cost_ed25519": "590",
+            "sig_verify_cost_secp256k1": "1000"
+          },
+          "accounts": []
+        },
+        "bank": {
+          "params": {
+            "send_enabled": [],
+            "default_send_enabled": true
+          },
+          "balances": [],
+          "supply": [],
+          "denom_metadata": []
+        },
+        "staking": {
+          "params": {
+            "unbonding_time": "1814400s",
+            "max_validators": 100,
+            "max_entries": 7,
+            "historical_entries": 10000,
+            "bond_denom": "uprsn",
+            "min_commission_rate": "0.000000000000000000"
+          },
+          "last_total_power": "0",
+          "last_validator_powers": [],
+          "validators": [],
+          "delegations": [],
+          "unbonding_delegations": [],
+          "redelegations": [],
+          "exported": false
+        },
+        "did": {
+          "params": {},
+          "did_documents": []
+        },
+        "vc": {
+          "params": {},
+          "vc_records": []
+        },
+        "zk": {
+          "params": {},
+          "circuits": [
+            {
+              "circuit_id": "age_verification_v1",
+              "name": "Age Verification Circuit",
+              "description": "Verifies age >= 18 without revealing exact age",
+              "verifying_key": "testnet_age_verification_key",
+              "creator": "persona1testnetfaucet1234567890abcdefghijklmn",
+              "is_active": true,
+              "created_at": 1640995200
+            }
+          ],
+          "zk_proofs": []
+        },
+        "guardian": {
+          "params": {
+            "recovery_threshold": 2,
+            "proposal_expiry_seconds": 604800
+          },
+          "guardians": [],
+          "recovery_proposals": []
+        }
+      }
+    }

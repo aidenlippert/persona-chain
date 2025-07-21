@@ -1,0 +1,42 @@
+# Development files
+node_modules/
+.git/
+.gitignore
+*.log
+*.md
+README.md
+
+# Build artifacts
+dist/
+build/
+target/
+
+# Local config
+.env
+.env.local
+*.pid
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test files
+*_test.go
+*test*
+coverage.out
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Deployment local files
+deployment/nodes/
+deployment/*.txt
+deployment/*.log

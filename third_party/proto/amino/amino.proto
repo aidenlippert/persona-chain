@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package amino;
+
+import "google/protobuf/descriptor.proto";
+
+option go_package = "github.com/cosmos/cosmos-sdk/types/tx/amino";
+
+extend google.protobuf.MessageOptions {
+  string name = 11110002;
+}
+
+extend google.protobuf.FieldOptions {
+  string field_name = 11110003;
+  bool dont_omitempty = 11110004;
+}

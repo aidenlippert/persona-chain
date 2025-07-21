@@ -1,0 +1,21 @@
+{
+  "name": "zk-verifier",
+  "version": "1.0.0",
+  "description": "",
+  "main": "deploy-cosmjs.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@cosmjs/cosmwasm-stargate": "^0.34.0",
+    "@cosmjs/proto-signing": "^0.34.0",
+    "@cosmjs/stargate": "^0.34.0"
+  }
+}

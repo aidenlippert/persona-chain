@@ -1,0 +1,30 @@
+# PersonaChain App Configuration
+
+[api]
+# Enable defines if the API server should be enabled.
+enable = true
+# Swagger defines if swagger documentation should automatically be registered.
+swagger = true
+# Address defines the API server to listen on.
+address = "tcp://0.0.0.0:1317"
+# MaxOpenConnections defines the number of maximum open connections.
+max-open-connections = 1000
+# RPCReadTimeout defines the Tendermint RPC read timeout (in seconds).
+rpc-read-timeout = 10
+# RPCWriteTimeout defines the Tendermint RPC write timeout (in seconds).
+rpc-write-timeout = 0
+# RPCMaxBodyBytes defines the Tendermint maximum response body (in bytes).
+rpc-max-body-bytes = 1000000
+# EnableUnsafeCORS defines if CORS should be enabled (unsafe - use it at your own risk).
+enabled-unsafe-cors = true
+
+[grpc]
+# Enable defines if the gRPC server should be enabled.
+enable = true
+# Address defines the gRPC server address to bind to.
+address = "0.0.0.0:9090"
+
+[grpc-web]
+# GRPCWebEnable defines if the gRPC-Web server should be enabled.
+# NOTE: gRPC-Web uses the same address as the API server.
+enable = true

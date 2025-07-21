@@ -1,0 +1,825 @@
+# PersonaPass Production Values
+# Production-grade configuration for enterprise deployment
+
+global:
+  environment: production
+  domain: personapass.me
+  imageRegistry: ghcr.io/personapass
+  imagePullPolicy: IfNotPresent
+  
+  # Security Settings
+  security:
+    enabled: true
+    podSecurityPolicy: true
+    networkPolicies: true
+    secrets:
+      encryption: true
+      external: true  # Use AWS Secrets Manager
+    rbac:
+      enabled: true
+      strict: true
+  
+  # Monitoring & Observability
+  monitoring:
+    enabled: true
+    metrics: true
+    traces: true
+    logs: true
+    alerts: true
+  
+  # Backup & Disaster Recovery
+  backup:
+    enabled: true
+    schedule: "0 2 * * *"
+    retention: "30d"
+    offsite: true
+  
+  # Resource Management
+  resources:
+    limits:
+      enabled: true
+      default: true
+    requests:
+      enabled: true
+    quotas:
+      enabled: true
+
+# Wallet Frontend Application
+wallet:
+  enabled: true
+  name: personapass-wallet
+  image:
+    repository: ghcr.io/personapass/wallet
+    tag: ""  # Will be set by CI/CD
+    pullPolicy: IfNotPresent
+  
+  replicaCount: 3
+  
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 250m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+  
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/proxy-buffer-size: "8k"
+      nginx.ingress.kubernetes.io/proxy-buffering: "on"
+      nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/rate-limit: "100"
+      nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    hosts:
+      - host: wallet.personapass.me
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: wallet-personapass-tls
+        hosts:
+          - wallet.personapass.me
+  
+  # PWA Configuration
+  pwa:
+    enabled: true
+    cacheFirst: true
+    runtimeCaching: true
+    workboxConfig:
+      skipWaiting: true
+      clientsClaim: true
+  
+  # Security Headers
+  securityHeaders:
+    enabled: true
+    contentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.personapass.me https://rpc.personapass.me; frame-ancestors 'none';"
+    xFrameOptions: "DENY"
+    xContentTypeOptions: "nosniff"
+    referrerPolicy: "strict-origin-when-cross-origin"
+  
+  # Health Checks
+  healthCheck:
+    enabled: true
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 80
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readinessProbe:
+      httpGet:
+        path: /ready
+        port: 80
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 3
+
+# Blockchain Network
+blockchain:
+  enabled: true
+  name: personachain
+  chainId: personachain-1
+  
+  validators:
+    count: 7
+    image:
+      repository: ghcr.io/personapass/node
+      tag: ""  # Will be set by CI/CD
+    
+    resources:
+      requests:
+        memory: 8Gi
+        cpu: 4000m
+        storage: 500Gi
+      limits:
+        memory: 16Gi
+        cpu: 8000m
+    
+    persistence:
+      enabled: true
+      storageClass: gp3
+      size: 500Gi
+      accessMode: ReadWriteOnce
+    
+    # Consensus Configuration
+    consensus:
+      timeoutPropose: 3s
+      timeoutPrevote: 1s
+      timeoutPrecommit: 1s
+      timeoutCommit: 5s
+      blockTime: 6s
+      maxBlockSize: 2MB
+    
+    # P2P Configuration
+    p2p:
+      maxNumInboundPeers: 40
+      maxNumOutboundPeers: 10
+      persistentPeers: ""  # Will be populated automatically
+      seeds: ""  # Will be set during deployment
+    
+    # Monitoring
+    metrics:
+      enabled: true
+      namespace: tendermint
+      port: 26660
+  
+  # Full Nodes (for API access)
+  fullNodes:
+    count: 3
+    image:
+      repository: ghcr.io/personapass/node
+      tag: ""
+    
+    resources:
+      requests:
+        memory: 4Gi
+        cpu: 2000m
+        storage: 500Gi
+      limits:
+        memory: 8Gi
+        cpu: 4000m
+  
+  # RPC & API Ingress
+  ingress:
+    rpc:
+      enabled: true
+      className: nginx
+      annotations:
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+        nginx.ingress.kubernetes.io/rate-limit: "1000"
+        cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      hosts:
+        - host: rpc.personapass.me
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - secretName: rpc-personapass-tls
+          hosts:
+            - rpc.personapass.me
+    
+    api:
+      enabled: true
+      className: nginx
+      annotations:
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+        nginx.ingress.kubernetes.io/rate-limit: "2000"
+        cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      hosts:
+        - host: api.personapass.me
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - secretName: api-personapass-tls
+          hosts:
+            - api.personapass.me
+
+# Backend Services
+backend:
+  enabled: true
+  
+  api:
+    name: backend-api
+    image:
+      repository: ghcr.io/personapass/backend-api
+      tag: ""
+    
+    replicaCount: 3
+    
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 500m
+      limits:
+        memory: 1Gi
+        cpu: 1000m
+    
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 70
+    
+    service:
+      type: ClusterIP
+      port: 8080
+    
+    ingress:
+      enabled: true
+      className: nginx
+      hosts:
+        - host: api.personapass.me
+          paths:
+            - path: /api/v1
+              pathType: Prefix
+      tls:
+        - secretName: api-personapass-tls
+          hosts:
+            - api.personapass.me
+  
+  # Connector Services
+  connectors:
+    enabled: true
+    
+    academics:
+      enabled: true
+      replicaCount: 2
+      image:
+        repository: ghcr.io/personapass/connector-academics
+      resources:
+        requests:
+          memory: 256Mi
+          cpu: 250m
+        limits:
+          memory: 512Mi
+          cpu: 500m
+    
+    finance:
+      enabled: true
+      replicaCount: 2
+      image:
+        repository: ghcr.io/personapass/connector-finance
+      resources:
+        requests:
+          memory: 256Mi
+          cpu: 250m
+        limits:
+          memory: 512Mi
+          cpu: 500m
+    
+    government:
+      enabled: true
+      replicaCount: 2
+      image:
+        repository: ghcr.io/personapass/connector-government
+      resources:
+        requests:
+          memory: 256Mi
+          cpu: 250m
+        limits:
+          memory: 512Mi
+          cpu: 500m
+    
+    health:
+      enabled: true
+      replicaCount: 2
+      image:
+        repository: ghcr.io/personapass/connector-health
+      resources:
+        requests:
+          memory: 256Mi
+          cpu: 250m
+        limits:
+          memory: 512Mi
+          cpu: 500m
+    
+    iot:
+      enabled: true
+      replicaCount: 1
+      image:
+        repository: ghcr.io/personapass/connector-iot
+    
+    social:
+      enabled: true
+      replicaCount: 1
+      image:
+        repository: ghcr.io/personapass/connector-social
+
+# Zero-Knowledge Proof Service
+zkproof:
+  enabled: true
+  name: zkproof-api
+  
+  image:
+    repository: ghcr.io/personapass/zkproof-api
+    tag: ""
+  
+  replicaCount: 3
+  
+  resources:
+    requests:
+      memory: 4Gi
+      cpu: 2000m
+    limits:
+      memory: 8Gi
+      cpu: 4000m
+  
+  # ZK Circuit Configuration
+  circuits:
+    age_verification:
+      enabled: true
+      constraints: 1000000
+      setup: true
+    
+    education_proof:
+      enabled: true
+      constraints: 500000
+      setup: true
+    
+    income_proof:
+      enabled: true
+      constraints: 750000
+      setup: true
+  
+  # Performance Settings
+  performance:
+    proofGeneration:
+      timeout: 30s
+      concurrency: 4
+    verification:
+      timeout: 5s
+      caching: true
+  
+  service:
+    type: ClusterIP
+    port: 8080
+  
+  ingress:
+    enabled: true
+    className: nginx
+    hosts:
+      - host: zkproof.personapass.me
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: zkproof-personapass-tls
+        hosts:
+          - zkproof.personapass.me
+
+# Database (PostgreSQL)
+database:
+  enabled: true
+  type: postgresql
+  
+  primary:
+    image:
+      repository: postgres
+      tag: "15.5"
+    
+    resources:
+      requests:
+        memory: 2Gi
+        cpu: 1000m
+        storage: 100Gi
+      limits:
+        memory: 4Gi
+        cpu: 2000m
+    
+    persistence:
+      enabled: true
+      storageClass: gp3
+      size: 100Gi
+    
+    configuration: |
+      max_connections = 200
+      shared_buffers = 512MB
+      effective_cache_size = 2GB
+      work_mem = 4MB
+      maintenance_work_mem = 256MB
+      checkpoint_completion_target = 0.9
+      wal_buffers = 16MB
+      default_statistics_target = 100
+      random_page_cost = 1.1
+      effective_io_concurrency = 200
+  
+  # High Availability
+  readReplicas:
+    enabled: true
+    count: 2
+    resources:
+      requests:
+        memory: 1Gi
+        cpu: 500m
+      limits:
+        memory: 2Gi
+        cpu: 1000m
+  
+  # Backup Configuration
+  backup:
+    enabled: true
+    schedule: "0 2 * * *"
+    retention: "30"
+    destination: s3://personapass-backups/database/
+
+# Redis (Caching & Session Store)
+redis:
+  enabled: true
+  
+  master:
+    resources:
+      requests:
+        memory: 1Gi
+        cpu: 500m
+      limits:
+        memory: 2Gi
+        cpu: 1000m
+    
+    persistence:
+      enabled: true
+      size: 20Gi
+  
+  replica:
+    enabled: true
+    replicaCount: 2
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 250m
+      limits:
+        memory: 1Gi
+        cpu: 500m
+
+# Monitoring Stack
+monitoring:
+  enabled: true
+  
+  prometheus:
+    enabled: true
+    retention: "30d"
+    storageSize: "100Gi"
+    
+    rules:
+      enabled: true
+      personapass:
+        enabled: true
+    
+    additionalScrapeConfigs: |
+      - job_name: 'personachain-validators'
+        static_configs:
+          - targets: ['personachain-validator-0:26660', 'personachain-validator-1:26660']
+        metrics_path: /metrics
+        scrape_interval: 10s
+      
+      - job_name: 'wallet-frontend'
+        static_configs:
+          - targets: ['personapass-wallet:80']
+        metrics_path: /metrics
+        scrape_interval: 30s
+  
+  grafana:
+    enabled: true
+    adminPassword: ""  # Will be generated
+    
+    dashboards:
+      enabled: true
+      personapass:
+        enabled: true
+    
+    ingress:
+      enabled: true
+      className: nginx
+      hosts:
+        - host: grafana.personapass.me
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - secretName: grafana-personapass-tls
+          hosts:
+            - grafana.personapass.me
+  
+  alertmanager:
+    enabled: true
+    
+    config:
+      global:
+        slack_api_url: ""  # Set via secret
+      
+      route:
+        group_by: ['alertname']
+        group_wait: 10s
+        group_interval: 10s
+        repeat_interval: 1h
+        receiver: 'web.hook'
+      
+      receivers:
+        - name: 'web.hook'
+          slack_configs:
+            - channel: '#personapass-alerts'
+              title: 'PersonaPass Alert'
+              text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+  
+  jaeger:
+    enabled: true
+    strategy: production
+    
+    collector:
+      resources:
+        requests:
+          memory: 512Mi
+          cpu: 500m
+        limits:
+          memory: 1Gi
+          cpu: 1000m
+    
+    query:
+      ingress:
+        enabled: true
+        className: nginx
+        hosts:
+          - host: jaeger.personapass.me
+
+# Security Tools
+security:
+  enabled: true
+  
+  # Falco Runtime Security
+  falco:
+    enabled: true
+    
+    rules:
+      personapass:
+        enabled: true
+    
+    outputs:
+      enabled: true
+      slack:
+        webhookurl: ""  # Set via secret
+        channel: "#personapass-security"
+  
+  # Network Policies
+  networkPolicies:
+    enabled: true
+    
+    default:
+      denyAll: true
+    
+    ingress:
+      enabled: true
+      rules:
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  name: ingress-nginx
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  name: monitoring
+    
+    egress:
+      enabled: true
+      rules:
+        - to: []
+          ports:
+            - protocol: TCP
+              port: 53
+            - protocol: UDP
+              port: 53
+        - to: []
+          ports:
+            - protocol: TCP
+              port: 443
+            - protocol: TCP
+              port: 80
+  
+  # Pod Security Policies
+  podSecurityPolicies:
+    enabled: true
+    
+    default:
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+  
+  # Vault Integration
+  vault:
+    enabled: true
+    address: "https://vault.personapass.me"
+    
+    auth:
+      kubernetes:
+        enabled: true
+        role: "personapass-production"
+    
+    secrets:
+      database:
+        path: "secret/database"
+      blockchain:
+        path: "secret/blockchain"
+      api:
+        path: "secret/api"
+
+# Backup & Disaster Recovery
+backup:
+  enabled: true
+  
+  velero:
+    enabled: true
+    
+    configuration:
+      provider: aws
+      bucket: personapass-backups
+      region: us-west-2
+    
+    schedules:
+      daily:
+        schedule: "0 2 * * *"
+        template:
+          ttl: "720h"  # 30 days
+          includedNamespaces:
+            - personapass-production
+            - monitoring
+      
+      weekly:
+        schedule: "0 2 * * 0"  # Sunday
+        template:
+          ttl: "2160h"  # 90 days
+          includedNamespaces:
+            - personapass-production
+            - monitoring
+          storageLocation: "aws-weekly"
+
+# Service Mesh (Istio)
+serviceMesh:
+  enabled: true
+  
+  istio:
+    enabled: true
+    
+    gateway:
+      enabled: true
+      hosts:
+        - "*.personapass.me"
+      tls:
+        mode: SIMPLE
+        credentialName: "personapass-tls"
+    
+    virtualServices:
+      enabled: true
+    
+    destinationRules:
+      enabled: true
+      trafficPolicy:
+        tls:
+          mode: ISTIO_MUTUAL
+    
+    peerAuthentication:
+      enabled: true
+      mtls:
+        mode: STRICT
+
+# Resource Quotas
+resourceQuotas:
+  enabled: true
+  
+  compute:
+    requests.cpu: "20"
+    requests.memory: "40Gi"
+    limits.cpu: "40"
+    limits.memory: "80Gi"
+  
+  storage:
+    requests.storage: "2Ti"
+    persistentvolumeclaims: "50"
+  
+  objects:
+    pods: "100"
+    services: "20"
+    secrets: "50"
+    configmaps: "50"
+
+# Network Configuration
+network:
+  enabled: true
+  
+  # Load Balancer
+  loadBalancer:
+    type: nlb
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: nlb
+      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+      service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+  
+  # CDN
+  cdn:
+    enabled: true
+    provider: cloudfront
+    
+    configuration:
+      priceClass: PriceClass_All
+      geoRestriction:
+        restrictionType: none
+      
+      cacheBehaviors:
+        - pathPattern: "/static/*"
+          cachePolicyId: "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"  # CachingOptimized
+          compress: true
+        - pathPattern: "/api/*"
+          cachePolicyId: "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"  # CachingDisabled
+          compress: false
+
+# External Secrets
+externalSecrets:
+  enabled: true
+  
+  secretStore:
+    provider: aws
+    region: us-west-2
+    
+    auth:
+      secretRef:
+        accessKeyID:
+          name: aws-secret
+          key: access-key-id
+        secretAccessKey:
+          name: aws-secret
+          key: secret-access-key
+  
+  secrets:
+    - name: database-credentials
+      refreshInterval: 1h
+      data:
+        - secretKey: username
+          remoteRef:
+            key: personapass/database
+            property: username
+        - secretKey: password
+          remoteRef:
+            key: personapass/database
+            property: password
+    
+    - name: blockchain-keys
+      refreshInterval: 24h
+      data:
+        - secretKey: validator-key
+          remoteRef:
+            key: personapass/blockchain
+            property: validator-key
+        - secretKey: node-key
+          remoteRef:
+            key: personapass/blockchain
+            property: node-key

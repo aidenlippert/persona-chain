@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PersonaChain Connection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .success { color: green; }
+        .error { color: red; }
+        .testing { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>PersonaChain Connection Test</h1>
+    <div id="result" class="testing">🧪 Testing connection to PersonaChain...</div>
+    
+    <script>
+        async function testConnection() {
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                console.log('Testing HTTP request to PersonaChain RPC...');
+                
+                // Test RPC endpoint
+                const rpcResponse = await fetch('http://34.170.121.182:26657/health');
+                const rpcData = await rpcResponse.text();
+                
+                // Test API endpoint  
+                const apiResponse = await fetch('http://34.170.121.182:1317/cosmos/base/tendermint/v1beta1/node_info');
+                const apiData = await apiResponse.json();
+                
+                resultDiv.className = 'success';
+                resultDiv.innerHTML = `
+                    <h2>✅ SUCCESS! Mixed Content Error Resolved!</h2>
+                    <h3>RPC Endpoint (port 26657):</h3>
+                    <p>Status: ${rpcResponse.status}</p>
+                    <pre>${rpcData}</pre>
+                    
+                    <h3>API Endpoint (port 1317):</h3>
+                    <p>Status: ${apiResponse.status}</p>
+                    <p>Chain ID: ${apiData.default_node_info?.network || 'N/A'}</p>
+                    <p>Moniker: ${apiData.default_node_info?.moniker || 'N/A'}</p>
+                    
+                    <p><strong>🎉 PersonaPass wallet can now connect to PersonaChain!</strong></p>
+                `;
+                
+                console.log('✅ All connections successful!');
+            } catch (error) {
+                resultDiv.className = 'error';
+                resultDiv.innerHTML = `
+                    <h2>❌ FAILED: Mixed Content Error Still Present</h2>
+                    <p>Error: ${error.message}</p>
+                    <p>This means browsers are still blocking HTTP requests from HTTPS pages.</p>
+                    <p>We need to set up SSL/TLS for PersonaChain endpoints.</p>
+                `;
+                console.error('❌ Connection failed:', error);
+            }
+        }
+        
+        // Test when page loads
+        window.onload = testConnection;
+    </script>
+</body>
+</html>

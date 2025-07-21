@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "persona-testnet.fullname" . }}-rpc
+  labels:
+    {{- include "persona-testnet.labels" . | nindent 4 }}
+    component: rpc
+spec:
+  type: {{ .Values.service.type }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  ports:
+  {{- range $index, $port := .Values.validators.ports.rpc }}
+  - port: {{ $port }}
+    targetPort: rpc-{{ $index }}
+    protocol: TCP
+    name: rpc-{{ $index }}
+  {{- end }}
+  selector:
+    {{- include "persona-testnet.selectorLabels" . | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "persona-testnet.fullname" . }}-api
+  labels:
+    {{- include "persona-testnet.labels" . | nindent 4 }}
+    component: api
+spec:
+  type: {{ .Values.service.type }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  ports:
+  {{- range $index, $port := .Values.validators.ports.api }}
+  - port: {{ $port }}
+    targetPort: api-{{ $index }}
+    protocol: TCP
+    name: api-{{ $index }}
+  {{- end }}
+  selector:
+    {{- include "persona-testnet.selectorLabels" . | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "persona-testnet.fullname" . }}-grpc
+  labels:
+    {{- include "persona-testnet.labels" . | nindent 4 }}
+    component: grpc
+spec:
+  type: ClusterIP
+  ports:
+  {{- range $index, $port := .Values.validators.ports.grpc }}
+  - port: {{ $port }}
+    targetPort: grpc-{{ $index }}
+    protocol: TCP
+    name: grpc-{{ $index }}
+  {{- end }}
+  selector:
+    {{- include "persona-testnet.selectorLabels" . | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "persona-testnet.fullname" . }}-p2p
+  labels:
+    {{- include "persona-testnet.labels" . | nindent 4 }}
+    component: p2p
+spec:
+  type: ClusterIP
+  ports:
+  {{- range $index, $port := .Values.validators.ports.p2p }}
+  - port: {{ $port }}
+    targetPort: p2p-{{ $index }}
+    protocol: TCP
+    name: p2p-{{ $index }}
+  {{- end }}
+  selector:
+    {{- include "persona-testnet.selectorLabels" . | nindent 4 }}

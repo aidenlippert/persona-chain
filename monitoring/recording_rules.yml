@@ -1,0 +1,228 @@
+# PersonaPass Recording Rules
+# Pre-computed aggregations for better dashboard performance
+
+groups:
+  # Application Performance Recording Rules
+  - name: personapass.application.performance
+    interval: 30s
+    rules:
+    # Wallet application metrics
+    - record: personapass:wallet:request_rate
+      expr: sum(rate(nginx_http_requests_total{service="personapass-wallet"}[5m])) by (status, method)
+    
+    - record: personapass:wallet:response_time_p95
+      expr: histogram_quantile(0.95, sum(rate(nginx_http_request_duration_seconds_bucket{service="personapass-wallet"}[5m])) by (le))
+    
+    - record: personapass:wallet:error_rate
+      expr: sum(rate(nginx_http_requests_total{service="personapass-wallet", status!~"2.."}[5m])) / sum(rate(nginx_http_requests_total{service="personapass-wallet"}[5m]))
+    
+    - record: personapass:wallet:availability
+      expr: avg(up{job="personapass-wallet"})
+
+  # Blockchain Performance Recording Rules
+  - name: personapass.blockchain.performance
+    interval: 15s
+    rules:
+    # Validator performance
+    - record: personapass:validators:block_height
+      expr: max(tendermint_consensus_height{job="personapass-validators"}) by (validator_name)
+    
+    - record: personapass:validators:block_time
+      expr: rate(tendermint_consensus_height{job="personapass-validators"}[1m]) * 60
+    
+    - record: personapass:validators:missed_blocks
+      expr: increase(tendermint_consensus_validator_missed_blocks{job="personapass-validators"}[5m])
+    
+    - record: personapass:validators:participation_rate
+      expr: 1 - (personapass:validators:missed_blocks / on(validator_name) group_left() personapass:validators:block_height)
+    
+    # Network consensus health
+    - record: personapass:network:consensus_rounds
+      expr: avg(tendermint_consensus_rounds{job="personapass-validators"})
+    
+    - record: personapass:network:proposal_time
+      expr: avg(tendermint_consensus_proposal_timestamp{job="personapass-validators"})
+    
+    - record: personapass:network:peer_count
+      expr: avg(tendermint_p2p_peers{job="personapass-validators"})
+
+  # ZK Proof System Performance
+  - name: personapass.zkproof.performance
+    interval: 30s
+    rules:
+    - record: personapass:zkproof:generation_time_p50
+      expr: histogram_quantile(0.50, sum(rate(personapass_zk_proof_generation_duration_seconds_bucket[5m])) by (le, proof_type))
+    
+    - record: personapass:zkproof:generation_time_p95
+      expr: histogram_quantile(0.95, sum(rate(personapass_zk_proof_generation_duration_seconds_bucket[5m])) by (le, proof_type))
+    
+    - record: personapass:zkproof:verification_time_p50
+      expr: histogram_quantile(0.50, sum(rate(personapass_zk_proof_verification_duration_seconds_bucket[5m])) by (le, proof_type))
+    
+    - record: personapass:zkproof:success_rate
+      expr: sum(rate(personapass_zk_proof_operations_total{status="success"}[5m])) / sum(rate(personapass_zk_proof_operations_total[5m]))
+    
+    - record: personapass:zkproof:daily_volume
+      expr: increase(personapass_zk_proof_operations_total[24h])
+
+  # Identity Protocol Metrics
+  - name: personapass.identity.protocols
+    interval: 60s
+    rules:
+    # DID operations
+    - record: personapass:did:creation_rate
+      expr: sum(rate(personapass_did_operations_total{operation="create"}[5m]))
+    
+    - record: personapass:did:resolution_rate
+      expr: sum(rate(personapass_did_operations_total{operation="resolve"}[5m]))
+    
+    - record: personapass:did:update_rate
+      expr: sum(rate(personapass_did_operations_total{operation="update"}[5m]))
+    
+    # Verifiable Credential operations
+    - record: personapass:vc:issuance_rate
+      expr: sum(rate(personapass_vc_operations_total{operation="issue"}[5m]))
+    
+    - record: personapass:vc:verification_rate
+      expr: sum(rate(personapass_vc_operations_total{operation="verify"}[5m]))
+    
+    - record: personapass:vc:revocation_rate
+      expr: sum(rate(personapass_vc_operations_total{operation="revoke"}[5m]))
+    
+    # OpenID4VP/VCI protocol metrics
+    - record: personapass:openid4vp:presentation_rate
+      expr: sum(rate(personapass_openid4vp_presentations_total[5m]))
+    
+    - record: personapass:openid4vci:credential_offers
+      expr: sum(rate(personapass_openid4vci_credential_offers_total[5m]))
+    
+    # EUDI compliance metrics
+    - record: personapass:eudi:compliance_score
+      expr: avg(personapass_eudi_compliance_score)
+    
+    - record: personapass:eudi:arf_conformance
+      expr: avg(personapass_eudi_arf_conformance_score)
+
+  # Security Monitoring Recording Rules
+  - name: personapass.security.monitoring
+    interval: 60s
+    rules:
+    # Authentication metrics
+    - record: personapass:auth:webauthn_success_rate
+      expr: sum(rate(personapass_webauthn_operations_total{status="success"}[5m])) / sum(rate(personapass_webauthn_operations_total[5m]))
+    
+    - record: personapass:auth:biometric_enrollment_rate
+      expr: sum(rate(personapass_biometric_enrollments_total[5m]))
+    
+    - record: personapass:auth:failed_attempts
+      expr: sum(rate(personapass_auth_operations_total{status="failed"}[5m]))
+    
+    # Security alerts
+    - record: personapass:security:suspicious_activity
+      expr: sum(rate(personapass_security_events_total{severity="high"}[5m]))
+    
+    - record: personapass:security:encryption_operations
+      expr: sum(rate(personapass_encryption_operations_total[5m]))
+
+  # Resource Utilization Recording Rules
+  - name: personapass.resource.utilization
+    interval: 30s
+    rules:
+    # CPU utilization
+    - record: personapass:cpu:utilization_by_pod
+      expr: sum(rate(container_cpu_usage_seconds_total{namespace="personapass-prod"}[5m])) by (pod, container)
+    
+    - record: personapass:cpu:utilization_by_node
+      expr: 1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) by (instance)
+    
+    # Memory utilization
+    - record: personapass:memory:utilization_by_pod
+      expr: sum(container_memory_working_set_bytes{namespace="personapass-prod"}) by (pod, container)
+    
+    - record: personapass:memory:utilization_percentage
+      expr: (personapass:memory:utilization_by_pod / on(pod) group_left() kube_pod_container_resource_limits{resource="memory", namespace="personapass-prod"}) * 100
+    
+    # Storage utilization
+    - record: personapass:storage:utilization_by_pvc
+      expr: kubelet_volume_stats_used_bytes{namespace="personapass-prod"} / kubelet_volume_stats_capacity_bytes{namespace="personapass-prod"} * 100
+    
+    # Network utilization
+    - record: personapass:network:bytes_received_rate
+      expr: sum(rate(container_network_receive_bytes_total{namespace="personapass-prod"}[5m])) by (pod)
+    
+    - record: personapass:network:bytes_transmitted_rate
+      expr: sum(rate(container_network_transmit_bytes_total{namespace="personapass-prod"}[5m])) by (pod)
+
+  # Business Metrics Recording Rules
+  - name: personapass.business.metrics
+    interval: 300s  # 5 minutes
+    rules:
+    # User activity
+    - record: personapass:users:active_daily
+      expr: count(personapass_user_sessions_total{status="active"}) by (date)
+    
+    - record: personapass:users:new_registrations
+      expr: sum(increase(personapass_user_registrations_total[24h]))
+    
+    # Transaction volume
+    - record: personapass:transactions:daily_volume
+      expr: sum(increase(personapass_blockchain_transactions_total[24h])) by (type)
+    
+    - record: personapass:transactions:success_rate
+      expr: sum(rate(personapass_blockchain_transactions_total{status="success"}[5m])) / sum(rate(personapass_blockchain_transactions_total[5m]))
+    
+    # Credential operations
+    - record: personapass:credentials:issued_daily
+      expr: sum(increase(personapass_vc_operations_total{operation="issue"}[24h]))
+    
+    - record: personapass:credentials:verified_daily
+      expr: sum(increase(personapass_vc_operations_total{operation="verify"}[24h]))
+    
+    # Mobile app performance
+    - record: personapass:mobile:android_performance
+      expr: avg(personapass_mobile_performance_score{platform="android"})
+    
+    - record: personapass:mobile:device_compatibility
+      expr: avg(personapass_device_compatibility_score)
+
+  # SLA/SLO Recording Rules
+  - name: personapass.sla.slo
+    interval: 60s
+    rules:
+    # Availability SLO (99.9%)
+    - record: personapass:slo:availability_wallet
+      expr: avg_over_time(personapass:wallet:availability[5m])
+    
+    - record: personapass:slo:availability_blockchain
+      expr: avg_over_time(up{job="personapass-validators"}[5m])
+    
+    # Latency SLO (< 2s for ZK proof generation)
+    - record: personapass:slo:zkproof_latency
+      expr: personapass:zkproof:generation_time_p95 < 2
+    
+    # Error rate SLO (< 0.1%)
+    - record: personapass:slo:error_rate_budget
+      expr: 0.001 - personapass:wallet:error_rate
+    
+    # Throughput SLO
+    - record: personapass:slo:throughput_met
+      expr: personapass:wallet:request_rate > 100  # 100 RPS minimum
+
+  # Cost Optimization Recording Rules
+  - name: personapass.cost.optimization
+    interval: 300s
+    rules:
+    # Resource cost per transaction
+    - record: personapass:cost:per_transaction
+      expr: sum(kube_pod_container_resource_requests{resource="cpu", namespace="personapass-prod"}) / sum(rate(personapass_blockchain_transactions_total[5m]))
+    
+    # Storage cost trends
+    - record: personapass:cost:storage_growth_rate
+      expr: rate(sum(kubelet_volume_stats_used_bytes{namespace="personapass-prod"})[24h])
+    
+    # Efficiency metrics
+    - record: personapass:efficiency:cpu_per_user
+      expr: personapass:cpu:utilization_by_pod / on() group_left() personapass:users:active_daily
+    
+    - record: personapass:efficiency:memory_per_transaction
+      expr: personapass:memory:utilization_by_pod / on() group_left() personapass:transactions:daily_volume

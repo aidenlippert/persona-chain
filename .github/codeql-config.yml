@@ -1,0 +1,23 @@
+name: "Cosmos SDK Security Analysis"
+
+disable-default-queries: false
+
+queries:
+  - name: cosmos-security
+    uses: ./.github/codeql/cosmos-security.ql
+  - name: determinism-check  
+    uses: ./.github/codeql/determinism-check.ql
+  - name: access-control
+    uses: ./.github/codeql/access-control.ql
+
+paths-ignore:
+  - "**/node_modules/**"
+  - "**/target/**"
+  - "**/dist/**"
+  - "**/*.test.rs"
+  - "**/*.spec.ts"
+
+paths:
+  - "contracts/zk-verifier/src/**"
+  - "apps/backend/src/**"
+  - "apps/zk-api/src/**"
