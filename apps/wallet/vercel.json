@@ -65,7 +65,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://personachain-proxy.aidenlippert.workers.dev https://personachain-prod.uc.r.appspot.com wss://personachain-proxy.aidenlippert.workers.dev https://api.stripe.com; font-src 'self' data:; worker-src 'self' blob:; frame-ancestors 'none';"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://personachain-prod.uc.r.appspot.com wss://personachain-prod.uc.r.appspot.com https://api.stripe.com; font-src 'self' data:; worker-src 'self' blob:; frame-src 'self' https://js.stripe.com; frame-ancestors 'none';"
         }
       ]
     }

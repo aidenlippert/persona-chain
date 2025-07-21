@@ -794,16 +794,49 @@ export class PersonaTokenService {
   }
 
   private async fetchBlockchainBalance(userDID: DID): Promise<bigint> {
-    // Mock blockchain balance fetch - in production, this would use Web3
-    // to fetch actual token balance from the blockchain
-    const mockBalance = BigInt(1000) * DECIMALS_18; // 1000 PSA
-    
-    logger.debug('📊 Fetching blockchain balance', {
-      userDID,
-      balance: mockBalance.toString(),
-    });
+    try {
+      // Real blockchain balance fetch using PersonaChain
+      const contractAddress = this.tokenConfig.contracts.psa;
+      if (!contractAddress) {
+        throw new Error('PSA contract address not configured');
+      }
 
-    return mockBalance;
+      // Use PersonaChain RPC to query token balance
+      const rpcUrl = this.tokenConfig.blockchain.rpcUrl;
+      const queryData = {
+        balance: {
+          address: userDID, // DID maps to wallet address
+        }
+      };
+
+      const response = await fetch(`${rpcUrl}/cosmwasm/wasm/v1/contract/${contractAddress}/smart/${btoa(JSON.stringify(queryData))}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Balance query failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const balance = BigInt(data.data.balance || '0');
+      
+      logger.debug('📊 Fetched real blockchain balance', {
+        userDID,
+        contractAddress,
+        balance: balance.toString(),
+      });
+      
+      return balance;
+    } catch (error) {
+      errorService.logError('Failed to fetch blockchain balance:', error);
+      
+      // Return zero balance on error rather than mock data
+      logger.warn('⚠️ Returning zero balance due to blockchain query failure');
+      return BigInt(0);
+    }
   }
 
   private async executeBlockchainTransaction(
@@ -812,27 +845,79 @@ export class PersonaTokenService {
     amount: bigint,
     description: string
   ): Promise<string> {
-    // Mock blockchain transaction - in production, this would use Web3
-    // to execute actual blockchain transactions
-    const mockTxHash = `0x${Math.random().toString(16).substr(2, 64)}`;
-    
-    // Record blockchain transaction
-    monitoringService.recordBlockchainTransaction(
-      description,
-      true,
-      50000, // Mock gas used
-      mockTxHash
-    );
+    try {
+      // Real blockchain transaction using PersonaChain
+      const rpcUrl = this.tokenConfig.blockchain.rpcUrl;
+      
+      // Create transaction message for PSA token transfer
+      const msg = {
+        typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
+        value: {
+          sender: userDID, // DID maps to wallet address
+          contract: contractAddress,
+          msg: btoa(JSON.stringify({
+            transfer: {
+              recipient: contractAddress, // Contract address for internal transfers
+              amount: amount.toString(),
+            }
+          })),
+          funds: [],
+        }
+      };
 
-    logger.info('⛓️ Blockchain transaction executed', {
-      userDID,
-      contractAddress,
-      amount: amount.toString(),
-      txHash: mockTxHash,
-      description,
-    });
+      // Execute transaction via PersonaChain RPC
+      const response = await fetch(`${rpcUrl}/cosmos/tx/v1beta1/txs`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tx_bytes: btoa(JSON.stringify(msg)),
+          mode: 'BROADCAST_MODE_SYNC',
+        })
+      });
 
-    return mockTxHash;
+      if (!response.ok) {
+        throw new Error(`Transaction broadcast failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const txHash = data.tx_response?.txhash;
+      
+      if (!txHash) {
+        throw new Error('Transaction hash not received from blockchain');
+      }
+
+      // Record successful blockchain transaction
+      monitoringService.recordBlockchainTransaction(
+        description,
+        true,
+        parseInt(data.tx_response?.gas_used || '50000'),
+        txHash
+      );
+
+      logger.info('⛓️ Real blockchain transaction executed', {
+        userDID,
+        contractAddress,
+        amount: amount.toString(),
+        txHash,
+        description,
+        gasUsed: data.tx_response?.gas_used,
+      });
+
+      return txHash;
+    } catch (error) {
+      // Record failed transaction
+      monitoringService.recordBlockchainTransaction(
+        description,
+        false,
+        0,
+        ''
+      );
+
+      errorService.logError('Blockchain transaction failed:', error);
+      throw new Error(`Failed to execute blockchain transaction: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   private async activateFeatureForUser(

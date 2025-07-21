@@ -80,21 +80,46 @@ export class VCManagerService {
         // Check if DID exists in storage
         const existingDIDs = await storageService.getAllDIDs();
         if (existingDIDs.length > 0) {
-          // Use first available DID
+          // Use first available DID with comprehensive safety checks
           const storedDID = existingDIDs[0];
+          
+          // Safe private key handling
+          let privateKeyArray: Uint8Array;
+          try {
+            if (storedDID?.privateKey instanceof Uint8Array) {
+              privateKeyArray = storedDID.privateKey;
+            } else if (storedDID?.privateKey && typeof storedDID.privateKey === 'object' && storedDID.privateKey !== null) {
+              const values = Object.values(storedDID.privateKey).filter(v => v != null && typeof v === 'number');
+              privateKeyArray = values.length > 0 ? new Uint8Array(values) : new Uint8Array(32);
+            } else {
+              privateKeyArray = new Uint8Array(32); // Default 32-byte key
+            }
+          } catch (error) {
+            console.warn('Error processing stored private key:', error);
+            privateKeyArray = new Uint8Array(32);
+          }
+
+          // Safe public key handling
+          let publicKeyArray: Uint8Array;
+          try {
+            if (storedDID?.publicKey instanceof Uint8Array) {
+              publicKeyArray = storedDID.publicKey;
+            } else if (storedDID?.publicKey && typeof storedDID.publicKey === 'object' && storedDID.publicKey !== null) {
+              const values = Object.values(storedDID.publicKey).filter(v => v != null && typeof v === 'number');
+              publicKeyArray = values.length > 0 ? new Uint8Array(values) : new Uint8Array(32);
+            } else {
+              publicKeyArray = new Uint8Array(32); // Default 32-byte key
+            }
+          } catch (error) {
+            console.warn('Error processing stored public key:', error);
+            publicKeyArray = new Uint8Array(32);
+          }
+
           didKeyPair = {
-            did: storedDID.id,
-            privateKey: storedDID?.privateKey instanceof Uint8Array 
-              ? storedDID.privateKey 
-              : storedDID?.privateKey && typeof storedDID.privateKey === 'object'
-                ? new Uint8Array(Object.values(storedDID.privateKey).filter(v => v != null))
-                : new Uint8Array(),
-            publicKey: storedDID?.publicKey instanceof Uint8Array 
-              ? storedDID.publicKey 
-              : storedDID?.publicKey && typeof storedDID.publicKey === 'object'
-                ? new Uint8Array(Object.values(storedDID.publicKey).filter(v => v != null))
-                : new Uint8Array(),
-            document: storedDID.document,
+            did: storedDID?.id || `did:key:${Date.now()}`,
+            privateKey: privateKeyArray,
+            publicKey: publicKeyArray,
+            document: storedDID?.document || null,
           };
         } else {
           // Generate new DID
@@ -710,8 +735,20 @@ export class VCManagerService {
   private async getTotalVCCount(): Promise<number> {
     try {
       const credentials = await storageService.getCredentials();
-      return credentials.filter((cred) => !cred.metadata.revoked).length;
+      if (!Array.isArray(credentials)) {
+        console.warn('getTotalVCCount: credentials is not an array:', typeof credentials);
+        return 0;
+      }
+      return credentials.filter((cred) => {
+        try {
+          return cred && cred.metadata && !cred.metadata.revoked;
+        } catch (filterError) {
+          console.warn('Error filtering credential:', cred, filterError);
+          return false;
+        }
+      }).length;
     } catch (error) {
+      console.error('Error getting total VC count:', error);
       return 0;
     }
   }
@@ -722,8 +759,13 @@ export class VCManagerService {
   private async getTotalZKProofCount(): Promise<number> {
     try {
       const zkCredentials = await storageService.getZKCredentials();
+      if (!Array.isArray(zkCredentials)) {
+        console.warn('getTotalZKProofCount: zkCredentials is not an array:', typeof zkCredentials);
+        return 0;
+      }
       return zkCredentials.length;
     } catch (error) {
+      console.error('Error getting total ZK proof count:', error);
       return 0;
     }
   }

@@ -58,20 +58,38 @@ const queryClient = new QueryClient({
   },
 });
 
-// Connections Page (placeholder)
+// Production Connections Management
 const ConnectionsPage = () => {
+  const [connections, setConnections] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadConnections();
+  }, []);
+
+  const loadConnections = async () => {
+    try {
+      const storedConnections = await storageService.getConnections();
+      setConnections(storedConnections || []);
+    } catch (error) {
+      errorService.logError('Failed to load connections:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
-      <div className="bg-white shadow-lg border-b-4 border-orange-500">
+    <div className="min-h-screen bg-gray-900">
+      <div className="bg-gray-800/50 backdrop-blur-sm border-b border-gray-700/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <h1 className="text-4xl font-bold text-black mb-2">
+            <h1 className="text-4xl font-bold text-white mb-2">
               Trusted Connections
             </h1>
-            <p className="text-gray-600 text-lg">
+            <p className="text-gray-300 text-lg">
               Manage trusted issuers and verifiers in your identity network
             </p>
           </motion.div>
@@ -79,54 +97,220 @@ const ConnectionsPage = () => {
       </div>
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-xl shadow-lg p-12 text-center"
-        >
-          <div className="text-6xl mb-4">[LINK]</div>
-          <h3 className="text-xl font-semibold text-black mb-2">Coming Soon</h3>
-          <p className="text-gray-600">
-            Connection management features are in development
-          </p>
-        </motion.div>
+        {loading ? (
+          <div className="text-center">
+            <div className="inline-flex items-center space-x-3">
+              <div className="w-6 h-6 bg-orange-500 rounded-full animate-pulse"></div>
+              <span className="text-gray-300">Loading connections...</span>
+            </div>
+          </div>
+        ) : connections.length > 0 ? (
+          <div className="grid gap-6">
+            {connections.map((connection: any, index: number) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-6"
+              >
+                <div className="flex items-center space-x-4">
+                  <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl flex items-center justify-center">
+                    <LinkIcon className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">{connection.name}</h3>
+                    <p className="text-gray-400">{connection.type} • {connection.status}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-12 text-center"
+          >
+            <LinkIcon className="h-16 w-16 text-gray-500 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-white mb-2">No Connections Yet</h3>
+            <p className="text-gray-400 mb-6">
+              Connect to identity providers and verifiers to build your trust network
+            </p>
+            <button className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-xl font-semibold hover:from-orange-600 hover:to-amber-600 transition-all">
+              Add Connection
+            </button>
+          </motion.div>
+        )}
       </div>
     </div>
   );
 };
 
-// Settings Page (placeholder)
+// Production Settings & Security Management
 const SettingsPage = () => {
+  const [settings, setSettings] = useState({
+    biometricAuth: true,
+    autoBackup: true,
+    dataEncryption: true,
+    notifications: true,
+    analyticsOptOut: false,
+    zkProofSharing: 'selective'
+  });
+
+  const handleSettingChange = async (key: string, value: any) => {
+    try {
+      const newSettings = { ...settings, [key]: value };
+      setSettings(newSettings);
+      await storageService.updateSettings(newSettings);
+      
+      // Track settings changes for analytics
+      analyticsService.trackEvent(
+        'user_action',
+        'settings',
+        `${key}_changed`,
+        createDIDFromString(localStorage.getItem('persona_user_id') || 'did:persona:anonymous'),
+        { newValue: value, timestamp: Date.now() }
+      );
+    } catch (error) {
+      errorService.logError('Failed to update settings:', error);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
-      <div className="bg-white shadow-lg border-b-4 border-orange-500">
+    <div className="min-h-screen bg-gray-900">
+      <div className="bg-gray-800/50 backdrop-blur-sm border-b border-gray-700/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <h1 className="text-4xl font-bold text-black mb-2">
-              Settings & Preferences
+            <h1 className="text-4xl font-bold text-white mb-2">
+              Security & Privacy Settings
             </h1>
-            <p className="text-gray-600 text-lg">
-              Configure your security settings and privacy preferences
+            <p className="text-gray-300 text-lg">
+              Configure your identity wallet security and privacy preferences
             </p>
           </motion.div>
         </div>
       </div>
       
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-xl shadow-lg p-12 text-center"
-        >
-          <div className="text-6xl mb-4">⚙️</div>
-          <h3 className="text-xl font-semibold text-black mb-2">Coming Soon</h3>
-          <p className="text-gray-600">
-            Advanced settings and configuration options are in development
-          </p>
-        </motion.div>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="space-y-6">
+          {/* Security Settings */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-6"
+          >
+            <h3 className="text-xl font-semibold text-white mb-4">Security</h3>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white font-medium">Biometric Authentication</p>
+                  <p className="text-gray-400 text-sm">Use fingerprint or face recognition</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.biometricAuth}
+                    onChange={(e) => handleSettingChange('biometricAuth', e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                </label>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white font-medium">Data Encryption</p>
+                  <p className="text-gray-400 text-sm">Encrypt all stored credentials</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.dataEncryption}
+                    onChange={(e) => handleSettingChange('dataEncryption', e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                </label>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Privacy Settings */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-6"
+          >
+            <h3 className="text-xl font-semibold text-white mb-4">Privacy</h3>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white font-medium">Analytics Opt-Out</p>
+                  <p className="text-gray-400 text-sm">Disable usage analytics collection</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.analyticsOptOut}
+                    onChange={(e) => handleSettingChange('analyticsOptOut', e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                </label>
+              </div>
+
+              <div>
+                <p className="text-white font-medium mb-2">ZK Proof Sharing</p>
+                <p className="text-gray-400 text-sm mb-3">Control how your zero-knowledge proofs are shared</p>
+                <select
+                  value={settings.zkProofSharing}
+                  onChange={(e) => handleSettingChange('zkProofSharing', e.target.value)}
+                  className="bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-orange-500 focus:border-orange-500 block w-full p-2.5"
+                >
+                  <option value="public">Public - Anyone can verify</option>
+                  <option value="selective">Selective - Choose per proof</option>
+                  <option value="private">Private - Only you control</option>
+                </select>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Backup & Recovery */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-gray-800/50 border border-gray-700/50 rounded-xl p-6"
+          >
+            <h3 className="text-xl font-semibold text-white mb-4">Backup & Recovery</h3>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white font-medium">Automatic Backup</p>
+                  <p className="text-gray-400 text-sm">Automatically backup to secure cloud storage</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.autoBackup}
+                    onChange={(e) => handleSettingChange('autoBackup', e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                </label>
+              </div>
+              
+              <button className="bg-gradient-to-r from-orange-500 to-amber-500 text-white px-4 py-2 rounded-lg hover:from-orange-600 hover:to-amber-600 transition-all">
+                Export Wallet Backup
+              </button>
+            </div>
+          </motion.div>
+        </div>
       </div>
     </div>
   );

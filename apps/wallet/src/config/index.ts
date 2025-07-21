@@ -7,7 +7,7 @@ const envSchema = z.object({
   VITE_APP_VERSION: z.string().default('1.0.0'),
   VITE_ENVIRONMENT: z.enum(['development', 'staging', 'production']).default('development'),
   VITE_LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
-  VITE_DEMO_MODE: z.string().transform(val => val === 'true').default('true'),
+  VITE_DEMO_MODE: z.string().transform(val => val === 'true').default('false'),
 
   // API Configuration
   VITE_API_BASE_URL: z.string().url().default('http://localhost:3000'),
@@ -67,7 +67,7 @@ const envSchema = z.object({
   // Development Settings
   VITE_CORS_ORIGIN: z.string().default('http://localhost:5173'),
   VITE_ENABLE_DEVTOOLS: z.string().transform(val => val === 'true').default('false'),
-  VITE_MOCK_INTEGRATIONS: z.string().transform(val => val === 'true').default('true'),
+  VITE_MOCK_INTEGRATIONS: z.string().transform(val => val === 'true').default('false'),
 });
 
 // Type inference from schema
@@ -144,30 +144,40 @@ export interface AppConfig {
   };
 }
 
-// Fallback configurations
+// Production fallback configurations
 const fallbackConfig = {
   blockchain: {
     rpcUrls: {
       ethereum: [
-        'https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
-        'https://eth-mainnet.g.alchemy.com/v2/demo',
-        'https://rpc.ankr.com/eth'
+        'https://rpc.ankr.com/eth',
+        'https://eth.llamarpc.com',
+        'https://ethereum.publicnode.com'
       ],
       polygon: [
         'https://polygon-rpc.com',
-        'https://polygon-mainnet.g.alchemy.com/v2/demo',
-        'https://rpc.ankr.com/polygon'
+        'https://rpc.ankr.com/polygon',
+        'https://polygon.llamarpc.com'
       ],
       bsc: [
         'https://bsc-dataseed.binance.org',
         'https://bsc-dataseed1.defibit.io',
         'https://bsc-dataseed1.ninicoin.io'
+      ],
+      'persona-chain': [
+        'https://personachain-proxy.aidenlippert.workers.dev',
+        'https://rpc.personachain.com',
+        'https://persona-rpc.cosmos.network'
       ]
     },
     restUrls: {
       ethereum: ['https://api.etherscan.io/api'],
       polygon: ['https://api.polygonscan.com/api'],
-      bsc: ['https://api.bscscan.com/api']
+      bsc: ['https://api.bscscan.com/api'],
+      'persona-chain': [
+        'https://personachain-proxy.aidenlippert.workers.dev/api',
+        'https://api.personachain.com',
+        'https://persona-api.cosmos.network'
+      ]
     }
   }
 };

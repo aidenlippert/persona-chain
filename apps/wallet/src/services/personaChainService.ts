@@ -100,37 +100,7 @@ export class PersonaChainService {
     }
   }
 
-  // Use demo mode when blockchain is not accessible
-  private isDemoMode(): boolean {
-    try {
-      const features = configService.getFeatureFlags();
-      const development = configService.getDevelopmentConfig();
-      
-      // Check if demo mode is explicitly enabled
-      if (features.demoMode || development.debugMode) {
-        return true;
-      }
-      
-      // Use demo mode as fallback for development
-      return import.meta.env.VITE_DEMO_MODE === 'true' || import.meta.env.NODE_ENV === 'development';
-    } catch (error) {
-      // Fallback to environment variables if config service is not available
-      return import.meta.env.VITE_DEMO_MODE === 'true' || import.meta.env.NODE_ENV === 'development';
-    }
-  }
-
-  private generateDemoAddress(): string {
-    // Generate a unique demo address each time (not hardcoded)
-    const randomSuffix = Math.random().toString(36).substring(2, 15);
-    return `cosmos1demo${randomSuffix}`;
-  }
-
-  private generateDemoPublicKey(): string {
-    // Generate a unique demo public key each time (not hardcoded)
-    const bytes = new Uint8Array(32);
-    crypto.getRandomValues(bytes);
-    return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('').toUpperCase();
-  }
+  // Production-only service - no demo mode
 
   /**
    * Check if a wallet address already has a DID associated with it
@@ -160,21 +130,6 @@ export class PersonaChainService {
    */
   async connectKeplr(): Promise<PersonaWallet | null> {
     try {
-      // Demo mode for development/testing
-      if (this.isDemoMode()) {
-        console.log("Demo mode: Simulating Keplr connection...");
-        // Simulate a delay
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        // Return mock wallet data - DO NOT USE IN PRODUCTION
-        const demoAddress = this.generateDemoAddress();
-        return {
-          address: demoAddress,
-          did: `did:persona:${demoAddress}`,
-          publicKey: this.generateDemoPublicKey(),
-        };
-      }
-
       if (!window.keplr) {
         throw new Error(
           "Keplr wallet not found. Please install Keplr extension.",
@@ -254,19 +209,9 @@ export class PersonaChainService {
    */
   async createDIDOnChain(wallet: PersonaWallet): Promise<string> {
     try {
-      // Try to use real blockchain first
-      const realTxHash = await this.tryRealBlockchainDID(wallet);
-      if (realTxHash) {
-        return realTxHash;
-      }
-
-      // Fallback to demo mode if real blockchain fails
-      console.log("Falling back to demo mode: Real blockchain unavailable");
-      // Simulate blockchain transaction delay
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Return mock transaction hash
-      return "DEMO_TX_HASH_" + Date.now().toString(36).toUpperCase();
+      // Production blockchain DID creation
+      const txHash = await this.createRealBlockchainDID(wallet);
+      return txHash;
     } catch (error) {
       errorService.logError("Failed to create DID on chain:", error);
       throw error;
@@ -274,115 +219,153 @@ export class PersonaChainService {
   }
 
   /**
-   * Try to store DID on real blockchain (Polygon or other networks)
+   * Create DID on PersonaChain blockchain using Cosmos SDK
    */
-  private async tryRealBlockchainDID(wallet: PersonaWallet): Promise<string | null> {
+  private async createRealBlockchainDID(wallet: PersonaWallet): Promise<string> {
     try {
-      // For now, store in localStorage as a permanent record
-      // This simulates real blockchain storage but persists across sessions
+      if (!this.client) {
+        throw new Error("Cosmos client not initialized. Connect wallet first.");
+      }
+
+      // Create DID document
+      const didDocument = {
+        id: wallet.did,
+        controller: wallet.address,
+        verificationMethod: [{
+          id: `${wallet.did}#key-1`,
+          type: "Ed25519VerificationKey2020",
+          controller: wallet.did,
+          publicKeyBase58: wallet.publicKey,
+        }],
+        created: new Date().toISOString(),
+      };
+
+      // Create transaction to store DID on PersonaChain
+      const msg = {
+        typeUrl: "/personachain.did.MsgCreateDIDDocument",
+        value: {
+          creator: wallet.address,
+          didDocument: didDocument,
+          metadata: {
+            ipAddress: "",
+            userAgent: "PersonaPass/1.0.0",
+          },
+        },
+      };
+
+      const fee = {
+        amount: coins(100000, "persona"),
+        gas: "200000",
+      };
+
+      const result = await this.client.signAndBroadcast(
+        wallet.address,
+        [msg],
+        fee,
+        "Create DID Document on PersonaChain",
+      );
+
+      if (result.code !== 0) {
+        throw new Error(`Transaction failed: ${result.rawLog}`);
+      }
+
+      console.log('✅ DID created on PersonaChain:', result.transactionHash);
+      
+      // Store record locally for quick access (not as simulation but as cache)
       const didRecord = {
         did: wallet.did,
         controller: wallet.address,
-        document: JSON.stringify({
-          id: wallet.did,
-          controller: wallet.address,
-          verificationMethod: [{
-            id: `${wallet.did}#key-1`,
-            type: "Ed25519VerificationKey2020",
-            controller: wallet.did,
-            publicKeyBase58: wallet.publicKey,
-          }],
-          created: new Date().toISOString(),
-        }),
+        document: JSON.stringify(didDocument),
         created: Date.now(),
-        txHash: `REAL_TX_${Date.now().toString(36).toUpperCase()}`,
+        txHash: result.transactionHash,
         network: 'PersonaChain',
-        blockNumber: Math.floor(Math.random() * 1000000),
+        blockHeight: result.height,
       };
 
-      // Store permanently in localStorage (simulating blockchain storage)
+      // Cache in localStorage for performance
       const existingDIDs = JSON.parse(localStorage.getItem('blockchain_dids') || '[]');
       existingDIDs.push(didRecord);
       localStorage.setItem('blockchain_dids', JSON.stringify(existingDIDs));
-      
-      // Also store in a global registry format
       localStorage.setItem(`did_record_${wallet.did}`, JSON.stringify(didRecord));
-      
-      console.log('✅ DID stored on simulated PersonaChain:', didRecord.txHash);
-      return didRecord.txHash;
+
+      return result.transactionHash;
       
     } catch (error) {
-      console.warn('Failed to store on real blockchain:', error);
-      return null;
+      errorService.logError('Failed to create DID on PersonaChain blockchain:', error);
+      throw new Error(`Blockchain DID creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   /**
-   * Query DID from PersonaChain or localStorage
+   * Query DID from PersonaChain blockchain
    */
   async queryDID(didId: string): Promise<DIDDocument | null> {
     try {
-      // First check our local blockchain storage
+      // First check local cache for performance
       const localDIDRecord = localStorage.getItem(`did_record_${didId}`);
       if (localDIDRecord) {
         const record = JSON.parse(localDIDRecord);
-        console.log('✅ Found DID in local blockchain storage:', record.txHash);
+        console.log('✅ Found DID in local cache:', record.txHash);
         return JSON.parse(record.document);
       }
 
-      // Demo mode for development/testing
-      if (this.isDemoMode()) {
-        console.log("Demo mode: Simulating DID query...");
-        // Simulate query delay
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        // Return mock DID document
-        return {
-          id: didId,
-          controller: "cosmos1demo5t7sxgk8xyk7hz8xvr6jf7h8k9demo",
-          verificationMethod: [
-            {
-              id: `${didId}#key-1`,
-              type: "Ed25519VerificationKey2020",
-              controller: didId,
-              publicKeyBase58: "A1B2C3D4E5F6G7H8I9J0K1L2M3N4O5P6Q7R8S9T0",
-            },
-          ],
-          created: new Date().toISOString(),
-        };
-      }
-
-      // Try multiple approaches for DID querying
+      // Query PersonaChain blockchain using multiple endpoints
       const queryEndpoints = [
-        `${this.config.restEndpoint}/personachain/did/did/${didId}`,
-        `${this.config.rpcEndpoint}/abci_query?path="/personachain.did.Query/Did"&data="${didId}"`,
+        `${this.config.restEndpoint}/personachain/did/did/${encodeURIComponent(didId)}`,
+        `${this.config.rpcEndpoint}/abci_query?path="/personachain.did.Query/Did"&data="${encodeURIComponent(didId)}"`,
       ];
 
       for (const endpoint of queryEndpoints) {
         try {
-          const response = await fetch(endpoint);
+          console.log(`🔍 Querying DID from: ${endpoint}`);
+          const response = await fetch(endpoint, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+          });
           
           if (response.ok) {
             const data = await response.json();
             
-            // Handle different response formats
+            // Handle different response formats from PersonaChain
             if (data.did && data.did.didDocument) {
-              return JSON.parse(data.did.didDocument);
-            } else if (data.result && data.result.response) {
+              const didDocument = typeof data.did.didDocument === 'string' 
+                ? JSON.parse(data.did.didDocument) 
+                : data.did.didDocument;
+              
+              console.log('✅ Found DID on PersonaChain blockchain');
+              return didDocument;
+            } else if (data.result && data.result.response && data.result.response.value) {
               // Handle RPC response format
               const decoded = atob(data.result.response.value);
-              return JSON.parse(decoded);
+              const didDocument = JSON.parse(decoded);
+              
+              console.log('✅ Found DID via RPC query');
+              return didDocument;
+            } else if (data.didDocument) {
+              // Direct DID document response
+              const didDocument = typeof data.didDocument === 'string' 
+                ? JSON.parse(data.didDocument) 
+                : data.didDocument;
+              
+              console.log('✅ Found DID document directly');
+              return didDocument;
             }
+          } else {
+            console.warn(`❌ Query failed at ${endpoint}: ${response.status} ${response.statusText}`);
           }
         } catch (endpointError) {
-          console.warn(`Failed to query from ${endpoint}:`, endpointError);
+          console.warn(`❌ Failed to query from ${endpoint}:`, endpointError);
           continue;
         }
       }
 
-      return null; // DID not found
+      console.log(`❌ DID not found on PersonaChain: ${didId}`);
+      return null;
     } catch (error) {
-      errorService.logError("Failed to query DID:", error);
+      errorService.logError("Failed to query DID from PersonaChain:", error);
       return null;
     }
   }
