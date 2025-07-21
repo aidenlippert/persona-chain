@@ -10,7 +10,7 @@
     "VITE_BLOCKCHAIN_NETWORK": "persona-chain",
     "VITE_BLOCKCHAIN_RPC": "https://personachain-proxy.aidenlippert.workers.dev/rpc",
     "VITE_BLOCKCHAIN_REST": "https://personachain-proxy.aidenlippert.workers.dev/api",
-    "VITE_BACKEND_API": "https://personachain-backend.run.app",
+    "VITE_BACKEND_API": "https://personachain-prod.uc.r.appspot.com",
     "VITE_PERSONA_GAS_PRICE": "0.025persona",
     "VITE_ENABLE_REAL_APIS": "true",
     "VITE_ENVIRONMENT": "production",
