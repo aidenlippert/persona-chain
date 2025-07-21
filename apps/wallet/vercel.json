@@ -8,11 +8,17 @@
     "VITE_MOCK_INTEGRATIONS": "false",
     "VITE_CHAIN_ID": "personachain-1",
     "VITE_BLOCKCHAIN_NETWORK": "persona-chain",
-    "VITE_BLOCKCHAIN_RPC": "https://personachain-proxy.aidenlippert.workers.dev",
+    "VITE_BLOCKCHAIN_RPC": "https://personachain-proxy.aidenlippert.workers.dev/rpc",
     "VITE_BLOCKCHAIN_REST": "https://personachain-proxy.aidenlippert.workers.dev/api",
+    "VITE_BACKEND_API": "https://personachain-backend.run.app",
     "VITE_PERSONA_GAS_PRICE": "0.025persona",
     "VITE_ENABLE_REAL_APIS": "true",
-    "VITE_ENVIRONMENT": "production"
+    "VITE_ENVIRONMENT": "production",
+    "VITE_MONITORING_ENABLED": "true",
+    "VITE_ANALYTICS_ENABLED": "true",
+    "VITE_PWA_ENABLED": "true",
+    "VITE_WEBSOCKET_ENABLED": "true",
+    "VITE_ENTERPRISE_FEATURES": "true"
   },
   "rewrites": [
     {
@@ -44,6 +50,22 @@
         {
           "key": "X-XSS-Protection",
           "value": "1; mode=block"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://personachain-proxy.aidenlippert.workers.dev https://personachain-backend.run.app wss://personachain-proxy.aidenlippert.workers.dev; font-src 'self' data:; worker-src 'self' blob:; frame-ancestors 'none';"
         }
       ]
     }
