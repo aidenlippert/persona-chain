@@ -40,7 +40,7 @@
   },
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!api|assets|favicon\\.ico|icon\\.svg).*)",
       "destination": "/index.html"
     }
   ],
