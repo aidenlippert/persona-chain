@@ -20,8 +20,8 @@ const envSchema = z.object({
     return val === 'personachain' ? 'persona-chain' : val;
   }).default('persona-chain'),
   VITE_CHAIN_ID: z.string().default('personachain-1'),
-  VITE_BLOCKCHAIN_RPC: z.string().url().optional().default('https://personachain-proxy.aidenlippert.workers.dev'),
-  VITE_BLOCKCHAIN_REST: z.string().url().optional().default('https://personachain-proxy.aidenlippert.workers.dev/api'),
+  VITE_BLOCKCHAIN_RPC: z.string().url().optional().default('https://personachain-prod.uc.r.appspot.com/api/v1/blockchain'),
+  VITE_BLOCKCHAIN_REST: z.string().url().optional().default('https://personachain-prod.uc.r.appspot.com/api/v1'),
   VITE_PERSONA_GAS_PRICE: z.string().default('0.025persona'),
 
   // Smart Contract Addresses
@@ -164,7 +164,7 @@ const fallbackConfig = {
         'https://bsc-dataseed1.ninicoin.io'
       ],
       'persona-chain': [
-        'https://personachain-proxy.aidenlippert.workers.dev',
+        'https://personachain-prod.uc.r.appspot.com/api/v1/blockchain',
         'https://rpc.personachain.com',
         'https://persona-rpc.cosmos.network'
       ]
@@ -174,7 +174,7 @@ const fallbackConfig = {
       polygon: ['https://api.polygonscan.com/api'],
       bsc: ['https://api.bscscan.com/api'],
       'persona-chain': [
-        'https://personachain-proxy.aidenlippert.workers.dev/api',
+        'https://personachain-prod.uc.r.appspot.com/api/v1',
         'https://api.personachain.com',
         'https://persona-api.cosmos.network'
       ]
