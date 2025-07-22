@@ -154,15 +154,36 @@ export class StorageService {
   async getItem(key: string): Promise<any> {
     try {
       const item = await this.db.connections.get(key);
-      if (item && typeof item === 'object' && 'value' in item && (item as any).value !== undefined) {
-        return JSON.parse((item as any).value);
+      if (item && typeof item === 'object') {
+        // Check for the value property safely with additional null checks
+        let itemValue;
+        try {
+          itemValue = (item as any).value;
+        } catch (accessError) {
+          console.warn('Failed to access value property:', key, accessError);
+          return null;
+        }
+        
+        if (itemValue !== undefined && itemValue !== null) {
+          try {
+            return JSON.parse(itemValue);
+          } catch (parseError) {
+            console.warn('Failed to parse stored item value:', key, parseError);
+            return itemValue; // Return raw value if parsing fails
+          }
+        }
       }
       return null;
     } catch (error) {
       errorService.logError("Error getting item:", error);
       // Fallback to localStorage
-      const item = localStorage.getItem(key);
-      return item ? JSON.parse(item) : null;
+      try {
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : null;
+      } catch (parseError) {
+        console.warn('Failed to parse localStorage item:', key, parseError);
+        return localStorage.getItem(key); // Return raw string if parsing fails
+      }
     }
   }
 

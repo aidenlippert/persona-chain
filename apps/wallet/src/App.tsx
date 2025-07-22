@@ -36,13 +36,14 @@ const StreamlinedOnboardingFlow = lazy(() => import("./components/onboarding/Str
 // Removed unused SimpleDashboard component
 const LoginPage = lazy(() => import("./components/auth/LoginPage").then(m => ({ default: m.LoginPage })));
 const TopNavigation = lazy(() => import("./components/navigation/TopNavigation").then(m => ({ default: m.TopNavigation })));
-const CredentialsPage = lazy(() => import("./pages/EnhancedCredentialsPageWithTabs").then(m => ({ default: m.EnhancedCredentialsPageWithTabs })));
+const CredentialsPage = lazy(() => import("./pages/CredentialsPage").then(m => ({ default: m.CredentialsPage })));
 const ProofsPage = lazy(() => import("./pages/EnhancedProofsPage").then(m => ({ default: m.EnhancedProofsPage })));
 const OAuthCallback = lazy(() => import("./components/auth/OAuthCallback").then(m => ({ default: m.OAuthCallback })));
 const TokenDashboard = lazy(() => import("./pages/TokenDashboard").then(m => ({ default: m.TokenDashboard })));
 const ZKPDashboard = lazy(() => import("./components/zkp/ZKPDashboard").then(m => ({ default: m.ZKPDashboard })));
 const IdentityVerificationPage = lazy(() => import("./pages/IdentityVerificationPage").then(m => ({ default: m.IdentityVerificationPage })));
-const APIMarketplacePage = lazy(() => import("./pages/APIMarketplacePage").then(m => ({ default: m.APIMarketplacePage })));
+// APIMarketplacePage is now integrated into CredentialsPage
+// const APIMarketplacePage = lazy(() => import("./pages/APIMarketplacePage").then(m => ({ default: m.APIMarketplacePage })));
 
 // Import storage service for wallet detection
 import { storageService } from "./services/storageService";
@@ -966,13 +967,7 @@ const App = () => {
                       </DashboardLayout>
                     </PageErrorBoundary>
                   } />
-                  <Route path="/marketplace" element={
-                    <PageErrorBoundary pageName="APIMarketplace">
-                      <DashboardLayout>
-                        <APIMarketplacePage />
-                      </DashboardLayout>
-                    </PageErrorBoundary>
-                  } />
+                  {/* API Marketplace is now integrated into /credentials */}
                 </Routes>
               </PageTransition>
             </Suspense>

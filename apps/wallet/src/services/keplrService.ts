@@ -72,9 +72,9 @@ export class KeplrService {
       chainId: import.meta.env.VITE_CHAIN_ID || "personachain-1",
       chainName: "PersonaChain",
       rpc:
-        import.meta.env.VITE_BLOCKCHAIN_RPC || "https://personachain-proxy.aidenlippert.workers.dev",
+        import.meta.env.VITE_BLOCKCHAIN_RPC || "https://personachain-prod.uc.r.appspot.com",
       rest:
-        import.meta.env.VITE_BLOCKCHAIN_REST || "https://personachain-proxy.aidenlippert.workers.dev/api",
+        import.meta.env.VITE_BLOCKCHAIN_REST || "https://personachain-prod.uc.r.appspot.com/api",
       bip44: {
         coinType: 118,
       },

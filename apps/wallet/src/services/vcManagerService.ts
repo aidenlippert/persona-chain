@@ -62,6 +62,10 @@ export class VCManagerService {
    */
   async initializeDID(seedPhrase?: string): Promise<DIDWithVCCapability> {
     try {
+      // Ensure storage service is initialized
+      if (!storageService) {
+        throw new Error('Storage service not available');
+      }
       let didKeyPair: DIDKeyPair;
 
       if (seedPhrase) {
@@ -89,8 +93,35 @@ export class VCManagerService {
             if (storedDID?.privateKey instanceof Uint8Array) {
               privateKeyArray = storedDID.privateKey;
             } else if (storedDID?.privateKey && typeof storedDID.privateKey === 'object' && storedDID.privateKey !== null) {
-              const values = Object.values(storedDID.privateKey).filter(v => v != null && typeof v === 'number');
-              privateKeyArray = values.length > 0 ? new Uint8Array(values) : new Uint8Array(32);
+              try {
+                // Handle case where privateKey might be a plain object or have unexpected structure
+                const keyObj = storedDID.privateKey;
+                
+                // Check if it's already an array-like object
+                if (Array.isArray(keyObj)) {
+                  const values = keyObj.filter(v => v != null && typeof v === 'number');
+                  privateKeyArray = values.length > 0 ? new Uint8Array(values) : new Uint8Array(32);
+                } else if (typeof keyObj === 'object' && keyObj !== null) {
+                  // Try to extract values, handling potential undefined properties
+                  const values = [];
+                  try {
+                    const objValues = Object.values(keyObj);
+                    for (const val of objValues) {
+                      if (val != null && typeof val === 'number') {
+                        values.push(val);
+                      }
+                    }
+                  } catch (objError) {
+                    console.warn('Error extracting object values from private key:', objError);
+                  }
+                  privateKeyArray = values.length > 0 ? new Uint8Array(values) : new Uint8Array(32);
+                } else {
+                  privateKeyArray = new Uint8Array(32);
+                }
+              } catch (objectError) {
+                console.warn('Error processing private key object:', objectError);
+                privateKeyArray = new Uint8Array(32);
+              }
             } else {
               privateKeyArray = new Uint8Array(32); // Default 32-byte key
             }
@@ -105,8 +136,35 @@ export class VCManagerService {
             if (storedDID?.publicKey instanceof Uint8Array) {
               publicKeyArray = storedDID.publicKey;
             } else if (storedDID?.publicKey && typeof storedDID.publicKey === 'object' && storedDID.publicKey !== null) {
-              const values = Object.values(storedDID.publicKey).filter(v => v != null && typeof v === 'number');
-              publicKeyArray = values.length > 0 ? new Uint8Array(values) : new Uint8Array(32);
+              try {
+                // Handle case where publicKey might be a plain object or have unexpected structure
+                const keyObj = storedDID.publicKey;
+                
+                // Check if it's already an array-like object
+                if (Array.isArray(keyObj)) {
+                  const values = keyObj.filter(v => v != null && typeof v === 'number');
+                  publicKeyArray = values.length > 0 ? new Uint8Array(values) : new Uint8Array(32);
+                } else if (typeof keyObj === 'object' && keyObj !== null) {
+                  // Try to extract values, handling potential undefined properties
+                  const values = [];
+                  try {
+                    const objValues = Object.values(keyObj);
+                    for (const val of objValues) {
+                      if (val != null && typeof val === 'number') {
+                        values.push(val);
+                      }
+                    }
+                  } catch (objError) {
+                    console.warn('Error extracting object values from public key:', objError);
+                  }
+                  publicKeyArray = values.length > 0 ? new Uint8Array(values) : new Uint8Array(32);
+                } else {
+                  publicKeyArray = new Uint8Array(32);
+                }
+              } catch (objectError) {
+                console.warn('Error processing public key object:', objectError);
+                publicKeyArray = new Uint8Array(32);
+              }
             } else {
               publicKeyArray = new Uint8Array(32); // Default 32-byte key
             }
@@ -161,13 +219,28 @@ export class VCManagerService {
       }
 
       // Create enhanced DID with VC metadata
+      let totalVCs = 0;
+      let zkProofsGenerated = 0;
+      
+      try {
+        totalVCs = await this.getTotalVCCount();
+      } catch (error) {
+        console.warn('Failed to get total VC count during DID initialization:', error);
+      }
+      
+      try {
+        zkProofsGenerated = await this.getTotalZKProofCount();
+      } catch (error) {
+        console.warn('Failed to get total ZK proof count during DID initialization:', error);
+      }
+
       this.userDID = {
         ...didKeyPair,
         vcMetadata: {
           credentialsIssued: 0,
           credentialsReceived: 0,
-          totalVCs: await this.getTotalVCCount(),
-          zkProofsGenerated: await this.getTotalZKProofCount(),
+          totalVCs,
+          zkProofsGenerated,
           createdAt: new Date().toISOString(),
           lastUsed: new Date().toISOString(),
         },
@@ -176,6 +249,36 @@ export class VCManagerService {
       console.log("[SUCCESS] DID initialized for VC operations:", this.userDID.did);
       return this.userDID;
     } catch (error) {
+      console.error("[ERROR] Failed to initialize DID for VC operations:", error);
+      
+      // Provide a fallback DID if initialization fails completely
+      if (!this.userDID) {
+        console.warn("Creating fallback DID due to initialization failure");
+        try {
+          const fallbackDID: DIDWithVCCapability = {
+            did: `did:key:fallback-${Date.now()}`,
+            privateKey: new Uint8Array(32),
+            publicKey: new Uint8Array(32),
+            document: null,
+            vcMetadata: {
+              credentialsIssued: 0,
+              credentialsReceived: 0,
+              totalVCs: 0,
+              zkProofsGenerated: 0,
+              createdAt: new Date().toISOString(),
+              lastUsed: new Date().toISOString(),
+            },
+          };
+          this.userDID = fallbackDID;
+          return fallbackDID;
+        } catch (fallbackError) {
+          console.error("Even fallback DID creation failed:", fallbackError);
+          throw new Error(
+            `Complete DID initialization failure: ${error instanceof Error ? error.message : "Unknown error"}`,
+          );
+        }
+      }
+      
       throw new Error(
         `Failed to initialize DID: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
@@ -694,10 +797,25 @@ export class VCManagerService {
       return null;
     }
 
+    let totalVCs = this.userDID.vcMetadata?.totalVCs || 0;
+    let zkProofsGenerated = this.userDID.vcMetadata?.zkProofsGenerated || 0;
+
+    try {
+      totalVCs = await this.getTotalVCCount();
+    } catch (error) {
+      console.warn('Failed to get total VC count for metadata:', error);
+    }
+
+    try {
+      zkProofsGenerated = await this.getTotalZKProofCount();
+    } catch (error) {
+      console.warn('Failed to get total ZK proof count for metadata:', error);
+    }
+
     return {
       ...this.userDID.vcMetadata,
-      totalVCs: await this.getTotalVCCount(),
-      zkProofsGenerated: await this.getTotalZKProofCount(),
+      totalVCs,
+      zkProofsGenerated,
     };
   }
 
@@ -735,13 +853,16 @@ export class VCManagerService {
   private async getTotalVCCount(): Promise<number> {
     try {
       const credentials = await storageService.getCredentials();
-      if (!Array.isArray(credentials)) {
-        console.warn('getTotalVCCount: credentials is not an array:', typeof credentials);
+      if (!credentials || !Array.isArray(credentials)) {
+        console.warn('getTotalVCCount: credentials is not a valid array:', typeof credentials);
         return 0;
       }
       return credentials.filter((cred) => {
         try {
-          return cred && cred.metadata && !cred.metadata.revoked;
+          return cred && 
+                 cred.metadata && 
+                 typeof cred.metadata === 'object' &&
+                 !cred.metadata.revoked;
         } catch (filterError) {
           console.warn('Error filtering credential:', cred, filterError);
           return false;
@@ -759,8 +880,8 @@ export class VCManagerService {
   private async getTotalZKProofCount(): Promise<number> {
     try {
       const zkCredentials = await storageService.getZKCredentials();
-      if (!Array.isArray(zkCredentials)) {
-        console.warn('getTotalZKProofCount: zkCredentials is not an array:', typeof zkCredentials);
+      if (!zkCredentials || !Array.isArray(zkCredentials)) {
+        console.warn('getTotalZKProofCount: zkCredentials is not a valid array:', typeof zkCredentials);
         return 0;
       }
       return zkCredentials.length;

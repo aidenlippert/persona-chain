@@ -13,8 +13,7 @@ import {
   DocumentTextIcon,
   ShieldCheckIcon,
   GiftIcon,
-  Cog6ToothIcon,
-  BuildingStorefrontIcon
+  Cog6ToothIcon
 } from '@heroicons/react/24/outline';
 
 interface NavItem {
@@ -38,7 +37,7 @@ const navItems: NavItem[] = [
     name: 'Credentials',
     path: '/credentials',
     icon: DocumentTextIcon,
-    description: 'Manage verifiable credentials'
+    description: 'Create & manage verifiable credentials'
   },
   {
     id: 'proofs',
@@ -47,13 +46,7 @@ const navItems: NavItem[] = [
     icon: ShieldCheckIcon,
     description: 'Zero-knowledge proofs'
   },
-  {
-    id: 'marketplace',
-    name: 'API Marketplace',
-    path: '/marketplace',
-    icon: BuildingStorefrontIcon,
-    description: 'Browse 40,000+ APIs'
-  },
+  // API Marketplace is now integrated into Credentials page
   {
     id: 'token',
     name: 'Rewards',

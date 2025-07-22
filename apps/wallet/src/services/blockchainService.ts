@@ -225,10 +225,29 @@ export class BlockchainService {
       health: { status: 'healthy', latency: 0, blockHeight: 0, lastChecked: 0 },
       faucet: { url: 'https://testnet.binance.org/faucet-smart', amount: BigInt('1000000000000000000'), cooldown: 86400 },
     },
+    'persona-chain': {
+      name: 'PersonaChain',
+      chainId: 7001, // PersonaChain chain ID
+      rpcUrls: [
+        'https://personachain-prod.uc.r.appspot.com',
+        'https://personachain-prod.uc.r.appspot.com/api'
+      ],
+      nativeCurrency: { name: 'PERSONA', symbol: 'PERSONA', decimals: 6 },
+      blockExplorer: 'https://explorer.personachain.com',
+      gasEstimation: { slow: 0.01, standard: 0.025, fast: 0.04 },
+      features: { eip1559: false, multicall: false, bridge: false, l2: true },
+      contracts: {
+        multicall: '0x0000000000000000000000000000000000000000',
+        bridge: '0x0000000000000000000000000000000000000000',
+        psaToken: '0x0000000000000000000000000000000000000000',
+      },
+      health: { status: 'healthy', latency: 0, blockHeight: 0, lastChecked: 0 },
+      faucet: { url: 'https://faucet.personachain.com', amount: BigInt('1000000'), cooldown: 86400 },
+    },
   };
 
   private constructor() {
-    this.currentNetwork = this.NETWORKS[import.meta.env.VITE_BLOCKCHAIN_NETWORK || 'polygon'];
+    this.currentNetwork = this.NETWORKS[import.meta.env.VITE_BLOCKCHAIN_NETWORK || 'persona-chain'];
     // Initialize blockchain connection asynchronously to avoid blocking constructor
     this.initializeBlockchainConnection().catch(error => {
       logger.warn('🔗 Blockchain connection initialization failed, continuing with offline mode', { error });

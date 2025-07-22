@@ -35,9 +35,43 @@ export class ZKProofService {
   constructor() {
     // Initialize after imports to avoid circular dependencies
     setTimeout(() => {
-      this.storageService = require("./storageService").storageService;
-      this.cryptoService = require("./cryptoService").cryptoService;
+      try {
+        this.storageService = require("./storageService").storageService;
+        this.cryptoService = require("./cryptoService").cryptoService;
+      } catch (error) {
+        console.warn('Failed to initialize ZK service dependencies:', error);
+        // Use fallback implementations
+        this.initializeFallbackServices();
+      }
     }, 0);
+  }
+
+  /**
+   * Initialize fallback services when dependencies fail to load
+   */
+  private initializeFallbackServices(): void {
+    this.cryptoService = {
+      generateHash: async (data: string): Promise<Uint8Array> => {
+        // Simple fallback hash using Web Crypto API
+        const encoder = new TextEncoder();
+        const dataBuffer = encoder.encode(data);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+        return new Uint8Array(hashBuffer);
+      }
+    };
+    
+    this.storageService = {
+      storeZKCredential: async () => {
+        console.warn('Using fallback storage - ZK credential not persisted');
+      },
+      getZKCredentials: async () => {
+        console.warn('Using fallback storage - returning empty array');
+        return [];
+      },
+      storeZKProof: async () => {
+        console.warn('Using fallback storage - ZK proof not persisted');
+      }
+    };
   }
 
   /**
@@ -73,21 +107,27 @@ export class ZKProofService {
       );
 
       // Store proof for future reference
-      await this.storageService?.storeZKProof({
-        id: `proof-${Date.now()}`,
-        proofType,
-        circuitId,
-        proof,
-        credential: zkCredential,
-        publicInputs,
-        selectiveFields,
-        created: new Date().toISOString(),
-      });
+      if (this.storageService?.storeZKProof) {
+        try {
+          await this.storageService.storeZKProof({
+            id: `proof-${Date.now()}`,
+            proofType,
+            circuitId,
+            proof,
+            credential: zkCredential,
+            publicInputs,
+            selectiveFields,
+            created: new Date().toISOString(),
+          });
+        } catch (error) {
+          console.warn('Failed to store ZK proof:', error);
+        }
+      }
 
       return proof;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
-      errorService.logError("❌ ZK proof generation failed:", message);
+      console.error("❌ ZK proof generation failed:", message);
       throw new Error(`ZK proof generation failed: ${message}`);
     }
   }
@@ -168,10 +208,12 @@ export class ZKProofService {
           for (let i = 0; i < parts.length - 1; i++) {
             if (!target[parts[i]]) target[parts[i]] = {};
             target = target[parts[i]];
-            source = source[parts[i]];
+            source = source?.[parts[i]];
           }
 
-          target[parts[parts.length - 1]] = source[parts[parts.length - 1]];
+          if (source && parts.length > 0) {
+            target[parts[parts.length - 1]] = source[parts[parts.length - 1]];
+          }
         } else {
           selectiveData[field] = (zkCredential as any)[field];
         }
@@ -180,7 +222,12 @@ export class ZKProofService {
       witnessData = JSON.stringify(selectiveData);
     }
 
-    const hash = await this.cryptoService?.generateHash(
+    // Ensure cryptoService is available
+    if (!this.cryptoService) {
+      this.initializeFallbackServices();
+    }
+
+    const hash = await this.cryptoService.generateHash(
       witnessData + circuitId,
     );
     return new Uint8Array(hash);
@@ -236,7 +283,12 @@ export class ZKProofService {
           .join("|")
       : JSON.stringify(zkCredential);
 
-    const hash = await this.cryptoService?.generateHash(commitmentData);
+    // Ensure cryptoService is available
+    if (!this.cryptoService) {
+      this.initializeFallbackServices();
+    }
+
+    const hash = await this.cryptoService.generateHash(commitmentData);
     return Array.from(hash)
       .map((b: number) => b.toString(16).padStart(2, "0"))
       .join("");
@@ -268,7 +320,13 @@ export class ZKProofService {
     circuitId: string,
   ): Promise<string> {
     const nullifierInput = `${credentialId}:${circuitId}:${Date.now()}`;
-    const hash = await this.cryptoService?.generateHash(nullifierInput);
+    
+    // Ensure cryptoService is available
+    if (!this.cryptoService) {
+      this.initializeFallbackServices();
+    }
+    
+    const hash = await this.cryptoService.generateHash(nullifierInput);
     return Array.from(hash)
       .map((b: number) => b.toString(16).padStart(2, "0"))
       .join("");
@@ -336,7 +394,7 @@ export class ZKProofService {
 
       return verificationResult;
     } catch (error) {
-      errorService.logError("ZK proof verification failed:", error);
+      console.error("ZK proof verification failed:", error);
       return false;
     }
   }
@@ -386,7 +444,7 @@ export class ZKProofService {
       usedNullifiers.push(nullifier);
       localStorage.setItem("used_nullifiers", JSON.stringify(usedNullifiers));
     } catch (error) {
-      errorService.logError("Failed to store nullifier:", error);
+      console.error("Failed to store nullifier:", error);
     }
   }
 
@@ -472,7 +530,13 @@ export class ZKProofService {
         await this.generateSelectiveCommitment(zkCredential);
 
       // Store the ZK credential
-      await this.storageService?.storeZKCredential(zkCredential);
+      if (this.storageService?.storeZKCredential) {
+        try {
+          await this.storageService.storeZKCredential(zkCredential);
+        } catch (error) {
+          console.warn('Failed to store ZK credential:', error);
+        }
+      }
 
       console.log("✅ Enhanced ZK credential created:", zkCredential.id);
       return zkCredential;
@@ -502,9 +566,13 @@ export class ZKProofService {
    */
   async getZKCredentials(): Promise<ZKCredential[]> {
     try {
-      return (await this.storageService?.getZKCredentials()) || [];
+      if (!this.storageService?.getZKCredentials) {
+        console.warn('Storage service not available for ZK credentials');
+        return [];
+      }
+      return (await this.storageService.getZKCredentials()) || [];
     } catch (error) {
-      errorService.logError("Failed to get ZK credentials:", error);
+      console.error("Failed to get ZK credentials:", error);
       return [];
     }
   }
@@ -569,3 +637,6 @@ export class ZKProofService {
     };
   }
 }
+
+// Export singleton instance
+export const zkProofService = new ZKProofService();

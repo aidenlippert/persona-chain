@@ -3,6 +3,8 @@
  * Performance-optimized minimal implementation
  */
 
+import { errorService } from './errorService';
+
 export interface MetricData {
   name: string;
   value: number;

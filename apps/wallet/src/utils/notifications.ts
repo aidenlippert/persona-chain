@@ -230,7 +230,7 @@ export const devLog = {
   },
   
   error: (message: string, error?: any) => {
-    errorService.logError(`❌ [ERROR] ${message}`, error || '');
+    console.error(`❌ [ERROR] ${message}`, error || '');
     if (process.env.NODE_ENV === 'development') {
       notify.error(message);
     }

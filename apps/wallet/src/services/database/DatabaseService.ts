@@ -203,7 +203,7 @@ export class DatabaseService {
    * 🔑 Get or derive encryption key for AES-256-GCM
    */
   private async getEncryptionKey(): Promise<CryptoKey> {
-    const encKey = this.config.encryptionKey || 'persona-secure-key-2024';
+    const encKey = this.encryptionKey || 'persona-secure-key-2024';
     
     // Derive key from password using PBKDF2
     const keyMaterial = await crypto.subtle.importKey(

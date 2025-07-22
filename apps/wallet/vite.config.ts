@@ -154,8 +154,28 @@ export default defineConfig(({ command: _command, mode }) => ({
   },
   server: {
     port: 5175,
+    headers: {
+      'Content-Security-Policy': `
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com;
+        style-src 'self' 'unsafe-inline';
+        img-src 'self' data: https:;
+        connect-src 'self' http://localhost:8080 https://personachain-prod.uc.r.appspot.com wss://personachain-prod.uc.r.appspot.com https://api.stripe.com;
+        font-src 'self' data:;
+        worker-src 'self' blob:;
+        frame-src 'self' https://js.stripe.com https://*.stripe.com;
+        child-src 'self' https://js.stripe.com https://*.stripe.com;
+        frame-ancestors 'none';
+      `.replace(/\s+/g, ' ').trim()
+    },
     proxy: {
       "/api/v1": {
+        target: "http://localhost:8080",
+        changeOrigin: true,
+        secure: false,
+      },
+      // Proxy PersonaChain DID endpoints to our local backend
+      "/persona_chain": {
         target: "http://localhost:8080",
         changeOrigin: true,
         secure: false,

@@ -60,8 +60,8 @@ export class PersonaChainService {
       console.warn('Configuration service not available, using fallback values:', error);
       this.config = {
         chainId: "personachain-1",
-        rpcEndpoint: "https://personachain-proxy.aidenlippert.workers.dev",
-        restEndpoint: "https://personachain-proxy.aidenlippert.workers.dev/api",
+        rpcEndpoint: "https://personachain-prod.uc.r.appspot.com",
+        restEndpoint: "https://personachain-prod.uc.r.appspot.com/api",
         gasPrice: "0.025persona",
         bech32Prefix: "persona",
       };
@@ -311,7 +311,7 @@ export class PersonaChainService {
 
       // Query PersonaChain blockchain using multiple endpoints
       const queryEndpoints = [
-        `${this.config.restEndpoint}/personachain/did/did/${encodeURIComponent(didId)}`,
+        `${this.config.restEndpoint}/persona_chain/did/v1/did_document/${encodeURIComponent(didId)}`,
         `${this.config.rpcEndpoint}/abci_query?path="/personachain.did.Query/Did"&data="${encodeURIComponent(didId)}"`,
       ];
 
