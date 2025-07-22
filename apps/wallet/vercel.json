@@ -38,11 +38,9 @@
     "GITHUB_CLIENT_ID": "Ov23liI8w2TcwKKTEVNS",
     "GITHUB_CLIENT_SECRET": "7f8b52a98c49c25fa89ea0fafd6c0b6e68c1cc36"
   },
-  "rewrites": [
-    {
-      "source": "/((?!api/).*)",
-      "destination": "/index.html"
-    }
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ],
   "headers": [
     {
