@@ -4,6 +4,6 @@
   "installCommand": "cd apps/wallet && npm install",
   "env": {
     "GITHUB_CLIENT_ID": "Ov23lifeCftrdv4dcMBW",
-    "GITHUB_CLIENT_SECRET": "7f8b52a98c49c25fa89ea0fafd6c0b6e68c1cc335bd92b"
+    "GITHUB_CLIENT_SECRET": "cd7dee35528940f659bdc5e19fec5ecfaf6a1264"
   }
 }
