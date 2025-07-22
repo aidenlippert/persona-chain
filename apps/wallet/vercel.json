@@ -4,9 +4,15 @@
   "installCommand": "npm install",
   "framework": "vite",
   "functions": {
+    "api/test.ts": {
+      "maxDuration": 10
+    },
     "api/connectors/github/auth.ts": {
       "maxDuration": 10,
       "memory": 1024
+    },
+    "api/**/*.ts": {
+      "runtime": "nodejs18.x"
     }
   },
   "env": {
