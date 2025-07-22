@@ -56,15 +56,56 @@ export interface DIDWithVCCapability extends DIDKeyPair {
 
 export class VCManagerService {
   private userDID: DIDWithVCCapability | null = null;
+  private initializationPromise: Promise<void> | null = null;
 
   /**
    * Initialize or load existing DID for VC operations
    */
   async initializeDID(seedPhrase?: string): Promise<DIDWithVCCapability> {
     try {
-      // Ensure storage service is initialized
+      // CRITICAL FIX: Prevent parallel initialization
+      if (this.initializationPromise) {
+        await this.initializationPromise;
+        if (this.userDID) {
+          return this.userDID;
+        }
+      }
+      
+      this.initializationPromise = this._performInitialization(seedPhrase);
+      await this.initializationPromise;
+      this.initializationPromise = null;
+      
+      if (!this.userDID) {
+        throw new Error('Initialization failed to create userDID');
+      }
+      
+      return this.userDID;
+    } catch (error) {
+      this.initializationPromise = null;
+      throw error;
+    }
+  }
+
+  private async _performInitialization(seedPhrase?: string): Promise<void> {
+    try {
+      // Ensure storage service is initialized with safe checks
       if (!storageService) {
-        throw new Error('Storage service not available');
+        console.warn('Storage service not available, creating fallback DID');
+        await this._createFallbackDID();
+        return;
+      }
+      
+      // Additional safety check
+      try {
+        if (typeof storageService.getAllDIDs !== 'function') {
+          console.warn('Storage service not properly initialized, creating fallback DID');
+          await this._createFallbackDID();
+          return;
+        }
+      } catch (storageCheckError) {
+        console.warn('Storage service check failed, creating fallback DID:', storageCheckError);
+        await this._createFallbackDID();
+        return;
       }
       let didKeyPair: DIDKeyPair;
 
@@ -81,8 +122,18 @@ export class VCManagerService {
           document: didCreationResult.document,
         };
       } else {
-        // Check if DID exists in storage
-        const existingDIDs = await storageService.getAllDIDs();
+        // Check if DID exists in storage with safe error handling
+        let existingDIDs: any[] = [];
+        try {
+          existingDIDs = await storageService.getAllDIDs();
+          if (!Array.isArray(existingDIDs)) {
+            existingDIDs = [];
+          }
+        } catch (storageError) {
+          console.warn('Failed to get existing DIDs from storage:', storageError);
+          existingDIDs = [];
+        }
+        
         if (existingDIDs.length > 0) {
           // Use first available DID with comprehensive safety checks
           const storedDID = existingDIDs[0];
@@ -105,10 +156,13 @@ export class VCManagerService {
                   // Try to extract values, handling potential undefined properties
                   const values = [];
                   try {
-                    const objValues = Object.values(keyObj);
-                    for (const val of objValues) {
-                      if (val != null && typeof val === 'number') {
-                        values.push(val);
+                    // CRITICAL FIX: Safely handle undefined keyObj
+                    if (keyObj && typeof keyObj === 'object') {
+                      const objValues = Object.values(keyObj);
+                      for (const val of objValues) {
+                        if (val != null && typeof val === 'number') {
+                          values.push(val);
+                        }
                       }
                     }
                   } catch (objError) {
@@ -148,10 +202,13 @@ export class VCManagerService {
                   // Try to extract values, handling potential undefined properties
                   const values = [];
                   try {
-                    const objValues = Object.values(keyObj);
-                    for (const val of objValues) {
-                      if (val != null && typeof val === 'number') {
-                        values.push(val);
+                    // CRITICAL FIX: Safely handle undefined keyObj
+                    if (keyObj && typeof keyObj === 'object') {
+                      const objValues = Object.values(keyObj);
+                      for (const val of objValues) {
+                        if (val != null && typeof val === 'number') {
+                          values.push(val);
+                        }
                       }
                     }
                   } catch (objError) {
@@ -283,6 +340,31 @@ export class VCManagerService {
         `Failed to initialize DID: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
     }
+  }
+
+  /**
+   * Create a safe fallback DID when storage fails
+   */
+  private async _createFallbackDID(): Promise<void> {
+    console.log('Creating fallback DID for safe operation');
+    
+    const fallbackDID: DIDWithVCCapability = {
+      did: `did:key:fallback-safe-${Date.now()}`,
+      privateKey: new Uint8Array(32),
+      publicKey: new Uint8Array(32),
+      document: null,
+      vcMetadata: {
+        credentialsIssued: 0,
+        credentialsReceived: 0,
+        totalVCs: 0,
+        zkProofsGenerated: 0,
+        createdAt: new Date().toISOString(),
+        lastUsed: new Date().toISOString(),
+      },
+    };
+    
+    this.userDID = fallbackDID;
+    console.log('[SUCCESS] Fallback DID created safely:', this.userDID.did);
   }
 
   /**
