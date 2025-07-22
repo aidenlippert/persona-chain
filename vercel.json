@@ -1,4 +1,7 @@
 {
+  "buildCommand": "cd apps/wallet && npm install && npm run build",
+  "outputDirectory": "apps/wallet/dist",
+  "installCommand": "cd apps/wallet && npm install",
   "env": {
     "GITHUB_CLIENT_ID": "Ov23liI8w2TcwKKTEVNS",
     "GITHUB_CLIENT_SECRET": "7f8b52a98c49c25fa89ea0fafd6c0b6e68c1cc36"
