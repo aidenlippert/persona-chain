@@ -248,15 +248,20 @@ export class EnhancedCredentialManager {
       }
 
       // Generate ZK proof using enhanced service
-      const proofResult = await enhancedZKProofService.generateAdvancedProof({
+      const zkProof = await enhancedZKProofService.generateOptimizedProof(
         credential,
-        proofType: 'selective_disclosure',
-        selectiveFields: options?.selective || Object.keys(credential.credentialSubject || {}),
-        includeMetadata: true
-      });
+        'selective_disclosure',
+        options?.selective || Object.keys(credential.credentialSubject || {}),
+        {
+          selectiveFields: options?.selective || Object.keys(credential.credentialSubject || {}),
+          useCache: true,
+          performanceMode: 'balanced',
+          constraintOptimization: true
+        }
+      );
 
-      if (!proofResult.success) {
-        return { success: false, error: proofResult.error || 'ZK proof generation failed' };
+      if (!zkProof || !zkProof.proof) {
+        return { success: false, error: 'ZK proof generation failed' };
       }
 
       // Update metadata
@@ -273,7 +278,7 @@ export class EnhancedCredentialManager {
             timestamp: now,
             actor: 'user',
             metadata: { 
-              proofId: proofResult.proofId,
+              proofId: zkProof.nullifier, // Use nullifier as proof ID
               selectiveFields: options?.selective 
             }
           }
@@ -282,12 +287,12 @@ export class EnhancedCredentialManager {
 
       await this.storeCredentialMetadata(credentialId, updatedMetadata);
 
-      console.log(`✅ ZK proof generated successfully: ${proofResult.proofId}`);
+      console.log(`✅ ZK proof generated successfully: ${zkProof.nullifier}`);
       return {
         success: true,
-        proofId: proofResult.proofId,
-        commitment: proofResult.commitment,
-        proofData: proofResult.proof
+        proofId: zkProof.nullifier,
+        commitment: zkProof.commitment,
+        proofData: zkProof.proof
       };
 
     } catch (error) {
