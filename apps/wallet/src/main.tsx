@@ -1,5 +1,5 @@
 /**
- * Persona Wallet Entry Point
+ * Persona Wallet Entry Point - ULTIMATE CACHE BUSTER v3
  */
 
 import React from "react";
@@ -14,7 +14,7 @@ import { errorService } from "@/services/errorService";
 // Initialize configuration service early
 try {
   configService.initialize();
-  console.log("[SUCCESS] Configuration service initialized successfully");
+  console.log("[SUCCESS] Configuration service initialized successfully - CACHE BUST v3");
 } catch (error) {
   errorService.logError("[ERROR] Failed to initialize configuration service:", error);
   // Continue with application startup using fallback values
