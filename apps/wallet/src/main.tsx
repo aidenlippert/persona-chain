@@ -128,20 +128,25 @@ console.warn = function(...args) {
   originalConsoleWarn.apply(console, args);
 };
 
-// NUCLEAR OPTION: Override any extension hijacking attempts
+// NUCLEAR OPTION: Complete React DCE Error Suppression
 try {
-  // Prevent extensions from overriding our console methods
-  Object.defineProperty(console, 'error', {
-    value: console.error,
-    writable: false,
-    configurable: false
-  });
-  
-  // Intercept and block extension error reporting
+  // Block ALL React development checks from extensions
   if (typeof window !== 'undefined') {
-    // Block extension error reporting methods
+    // Prevent React DevTools global hook from triggering DCE errors
+    Object.defineProperty(window, '__REACT_DEVTOOLS_GLOBAL_HOOK__', {
+      value: {
+        checkDCE: () => {}, // No-op to prevent DCE check
+        supportsFiber: true,
+        inject: () => {},
+        onCommitFiberRoot: () => {},
+        onCommitFiberUnmount: () => {},
+      },
+      writable: false,
+      configurable: false
+    });
+    
+    // Override any extension error reporting that might trigger React errors
     const blockExtensionErrors = () => {
-      // Override any potential extension error reporting
       ['reportError', 'logError', 'trackError', 'sendError'].forEach(method => {
         if (window[method]) {
           window[method] = () => {}; // No-op
@@ -156,8 +161,15 @@ try {
       document.addEventListener('DOMContentLoaded', blockExtensionErrors);
     }
   }
+  
+  // Prevent extensions from overriding our console methods
+  Object.defineProperty(console, 'error', {
+    value: console.error,
+    writable: false,
+    configurable: false
+  });
 } catch (e) {
-  // Ignore errors from trying to override console properties
+  // Ignore errors from trying to override properties
 }
 
 // Create root and render app

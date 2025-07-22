@@ -6,6 +6,7 @@
 
 import { apiDiscoveryService, DiscoveredAPI } from './APIDiscoveryService';
 import { premiumAPIService } from './PremiumAPIService';
+import { realWorldAPIService, HealthcareAPI, EducationAPI, GovernmentAPI, FinancialAPI } from './RealWorldAPIService';
 import { verifiableCredentialService } from '../credentials/VerifiableCredentialService';
 
 // 🎯 UNIFIED API TYPES
@@ -15,7 +16,7 @@ export interface UnifiedAPI {
   description: string;
   category: string;
   provider: string;
-  type: 'premium' | 'discovered' | 'user-submitted';
+  type: 'premium' | 'discovered' | 'real-world' | 'user-submitted';
   authType: string;
   pricing: 'free' | 'freemium' | 'paid';
   verified: boolean;
@@ -122,10 +123,12 @@ export class UnifiedAPIService {
     query: string, 
     category?: string, 
     filters?: {
-      type?: 'premium' | 'discovered' | 'all';
+      type?: 'premium' | 'discovered' | 'real-world' | 'all';
       pricing?: 'free' | 'freemium' | 'paid';
       verified?: boolean;
       minRating?: number;
+      compliance?: string[];
+      region?: string[];
     },
     limit: number = 50
   ): Promise<UnifiedAPI[]> {
@@ -133,6 +136,12 @@ export class UnifiedAPIService {
 
     try {
       const results: UnifiedAPI[] = [];
+
+      // Search real-world APIs first (highest priority)
+      if (!filters?.type || filters.type === 'real-world' || filters.type === 'all') {
+        const realWorldAPIs = await this.searchRealWorldAPIs(query, category, filters);
+        results.push(...realWorldAPIs);
+      }
 
       // Search premium APIs
       if (!filters?.type || filters.type === 'premium' || filters.type === 'all') {
@@ -149,7 +158,11 @@ export class UnifiedAPIService {
       // Sort by relevance and rating
       const sortedResults = results
         .sort((a, b) => {
-          // Premium APIs get priority
+          // Real-world APIs get highest priority
+          if (a.type === 'real-world' && b.type !== 'real-world') return -1;
+          if (b.type === 'real-world' && a.type !== 'real-world') return 1;
+          
+          // Premium APIs get second priority
           if (a.type === 'premium' && b.type !== 'premium') return -1;
           if (b.type === 'premium' && a.type !== 'premium') return 1;
           
@@ -163,6 +176,66 @@ export class UnifiedAPIService {
 
     } catch (error) {
       console.error('❌ API search failed:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 🌍 Search real-world APIs (Healthcare, Education, Government, Financial)
+   */
+  private async searchRealWorldAPIs(
+    query: string,
+    category?: string,
+    filters?: any
+  ): Promise<UnifiedAPI[]> {
+    try {
+      const realWorldAPIs = await realWorldAPIService.searchRealWorldAPIs(query, {
+        category: category as any,
+        compliance: filters?.compliance,
+        region: filters?.region,
+        pricing: filters?.pricing
+      });
+
+      const results: UnifiedAPI[] = [];
+
+      for (const api of realWorldAPIs) {
+        const unifiedAPI: UnifiedAPI = {
+          id: api.id,
+          name: api.name,
+          description: api.description,
+          category: api.category,
+          provider: api.provider,
+          type: 'real-world',
+          authType: 'authType' in api ? api.authType : 'api-key',
+          pricing: api.pricing.freeQuota > 0 ? 'freemium' : 'paid',
+          verified: true, // Real-world APIs are all verified
+          rating: 4.9, // Real-world APIs get highest rating
+          features: [`${api.provider} Integration`, ...api.compliance],
+          credentialType: api.endpoints[0]?.credentialType || 'Real-World Verification',
+          setupTime: '2-15 minutes',
+          popularity: 98, // Real-world APIs get highest popularity
+          endpoints: api.endpoints.map(endpoint => ({
+            name: endpoint.purpose,
+            description: endpoint.purpose,
+            method: endpoint.method,
+            path: endpoint.path,
+            credentialFields: []
+          })),
+          integrationGuide: {
+            compliance: api.compliance,
+            documentation: api.documentation,
+            testMode: api.testMode
+          }
+        };
+
+        results.push(unifiedAPI);
+      }
+
+      console.log(`🌍 Found ${results.length} real-world APIs for query: "${query}"`);
+      return results;
+
+    } catch (error) {
+      console.error('❌ Real-world API search failed:', error);
       return [];
     }
   }

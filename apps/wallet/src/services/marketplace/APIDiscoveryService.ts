@@ -633,21 +633,68 @@ curl -X GET "${baseUrl}/endpoint" \\
   }
 
   /**
-   * 💾 Cache discovered APIs
+   * 💾 Cache discovered APIs with size limits
    */
   private async cacheDiscoveredAPIs(): Promise<void> {
     try {
+      // 🚨 PRODUCTION FIX: Implement cache size limits to prevent quota exceeded errors
+      const MAX_CACHE_SIZE = 2 * 1024 * 1024; // 2MB limit
+      const MAX_APIS_TO_CACHE = 100; // Maximum number of APIs to cache
+      
+      // Limit the number of APIs we cache
+      const apisToCache = Array.from(this.discoveredAPIs.values()).slice(0, MAX_APIS_TO_CACHE);
+      
       const cacheData = {
-        apis: Array.from(this.discoveredAPIs.values()),
+        apis: apisToCache,
         lastUpdate: new Date().toISOString(),
-        sources: this.sources.map(s => ({ id: s.id, lastSync: s.lastSync }))
+        sources: this.sources.map(s => ({ id: s.id, lastSync: s.lastSync })),
+        cacheInfo: {
+          totalDiscovered: this.discoveredAPIs.size,
+          cached: apisToCache.length,
+          cacheVersion: '2.0'
+        }
       };
       
-      localStorage.setItem('persona_discovered_apis', JSON.stringify(cacheData));
-      console.log('💾 Cached discovered APIs:', this.discoveredAPIs.size);
+      const cacheString = JSON.stringify(cacheData);
+      
+      // Check cache size before storing
+      if (cacheString.length > MAX_CACHE_SIZE) {
+        console.warn('⚠️ Cache size too large, reducing API count');
+        
+        // Reduce to 50 APIs if still too large
+        cacheData.apis = apisToCache.slice(0, 50);
+        cacheData.cacheInfo.cached = 50;
+        
+        const reducedCacheString = JSON.stringify(cacheData);
+        
+        if (reducedCacheString.length > MAX_CACHE_SIZE) {
+          console.error('❌ Cache still too large after reduction, clearing old cache');
+          localStorage.removeItem('persona_discovered_apis');
+          return;
+        }
+        
+        localStorage.setItem('persona_discovered_apis', reducedCacheString);
+      } else {
+        localStorage.setItem('persona_discovered_apis', cacheString);
+      }
+      
+      console.log('💾 Cached discovered APIs:', {
+        total: this.discoveredAPIs.size,
+        cached: cacheData.cacheInfo.cached,
+        size: `${(cacheString.length / 1024).toFixed(1)}KB`
+      });
       
     } catch (error) {
-      console.error('❌ Failed to cache APIs:', error);
+      if (error instanceof Error && error.name === 'QuotaExceededError') {
+        console.warn('⚠️ localStorage quota exceeded, clearing API cache');
+        try {
+          localStorage.removeItem('persona_discovered_apis');
+        } catch (clearError) {
+          console.error('❌ Failed to clear API cache:', clearError);
+        }
+      } else {
+        console.error('❌ Failed to cache APIs:', error);
+      }
     }
   }
 

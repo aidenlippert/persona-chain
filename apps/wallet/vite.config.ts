@@ -1,6 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { VitePWA } from "vite-plugin-pwa";
+// import { VitePWA } from "vite-plugin-pwa"; // 🚧 TEMPORARILY DISABLED
 import { nodePolyfills } from "vite-plugin-node-polyfills";
 import { visualizer } from "rollup-plugin-visualizer";
 import wasm from "vite-plugin-wasm";
@@ -8,7 +8,10 @@ import path from "path";
 
 export default defineConfig(({ command: _command, mode }) => ({
   plugins: [
-    react(),
+    react({
+      // Use automatic JSX runtime for better performance
+      jsxRuntime: 'automatic'
+    }),
     wasm(),
     nodePolyfills({
       // Enable polyfills for specific globals and modules
@@ -24,117 +27,119 @@ export default defineConfig(({ command: _command, mode }) => ({
       // Exclude problematic modules that should use browser versions
       exclude: ["fs", "path"],
     }),
-    VitePWA({
-      registerType: "autoUpdate",
-      injectRegister: "auto",
-      workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
-        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10MB limit for ZK proof bundles
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/api\./,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "api-cache",
-            },
-          },
-          // Force network first for HTML pages to prevent white screen
-          {
-            urlPattern: ({ request }) => request.mode === 'navigate',
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "pages-cache",
-              networkTimeoutSeconds: 1,
-            },
-          },
-          // Force network first for all HTML documents
-          {
-            urlPattern: /\.html$/,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "html-cache",
-              networkTimeoutSeconds: 1,
-            },
-          },
-          // Force network first for JS files to ensure latest version
-          {
-            urlPattern: /\.js$/,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "js-cache",
-              networkTimeoutSeconds: 2,
-            },
-          },
-        ],
-        cleanupOutdatedCaches: true,
-        skipWaiting: true,
-        clientsClaim: true,
-        // Add cache busting for deployments
-        dontCacheBustURLsMatching: /\.[0-9a-f]{8}\./,
-      },
-      devOptions: {
-        enabled: true,
-        type: "module",
-        navigateFallback: "index.html",
-      },
-      manifest: {
-        name: "Persona Identity Wallet",
-        short_name: "Persona",
-        description: "Decentralized Identity Wallet - Create, manage, and share verifiable credentials",
-        theme_color: "#ea580c",
-        background_color: "#ffffff",
-        display: "standalone",
-        orientation: "portrait-primary",
-        start_url: "/",
-        scope: "/",
-        categories: ["productivity", "security", "utilities"],
-        lang: "en",
-        icons: [
-          {
-            src: "/icon.svg",
-            sizes: "192x192",
-            type: "image/svg+xml",
-            purpose: "any maskable"
-          },
-          {
-            src: "/icon.svg",
-            sizes: "512x512", 
-            type: "image/svg+xml",
-            purpose: "any maskable"
-          }
-        ],
-        screenshots: [
-          {
-            src: "/screenshot-mobile.png",
-            sizes: "375x812",
-            type: "image/png",
-            form_factor: "narrow"
-          },
-          {
-            src: "/screenshot-desktop.png", 
-            sizes: "1280x720",
-            type: "image/png",
-            form_factor: "wide"
-          }
-        ],
-        shortcuts: [
-          {
-            name: "Create Credential",
-            short_name: "Create",
-            description: "Quickly create a new verifiable credential",
-            url: "/credentials?action=create",
-            icons: [{ src: "/icon.svg", sizes: "96x96" }]
-          },
-          {
-            name: "View Proofs",
-            short_name: "Proofs", 
-            description: "View your ZK proofs",
-            url: "/proofs",
-            icons: [{ src: "/icon.svg", sizes: "96x96" }]
-          }
-        ]
-      },
-    }),
+    // 🚧 TEMPORARILY DISABLED PWA PLUGIN DUE TO BUILD ERROR
+    // "Cannot add property 0, object is not extensible" - investigating fix
+    // VitePWA({
+    //   registerType: "autoUpdate",
+    //   injectRegister: "auto",
+    //   workbox: {
+    //     globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
+    //     maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10MB limit for ZK proof bundles
+    //     runtimeCaching: [
+    //       {
+    //         urlPattern: /^https:\/\/api\./,
+    //         handler: "NetworkFirst",
+    //         options: {
+    //           cacheName: "api-cache",
+    //         },
+    //       },
+    //       // Force network first for HTML pages to prevent white screen
+    //       {
+    //         urlPattern: ({ request }) => request.mode === 'navigate',
+    //         handler: "NetworkFirst",
+    //         options: {
+    //           cacheName: "pages-cache",
+    //           networkTimeoutSeconds: 1,
+    //         },
+    //       },
+    //       // Force network first for all HTML documents
+    //       {
+    //         urlPattern: /\.html$/,
+    //         handler: "NetworkFirst",
+    //         options: {
+    //           cacheName: "html-cache",
+    //           networkTimeoutSeconds: 1,
+    //         },
+    //       },
+    //       // Force network first for JS files to ensure latest version
+    //       {
+    //         urlPattern: /\.js$/,
+    //         handler: "NetworkFirst",
+    //         options: {
+    //           cacheName: "js-cache",
+    //           networkTimeoutSeconds: 2,
+    //         },
+    //       },
+    //     ],
+    //     cleanupOutdatedCaches: true,
+    //     skipWaiting: true,
+    //     clientsClaim: true,
+    //     // Add cache busting for deployments
+    //     dontCacheBustURLsMatching: /\.[0-9a-f]{8}\./,
+    //   },
+    //   devOptions: {
+    //     enabled: true,
+    //     type: "module",
+    //     navigateFallback: "index.html",
+    //   },
+    //   manifest: {
+    //     name: "Persona Identity Wallet",
+    //     short_name: "Persona",
+    //     description: "Decentralized Identity Wallet - Create, manage, and share verifiable credentials",
+    //     theme_color: "#ea580c",
+    //     background_color: "#ffffff",
+    //     display: "standalone",
+    //     orientation: "portrait-primary",
+    //     start_url: "/",
+    //     scope: "/",
+    //     categories: ["productivity", "security", "utilities"],
+    //     lang: "en",
+    //     icons: [
+    //       {
+    //         src: "/icon.svg",
+    //         sizes: "192x192",
+    //         type: "image/svg+xml",
+    //         purpose: "any maskable"
+    //       },
+    //       {
+    //         src: "/icon.svg",
+    //         sizes: "512x512", 
+    //         type: "image/svg+xml",
+    //         purpose: "any maskable"
+    //       }
+    //     ],
+    //     screenshots: [
+    //       {
+    //         src: "/screenshot-mobile.png",
+    //         sizes: "375x812",
+    //         type: "image/png",
+    //         form_factor: "narrow"
+    //       },
+    //       {
+    //         src: "/screenshot-desktop.png", 
+    //         sizes: "1280x720",
+    //         type: "image/png",
+    //         form_factor: "wide"
+    //       }
+    //     ],
+    //     shortcuts: [
+    //       {
+    //         name: "Create Credential",
+    //         short_name: "Create",
+    //         description: "Quickly create a new verifiable credential",
+    //         url: "/credentials?action=create",
+    //         icons: [{ src: "/icon.svg", sizes: "96x96" }]
+    //       },
+    //       {
+    //         name: "View Proofs",
+    //         short_name: "Proofs", 
+    //         description: "View your ZK proofs",
+    //         url: "/proofs",
+    //         icons: [{ src: "/icon.svg", sizes: "96x96" }]
+    //       }
+    //     ]
+    //   },
+    // }),
     // Add bundle analyzer for production builds
     mode === 'analyze' && visualizer({
       filename: "dist/bundle-analysis.html",
@@ -145,6 +150,19 @@ export default defineConfig(({ command: _command, mode }) => ({
   ].filter(Boolean),
   define: {
     global: "globalThis",
+    // Properly set NODE_ENV for React
+    'process.env.NODE_ENV': JSON.stringify(mode),
+    // Enable React production optimizations
+    __DEV__: mode !== 'production',
+  },
+  esbuild: {
+    // Additional esbuild configuration for React optimization
+    define: {
+      'process.env.NODE_ENV': JSON.stringify(mode),
+    },
+    // Enable JSX optimizations for production
+    jsx: 'automatic',
+    jsxDev: mode !== 'production',
   },
   resolve: {
     alias: {
@@ -190,86 +208,16 @@ export default defineConfig(({ command: _command, mode }) => ({
     },
   },
   build: {
+    // 🔧 MINIMAL BUILD CONFIG TO AVOID ROLLUP EXTENSIBILITY ERRORS
     rollupOptions: {
-      external: [],
-      output: {
-        // More aggressive chunk splitting to isolate React issues
-        manualChunks: (id) => {
-          // Isolate React core separately to prevent syntax issues
-          if (id.includes('react-dom')) {
-            return 'react-dom';
-          }
-          if (id.includes('react') && !id.includes('react-dom') && !id.includes('react-router')) {
-            return 'react-core';
-          }
-          
-          // Routing
-          if (id.includes('react-router')) {
-            return 'router';
-          }
-          
-          // Heavy crypto libraries (lazy load)
-          if (id.includes('@noble') || id.includes('multiformats')) {
-            return 'crypto';
-          }
-          
-          // ZK proof libraries (lazy load)
-          if (id.includes('snarkjs') || id.includes('circomlib')) {
-            return 'zkproof';
-          }
-          
-          // UI libraries
-          if (id.includes('framer-motion') || id.includes('@heroicons')) {
-            return 'ui';
-          }
-          
-          // React Query
-          if (id.includes('@tanstack/react-query')) {
-            return 'query';
-          }
-          
-          // Node modules vendor
-          if (id.includes('node_modules')) {
-            return 'vendor';
-          }
-        },
-        // Force specific naming to prevent CDN cache issues
-        entryFileNames: 'assets/[name]-[hash].js',
-        chunkFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash].[ext]',
-      },
+      // Completely disable rollup optimizations that cause extensibility issues
+      treeshake: false,
     },
-    chunkSizeWarningLimit: 1000,
-    // Re-enable minification but with safer settings
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        // Disable problematic optimizations that can break numeric syntax
-        unsafe: false,
-        unsafe_arrows: false, 
-        unsafe_comps: false,
-        unsafe_Function: false,
-        unsafe_math: false,
-        unsafe_methods: false,
-        unsafe_proto: false,
-        unsafe_regexp: false,
-        unsafe_undefined: false,
-        // Safe numeric transformations
-        evaluate: false,
-      },
-      mangle: {
-        // Safe mangling options
-        safari10: true,
-      },
-      format: {
-        // Preserve certain syntax to prevent parsing errors
-        preserve_annotations: true,
-        beautify: false,
-      },
-    },
+    // Basic build settings only - React optimization handled via environment variables
     target: 'es2022', // Support top-level await for WebAssembly
-    cssCodeSplit: true,
-    sourcemap: false,
+    minify: mode === 'production' ? 'esbuild' : false, // Enable minification for production React
+    chunkSizeWarningLimit: 2000,
+    assetsInlineLimit: 0,
   },
   optimizeDeps: {
     include: ["buffer", "crypto-browserify", "stream-browserify", "util"],
