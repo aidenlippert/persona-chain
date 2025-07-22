@@ -107,9 +107,9 @@ export interface AgeGateResult {
 }
 
 /**
- * 🚀 REVOLUTIONARY FEATURES SERVICE
+ * 🏢 PROFESSIONAL FEATURES SERVICE
  * 
- * The service that will dominate the identity market with unprecedented features
+ * Enterprise-grade identity services for professional applications
  */
 export class ProfessionalFeaturesService {
   private static instance: ProfessionalFeaturesService;

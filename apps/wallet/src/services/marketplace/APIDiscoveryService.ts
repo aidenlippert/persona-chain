@@ -301,14 +301,56 @@ export class APIDiscoveryService {
   private async parseAPIsGuru(jsonData: string): Promise<DiscoveredAPI[]> {
     const apis: DiscoveredAPI[] = [];
     
+    // 🚨 FILTER: APIs we want to EXCLUDE (useless/irrelevant for identity)
+    const excludedAPIs = [
+      'linkedin', 'aws', 'amazon', 'facebook', 'twitter', 'instagram', 'tiktok',
+      'youtube', 'netflix', 'spotify', 'gaming', 'entertainment', 'social',
+      'weather', 'news', 'sports', 'recipe', 'movie', 'music', 'video',
+      'jokes', 'memes', 'fun', 'cat', 'dog', 'pet', 'anime', 'comic',
+      'wikipedia', 'dictionary', 'translator', 'language'
+    ];
+
+    // 🎯 FILTER: APIs we want to INCLUDE (relevant for identity/professional)
+    const relevantKeywords = [
+      'identity', 'verification', 'kyc', 'auth', 'credential', 'certificate',
+      'financial', 'banking', 'payment', 'money', 'tax', 'invoice', 
+      'education', 'university', 'degree', 'learning', 'course', 'skill',
+      'health', 'medical', 'doctor', 'patient', 'insurance', 'pharmacy',
+      'government', 'public', 'legal', 'law', 'document', 'record',
+      'employment', 'job', 'career', 'professional', 'work', 'business',
+      'security', 'crypto', 'blockchain', 'compliance', 'audit'
+    ];
+    
     try {
       const data = JSON.parse(jsonData);
+      let totalProcessed = 0;
+      let filteredOut = 0;
       
       for (const [apiKey, apiInfo] of Object.entries(data)) {
+        totalProcessed++;
         const info = apiInfo as any;
         const versions = info.versions || {};
         const latestVersion = Object.keys(versions).pop();
         const versionInfo = latestVersion ? versions[latestVersion] || {} : {};
+        
+        const fullText = `${apiKey} ${info.title || ''} ${info.description || ''}`.toLowerCase();
+        
+        // Skip if contains excluded keywords
+        const isExcluded = excludedAPIs.some(excluded => fullText.includes(excluded));
+        if (isExcluded) {
+          filteredOut++;
+          continue;
+        }
+        
+        // Only include if contains relevant keywords OR has high potential
+        const isRelevant = relevantKeywords.some(keyword => fullText.includes(keyword)) ||
+                          fullText.includes('verify') || fullText.includes('authenticate') ||
+                          fullText.includes('credential') || fullText.includes('certificate');
+        
+        if (!isRelevant) {
+          filteredOut++;
+          continue;
+        }
         
         const api: DiscoveredAPI = {
           id: this.generateAPIId(apiKey, versionInfo.swaggerUrl || ''),
@@ -332,7 +374,7 @@ export class APIDiscoveryService {
         apis.push(api);
       }
       
-      console.log(`🌐 Parsed ${apis.length} APIs from APIs.guru`);
+      console.log(`🌐 Parsed ${apis.length} relevant APIs from APIs.guru (filtered ${filteredOut} out of ${totalProcessed})`);
       return apis;
       
     } catch (error) {
@@ -411,23 +453,29 @@ export class APIDiscoveryService {
   }
 
   /**
-   * 📊 Calculate popularity score
+   * 📊 Calculate popularity score based on identity/professional relevance
    */
   private calculatePopularity(name: string, description: string): number {
     const text = `${name} ${description}`.toLowerCase();
     
+    // Focus on identity/professional services, not consumer social media
     const popularityKeywords = {
-      'google': 95,
-      'facebook': 90,
-      'twitter': 85,
-      'github': 80,
-      'microsoft': 85,
-      'amazon': 90,
-      'stripe': 80,
-      'paypal': 75,
-      'spotify': 70,
-      'weather': 65,
-      'news': 60
+      'stripe': 95,     // Payment processing
+      'plaid': 90,      // Financial data
+      'okta': 90,       // Identity management  
+      'auth0': 85,      // Authentication
+      'github': 80,     // Professional development
+      'microsoft': 80,  // Enterprise services
+      'google': 75,     // Business APIs only
+      'paypal': 70,     // Business payments
+      'healthcare': 85, // Health services
+      'medical': 80,    // Medical services
+      'education': 75,  // Educational verification
+      'government': 80, // Government services
+      'compliance': 85, // Compliance tools
+      'verification': 90, // Identity verification
+      'banking': 85,    // Banking services
+      'insurance': 75   // Insurance services
     };
     
     for (const [keyword, score] of Object.entries(popularityKeywords)) {
@@ -436,11 +484,24 @@ export class APIDiscoveryService {
       }
     }
     
-    // Base score calculation
-    const hasDocumentation = description.length > 50 ? 10 : 0;
-    const hasKeywords = text.split(' ').length > 3 ? 5 : 0;
+    // Base score calculation for professional relevance
+    let score = 30; // Lower base score
     
-    return Math.min(40 + hasDocumentation + hasKeywords, 95);
+    // Boost for professional keywords
+    if (text.includes('business') || text.includes('enterprise') || text.includes('professional')) {
+      score += 20;
+    }
+    
+    // Boost for identity-related keywords
+    if (text.includes('identity') || text.includes('auth') || text.includes('verify')) {
+      score += 25;
+    }
+    
+    // Boost for good documentation
+    const hasDocumentation = description.length > 50 ? 10 : 0;
+    score += hasDocumentation;
+    
+    return Math.min(score, 95);
   }
 
   /**
