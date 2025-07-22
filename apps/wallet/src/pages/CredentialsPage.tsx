@@ -503,6 +503,34 @@ export const CredentialsPage = () => {
     }
   };
 
+  const handleDeleteCredential = async (credentialId: string): Promise<void> => {
+    try {
+      console.log(`🗑️ Deleting credential: ${credentialId}`);
+      
+      // Remove from localStorage
+      const currentCredentials = JSON.parse(localStorage.getItem('credentials') || '[]');
+      const filteredCredentials = currentCredentials.filter((cred: any) => cred.id !== credentialId);
+      localStorage.setItem('credentials', JSON.stringify(filteredCredentials));
+      
+      // Remove metadata
+      localStorage.removeItem(`credential_metadata_${credentialId}`);
+      
+      // Update hook state via removeCredential
+      await removeCredential(credentialId);
+      
+      // Reload credentials with metadata
+      const updatedCredentials = await enhancedCredentialManager.getAllCredentialsWithMetadata();
+      setCredentialsWithMetadata(updatedCredentials);
+      
+      console.log(`✅ Credential deleted successfully: ${credentialId}`);
+      alert('🗑️ Credential deleted successfully');
+      
+    } catch (error) {
+      console.error('❌ Failed to delete credential:', error);
+      alert(`❌ Failed to delete credential: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   // 🎉 HANDLE SUCCESSFUL API CONNECTION
   const handleConnectionSuccess = async (provider: APIProvider) => {
     console.log(`🎉 Successfully connected to ${provider}!`);
@@ -663,6 +691,7 @@ export const CredentialsPage = () => {
                       onViewHistory={handleViewHistory}
                       onRevoke={handleRevokeCredential}
                       onArchive={handleArchiveCredential}
+                      onDelete={handleDeleteCredential}
                     />
                   ))}
                 </div>
