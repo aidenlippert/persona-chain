@@ -199,8 +199,8 @@ export class GitHubAPIService {
         body: requestBody
       });
       
-      // Use our existing serverless function to avoid CORS issues
-      const response = await fetch('/api/connectors/github/auth', {
+      // Use our ROOT LEVEL serverless function to avoid CORS issues
+      const response = await fetch('/api/github-auth', {
         method: 'POST',
         headers: {
           'Accept': 'application/json',

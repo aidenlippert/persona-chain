@@ -1,73 +1,9 @@
 {
-  "buildCommand": "cd apps/wallet && npm install && npm run build",
-  "outputDirectory": "apps/wallet/dist",
-  "installCommand": "echo 'Skipping root install'",
-  "framework": "vite",
-  "env": {
-    "VITE_DEMO_MODE": "false",
-    "VITE_MOCK_INTEGRATIONS": "false",
-    "VITE_CHAIN_ID": "personachain-1",
-    "VITE_BLOCKCHAIN_NETWORK": "personachain",
-    "VITE_BLOCKCHAIN_RPC": "https://personachain-prod.uc.r.appspot.com",
-    "VITE_BLOCKCHAIN_REST": "https://personachain-prod.uc.r.appspot.com/api",
-    "VITE_BACKEND_API": "https://personachain-prod.uc.r.appspot.com",
-    "VITE_PERSONA_GAS_PRICE": "0.025persona",
-    "VITE_ENABLE_REAL_APIS": "true",
-    "VITE_ENVIRONMENT": "production",
-    "VITE_MONITORING_ENABLED": "true",
-    "VITE_ANALYTICS_ENABLED": "true",
-    "VITE_PWA_ENABLED": "true",
-    "VITE_WEBSOCKET_ENABLED": "true",
-    "VITE_ENTERPRISE_FEATURES": "true"
+  "functions": {
+    "api/**/*.js": {}
   },
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/sw.js",
-      "headers": [
-        {
-          "key": "Service-Worker-Allowed",
-          "value": "/"
-        }
-      ]
-    },
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-XSS-Protection",
-          "value": "1; mode=block"
-        },
-        {
-          "key": "Strict-Transport-Security",
-          "value": "max-age=31536000; includeSubDomains"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        },
-        {
-          "key": "Permissions-Policy",
-          "value": "camera=(), microphone=(), geolocation=()"
-        },
-        {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://personachain-prod.uc.r.appspot.com wss://personachain-prod.uc.r.appspot.com https://api.stripe.com https://raw.githubusercontent.com https://api.apis.guru https://api.globaldatacompany.com https://production.plaid.com https://sandbox.plaid.com https://netverify.com https://api.onfido.com https://api.experian.com https://sandbox-api.experian.com https://api.github.com https://api.linkedin.com; font-src 'self' data:; worker-src 'self' blob:; frame-src 'self' https://js.stripe.com https://*.stripe.com; child-src 'self' https://js.stripe.com https://*.stripe.com; frame-ancestors 'none';"
-        }
-      ]
-    }
-  ]
+  "env": {
+    "GITHUB_CLIENT_ID": "Ov23liI8w2TcwKKTEVNS",
+    "GITHUB_CLIENT_SECRET": "7f8b52a98c49c25fa89ea0fafd6c0b6e68c1cc36"
+  }
 }
