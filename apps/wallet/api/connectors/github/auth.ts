@@ -426,7 +426,11 @@ export default async function handler(req: any, res: any) {
       res.status(400).json(response);
     }
   } catch (error) {
-    console.error('🚨 Unexpected GitHub OAuth error:', error);
+    console.error('🚨🚨🚨 CRITICAL SERVERLESS FUNCTION ERROR:', error);
+    console.error('Error type:', typeof error);
+    console.error('Error name:', error?.name);
+    console.error('Error message:', error?.message);
+    console.error('Error stack:', error?.stack);
     
     // Determine if error is retryable
     const isRetryable = error instanceof Error && (
@@ -442,6 +446,16 @@ export default async function handler(req: any, res: any) {
       retryable: isRetryable
     };
     
-    res.status(500).json(response);
+    console.log('📤 Sending error response:', JSON.stringify(response, null, 2));
+    
+    // CRITICAL: Ensure we always return valid JSON with proper headers
+    try {
+      res.setHeader('Content-Type', 'application/json');
+      res.status(500).json(response);
+    } catch (responseError) {
+      console.error('💥 FAILED TO SEND ERROR RESPONSE:', responseError);
+      // Last resort - send basic error
+      res.status(500).end('{"success":false,"error":"Critical server error"}');
+    }
   }
 }
