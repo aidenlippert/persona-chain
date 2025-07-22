@@ -829,32 +829,6 @@ const App = () => {
       analyticsService.trackPageView(window.location.pathname);
     }, 100);
 
-    // CRITICAL FIX: Handle GitHub OAuth callback on main page
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    const state = urlParams.get('state');
-    
-    if (code && state) {
-      console.log('🚀 GitHub OAuth callback detected on main page!', { code: code.substring(0, 10) + '...', state });
-      
-      // Import and use GitHub API service
-      import('./services/api-integrations/GitHubAPIService').then(({ githubAPIService }) => {
-        githubAPIService.exchangeCodeForToken(code, state)
-          .then((result) => {
-            console.log('✅ GitHub OAuth completed successfully!', result);
-            // Clear URL parameters
-            window.history.replaceState({}, document.title, window.location.pathname);
-            // Show success message or redirect to dashboard
-            alert('🎉 GitHub OAuth successful! Your credential has been created.');
-          })
-          .catch((error) => {
-            console.error('❌ GitHub OAuth failed:', error);
-            // Clear URL parameters
-            window.history.replaceState({}, document.title, window.location.pathname);
-            alert('❌ GitHub OAuth failed: ' + error.message);
-          });
-      });
-    }
 
     // A/B testing removed for performance optimization
 
