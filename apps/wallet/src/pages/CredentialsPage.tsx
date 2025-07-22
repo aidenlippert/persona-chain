@@ -45,6 +45,8 @@ import { professionalFeaturesService } from '../services/marketplace/Professiona
 import { productionZKProofService } from '../services/zkp/ProductionZKProofService';
 import { realAPIIntegrationService, APIConnection, APIProvider } from '../services/api-integrations/RealAPIIntegrationService';
 import APIConnectionModal from '../components/APIConnectionModal';
+import { EnhancedCredentialCard } from '../components/credentials/EnhancedCredentialCard';
+import { enhancedCredentialManager, CredentialMetadata } from '../services/credentials/EnhancedCredentialManager';
 
 // 🎯 SMART API MARKETPLACE TYPES
 interface MarketplaceStats {
@@ -98,6 +100,12 @@ export const CredentialsPage = () => {
   const [showConnectionModal, setShowConnectionModal] = useState(false);
   const [apiConnections, setAPIConnections] = useState<APIConnection[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+  
+  // 🏆 ENHANCED CREDENTIAL MANAGEMENT STATE
+  const [credentialsWithMetadata, setCredentialsWithMetadata] = useState<Array<{ credential: any; metadata: CredentialMetadata }>>([]);
+  const [isUpdatingCredential, setIsUpdatingCredential] = useState<string | null>(null);
+  const [isGeneratingZKProof, setIsGeneratingZKProof] = useState<string | null>(null);
+  const [showCredentialHistory, setShowCredentialHistory] = useState<string | null>(null);
   const [didKeyPair, setDidKeyPair] = useState<DIDKeyPair | null>(null);
   
   // 🚀 REAL API MARKETPLACE STATE
@@ -349,6 +357,152 @@ export const CredentialsPage = () => {
     }
   }, [activeTab]);
 
+  // 🏆 LOAD ENHANCED CREDENTIALS WITH METADATA
+  useEffect(() => {
+    const loadEnhancedCredentials = async () => {
+      try {
+        console.log('🏆 Loading credentials with enhanced metadata...');
+        const credentialsWithMeta = await enhancedCredentialManager.getAllCredentialsWithMetadata();
+        setCredentialsWithMetadata(credentialsWithMeta);
+        console.log(`✅ Loaded ${credentialsWithMeta.length} credentials with metadata`);
+      } catch (error) {
+        console.error('❌ Failed to load enhanced credentials:', error);
+      }
+    };
+
+    if (activeTab === 'credentials') {
+      loadEnhancedCredentials();
+    }
+  }, [activeTab, credentials, credentialCount]);
+
+  // 🏆 ENHANCED CREDENTIAL MANAGEMENT HANDLERS
+  const handleUpdateCredential = async (credentialId: string): Promise<void> => {
+    try {
+      setIsUpdatingCredential(credentialId);
+      console.log(`🔄 Updating credential: ${credentialId}`);
+      
+      const result = await enhancedCredentialManager.updateCredential(credentialId);
+      
+      if (result.success && result.updated) {
+        console.log(`✅ Credential updated to version ${result.newVersion}`);
+        // Reload credentials with metadata
+        const updatedCredentials = await enhancedCredentialManager.getAllCredentialsWithMetadata();
+        setCredentialsWithMetadata(updatedCredentials);
+        
+        // Show success feedback
+        if (result.changes && result.changes.length > 0) {
+          alert(`🎉 Credential updated!\n\nChanges:\n${result.changes.join('\n')}`);
+        }
+      } else if (result.success && !result.updated) {
+        console.log('ℹ️ Credential is already up-to-date');
+        alert('ℹ️ Credential is already up-to-date');
+      } else {
+        throw new Error(result.error || 'Update failed');
+      }
+    } catch (error) {
+      console.error('❌ Failed to update credential:', error);
+      alert(`❌ Failed to update credential: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsUpdatingCredential(null);
+    }
+  };
+
+  const handleGenerateZKProof = async (credentialId: string): Promise<void> => {
+    try {
+      setIsGeneratingZKProof(credentialId);
+      console.log(`🛡️ Generating ZK proof for credential: ${credentialId}`);
+      
+      const result = await enhancedCredentialManager.generateZKProof(credentialId);
+      
+      if (result.success) {
+        console.log(`✅ ZK proof generated: ${result.proofId}`);
+        
+        // Reload credentials with metadata to show updated ZK status
+        const updatedCredentials = await enhancedCredentialManager.getAllCredentialsWithMetadata();
+        setCredentialsWithMetadata(updatedCredentials);
+        
+        alert(`🛡️ ZK Proof Generated Successfully!\n\nProof ID: ${result.proofId}\n\nYour credential now supports zero-knowledge verification.`);
+      } else {
+        throw new Error(result.error || 'ZK proof generation failed');
+      }
+    } catch (error) {
+      console.error('❌ Failed to generate ZK proof:', error);
+      alert(`❌ Failed to generate ZK proof: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsGeneratingZKProof(null);
+    }
+  };
+
+  const handleShareCredential = (credentialId: string): void => {
+    console.log(`📤 Sharing credential: ${credentialId}`);
+    
+    // Create sharing URL (in real implementation, this would use a secure sharing service)
+    const shareUrl = `${window.location.origin}/verify/${credentialId}`;
+    
+    if (navigator.share) {
+      navigator.share({
+        title: 'PersonaPass Verifiable Credential',
+        text: 'Verify this credential on PersonaPass',
+        url: shareUrl,
+      }).catch(console.error);
+    } else {
+      // Fallback: copy to clipboard
+      navigator.clipboard.writeText(shareUrl)
+        .then(() => alert('🔗 Sharing link copied to clipboard!'))
+        .catch(() => alert('❌ Failed to copy sharing link'));
+    }
+  };
+
+  const handleViewHistory = (credentialId: string): void => {
+    console.log(`📜 Viewing history for credential: ${credentialId}`);
+    setShowCredentialHistory(credentialId);
+  };
+
+  const handleArchiveCredential = async (credentialId: string): Promise<void> => {
+    try {
+      console.log(`📦 Archiving credential: ${credentialId}`);
+      
+      const success = await enhancedCredentialManager.archiveCredential(credentialId, 'User requested archive');
+      
+      if (success) {
+        // Reload credentials
+        const updatedCredentials = await enhancedCredentialManager.getAllCredentialsWithMetadata();
+        setCredentialsWithMetadata(updatedCredentials);
+        
+        alert('📦 Credential archived successfully');
+      } else {
+        throw new Error('Archive failed');
+      }
+    } catch (error) {
+      console.error('❌ Failed to archive credential:', error);
+      alert(`❌ Failed to archive credential: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  const handleRevokeCredential = async (credentialId: string): Promise<void> => {
+    try {
+      const reason = prompt('Please provide a reason for revocation:');
+      if (!reason) return;
+      
+      console.log(`🚫 Revoking credential: ${credentialId}`);
+      
+      const success = await enhancedCredentialManager.revokeCredential(credentialId, reason);
+      
+      if (success) {
+        // Reload credentials
+        const updatedCredentials = await enhancedCredentialManager.getAllCredentialsWithMetadata();
+        setCredentialsWithMetadata(updatedCredentials);
+        
+        alert('🚫 Credential revoked successfully');
+      } else {
+        throw new Error('Revocation failed');
+      }
+    } catch (error) {
+      console.error('❌ Failed to revoke credential:', error);
+      alert(`❌ Failed to revoke credential: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   // 🎉 HANDLE SUCCESSFUL API CONNECTION
   const handleConnectionSuccess = async (provider: APIProvider) => {
     console.log(`🎉 Successfully connected to ${provider}!`);
@@ -496,50 +650,20 @@ export const CredentialsPage = () => {
                     <span className="text-gray-300">Loading credentials...</span>
                   </div>
                 </div>
-              ) : credentials.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {credentials.map((credential) => (
-                    <motion.div
+              ) : credentialsWithMetadata.length > 0 ? (
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                  {credentialsWithMetadata.map(({ credential, metadata }) => (
+                    <EnhancedCredentialCard
                       key={credential.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="bg-gray-700/50 border border-gray-600/50 rounded-xl p-6 hover:bg-gray-700/70 transition-all group"
-                    >
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1">
-                          <h3 className="text-lg font-semibold text-white mb-2">
-                            {(credential.type && credential.type[1]) || credential.credentialSubject?.credentialType || 'Credential'}
-                          </h3>
-                          <p className="text-sm text-gray-400">{credential.issuer || 'Unknown Issuer'}</p>
-                        </div>
-                        <CheckCircleIcon className="h-6 w-6 text-green-400" />
-                      </div>
-                      
-                      <div className="space-y-2 mb-4">
-                        <div className="text-sm text-gray-300">
-                          <span className="text-gray-400">Issued:</span> {new Date(credential.issuanceDate).toLocaleDateString()}
-                        </div>
-                        {credential.credentialSubject?.verificationLevel && (
-                          <div className="text-sm">
-                            <span className="text-gray-400">Level:</span>
-                            <span className={`ml-2 px-2 py-1 rounded text-xs ${
-                              credential.credentialSubject?.verificationLevel === 'verified' 
-                                ? 'bg-green-500/20 text-green-400' 
-                                : 'bg-gray-500/20 text-gray-400'
-                            }`}>
-                              {credential.credentialSubject?.verificationLevel}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      <button
-                        onClick={() => removeCredential(credential.id)}
-                        className="w-full bg-red-500/20 text-red-400 px-4 py-2 rounded-lg hover:bg-red-500/30 transition-colors text-sm"
-                      >
-                        Remove Credential
-                      </button>
-                    </motion.div>
+                      credential={credential}
+                      metadata={metadata}
+                      onUpdate={handleUpdateCredential}
+                      onGenerateZKProof={handleGenerateZKProof}
+                      onShare={handleShareCredential}
+                      onViewHistory={handleViewHistory}
+                      onRevoke={handleRevokeCredential}
+                      onArchive={handleArchiveCredential}
+                    />
                   ))}
                 </div>
               ) : (
