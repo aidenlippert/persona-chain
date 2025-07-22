@@ -86,7 +86,7 @@ export class GitHubAPIService {
     }
 
     const scopes = ['user', 'public_repo', 'read:org'];
-    const redirectUri = `https://personapass.xyz/oauth/github/callback`;
+    const redirectUri = `https://personapass.xyz/`;
     const state = Math.random().toString(36).substring(2, 15); // Generate 13-character state
     
     console.log('🔍 DEBUG: OAuth parameters:', {
