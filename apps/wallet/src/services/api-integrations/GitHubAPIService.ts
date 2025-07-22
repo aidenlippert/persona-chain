@@ -124,7 +124,7 @@ export class GitHubAPIService {
    * 🎫 Exchange OAuth code for access token - WORKING FRONTEND SOLUTION
    */
   async exchangeCodeForToken(code: string, state: string): Promise<string> {
-    console.log('🚀🚀🚀 FRONTEND OAUTH: Creating GitHub credential without serverless');
+    console.log('🚀🚀🚀 FRONTEND OAUTH v2: Creating GitHub credential without serverless - CACHE BUSTED');
     
     // Skip server-side token exchange - create credential directly
     console.log('✅ Using frontend-only OAuth solution because serverless functions failed');
