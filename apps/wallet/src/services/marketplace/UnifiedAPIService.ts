@@ -1,12 +1,14 @@
 /**
  * 🌐 UNIFIED API MARKETPLACE SERVICE
- * Orchestrates discovery, premium APIs, and real credential generation
- * Single interface for all API marketplace functionality
+ * Orchestrates roadmap APIs, premium APIs, and credential generation
+ * Complete architecture for real-world identity data to VCs
  */
 
 import { apiDiscoveryService, DiscoveredAPI } from './APIDiscoveryService';
 import { premiumAPIService } from './PremiumAPIService';
-import { realWorldAPIService, HealthcareAPI, EducationAPI, GovernmentAPI, FinancialAPI } from './RealWorldAPIService';
+import { realWorldAPIService, HealthcareAPI, GovernmentAPI, FinancialAPI } from './RealWorldAPIService';
+import { apiRoadmapService, RoadmapAPI, RoadmapPhase } from './APIRoadmapService';
+import { enhancedVCIssuanceService, VCIssuanceRequest } from '../credentials/EnhancedVCIssuanceService';
 import { verifiableCredentialService } from '../credentials/VerifiableCredentialService';
 
 // 🎯 UNIFIED API TYPES
@@ -16,7 +18,7 @@ export interface UnifiedAPI {
   description: string;
   category: string;
   provider: string;
-  type: 'premium' | 'discovered' | 'real-world' | 'user-submitted';
+  type: 'premium' | 'discovered' | 'real-world' | 'roadmap' | 'user-submitted';
   authType: string;
   pricing: 'free' | 'freemium' | 'paid';
   verified: boolean;
@@ -28,6 +30,17 @@ export interface UnifiedAPI {
   endpoints: APIEndpoint[];
   integrationGuide?: any;
   connectionStatus?: ConnectionStatus;
+  // Roadmap-specific fields
+  phase?: RoadmapPhase;
+  impact?: 'high' | 'medium' | 'low';
+  complexity?: 'easy' | 'medium' | 'hard';
+  useCase?: string;
+  implementation?: {
+    enabled: boolean;
+    priority: number;
+    estimatedDays: number;
+    dependencies: string[];
+  };
 }
 
 interface APIEndpoint {
@@ -123,12 +136,15 @@ export class UnifiedAPIService {
     query: string, 
     category?: string, 
     filters?: {
-      type?: 'premium' | 'discovered' | 'real-world' | 'all';
+      type?: 'premium' | 'discovered' | 'real-world' | 'roadmap' | 'all';
+      phase?: RoadmapPhase;
       pricing?: 'free' | 'freemium' | 'paid';
       verified?: boolean;
       minRating?: number;
       compliance?: string[];
       region?: string[];
+      impact?: 'high' | 'medium' | 'low';
+      complexity?: 'easy' | 'medium' | 'hard';
     },
     limit: number = 50
   ): Promise<UnifiedAPI[]> {
@@ -137,7 +153,13 @@ export class UnifiedAPIService {
     try {
       const results: UnifiedAPI[] = [];
 
-      // Search real-world APIs first (highest priority)
+      // Search roadmap APIs first (highest priority for enabled phases)
+      if (!filters?.type || filters.type === 'roadmap' || filters.type === 'all') {
+        const roadmapAPIs = await this.searchRoadmapAPIs(query, category, filters);
+        results.push(...roadmapAPIs);
+      }
+
+      // Search real-world APIs
       if (!filters?.type || filters.type === 'real-world' || filters.type === 'all') {
         const realWorldAPIs = await this.searchRealWorldAPIs(query, category, filters);
         results.push(...realWorldAPIs);
@@ -158,13 +180,24 @@ export class UnifiedAPIService {
       // Sort by relevance and rating
       const sortedResults = results
         .sort((a, b) => {
-          // Real-world APIs get highest priority
+          // Roadmap APIs get highest priority
+          if (a.type === 'roadmap' && b.type !== 'roadmap') return -1;
+          if (b.type === 'roadmap' && a.type !== 'roadmap') return 1;
+          
+          // Real-world APIs get second priority
           if (a.type === 'real-world' && b.type !== 'real-world') return -1;
           if (b.type === 'real-world' && a.type !== 'real-world') return 1;
           
-          // Premium APIs get second priority
+          // Premium APIs get third priority
           if (a.type === 'premium' && b.type !== 'premium') return -1;
           if (b.type === 'premium' && a.type !== 'premium') return 1;
+          
+          // For roadmap APIs, sort by implementation priority
+          if (a.type === 'roadmap' && b.type === 'roadmap') {
+            const aPriority = a.implementation?.priority || 999;
+            const bPriority = b.implementation?.priority || 999;
+            return aPriority - bPriority;
+          }
           
           // Then by rating and popularity
           return (b.rating * b.popularity) - (a.rating * a.popularity);
@@ -181,7 +214,82 @@ export class UnifiedAPIService {
   }
 
   /**
-   * 🌍 Search real-world APIs (Healthcare, Education, Government, Financial)
+   * 🛤️ Search roadmap APIs (Phased implementation strategy)
+   */
+  private async searchRoadmapAPIs(
+    query: string,
+    category?: string,
+    filters?: any
+  ): Promise<UnifiedAPI[]> {
+    try {
+      // Get enabled roadmap APIs
+      const roadmapAPIs = apiRoadmapService.getEnabledAPIs();
+      
+      // Apply search filter
+      const searchResults = query 
+        ? apiRoadmapService.searchAPIs(query, filters?.phase)
+        : roadmapAPIs;
+
+      const results: UnifiedAPI[] = [];
+
+      for (const api of searchResults) {
+        // Apply additional filters
+        if (filters?.phase && api.phase !== filters.phase) continue;
+        if (filters?.impact && api.impact !== filters.impact) continue;
+        if (filters?.complexity && api.complexity !== filters.complexity) continue;
+        if (category && category !== 'all' && !api.domain.toLowerCase().includes(category.toLowerCase())) continue;
+
+        const unifiedAPI: UnifiedAPI = {
+          id: api.id,
+          name: api.name,
+          description: api.description,
+          category: api.domain,
+          provider: api.provider,
+          type: 'roadmap',
+          authType: api.authType,
+          pricing: 'freemium',
+          verified: true,
+          rating: api.impact === 'high' ? 5.0 : api.impact === 'medium' ? 4.0 : 3.5,
+          features: api.vcTypes,
+          credentialType: api.vcTypes[0] || 'Roadmap Credential',
+          setupTime: `${api.implementation.estimatedDays} days`,
+          popularity: 100 - api.implementation.priority, // Higher priority = higher popularity
+          endpoints: api.endpoints.map(endpoint => ({
+            name: endpoint.purpose,
+            description: endpoint.purpose,
+            method: endpoint.method,
+            path: endpoint.path,
+            credentialFields: endpoint.credentialFields
+          })),
+          integrationGuide: {
+            useCase: api.useCase,
+            impact: api.impact,
+            complexity: api.complexity,
+            estimatedDays: api.implementation.estimatedDays,
+            dependencies: api.implementation.dependencies
+          },
+          // Roadmap-specific fields
+          phase: api.phase,
+          impact: api.impact,
+          complexity: api.complexity,
+          useCase: api.useCase,
+          implementation: api.implementation
+        };
+
+        results.push(unifiedAPI);
+      }
+
+      console.log(`🛤️ Found ${results.length} roadmap APIs for query: "${query}"`);
+      return results;
+
+    } catch (error) {
+      console.error('❌ Roadmap API search failed:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 🌍 Search real-world APIs (Healthcare, Government, Financial)
    */
   private async searchRealWorldAPIs(
     query: string,
@@ -435,17 +543,44 @@ export class UnifiedAPIService {
   }
 
   /**
-   * 🏆 Create Verifiable Credential from API
+   * 🏆 Create Enhanced Verifiable Credential from API
    */
   async createCredentialFromAPI(request: CredentialCreationRequest): Promise<any> {
     await this.initialize();
 
     try {
-      console.log(`🏆 Creating credential from API: ${request.apiId}`);
+      console.log(`🏆 Creating enhanced credential from API: ${request.apiId}`);
+
+      // Check if it's a roadmap API first (highest priority)
+      const roadmapAPI = apiRoadmapService.getAPI(request.apiId);
+      if (roadmapAPI && roadmapAPI.implementation.enabled) {
+        // Use enhanced VC issuance service for roadmap APIs
+        const holderDID = await verifiableCredentialService.getCurrentDID() || 'did:persona:user';
+        
+        const vcRequest: VCIssuanceRequest = {
+          apiId: request.apiId,
+          apiData: request.inputData,
+          holderDID,
+          credentialType: roadmapAPI.vcTypes[0] || 'RoadmapCredential',
+          options: {
+            expirationDays: request.options?.expirationDays,
+            challenge: request.options?.challenge,
+            zkProof: roadmapAPI.phase === 'phase-6-privacy-zkp'
+          }
+        };
+
+        const result = await enhancedVCIssuanceService.issueCredentialFromAPI(vcRequest);
+        
+        if (!result.success) {
+          throw new Error(`Enhanced VC issuance failed: ${result.error}`);
+        }
+
+        console.log(`✅ Enhanced credential issued: ${result.credentialId}`);
+        return result.credential;
+      }
 
       // Check if it's a premium API
       const premiumProvider = premiumAPIService.getProvider(request.apiId);
-      
       if (premiumProvider) {
         // Use premium API service
         return await premiumAPIService.createCredential({
@@ -454,22 +589,67 @@ export class UnifiedAPIService {
           data: request.inputData,
           options: request.options
         });
-      } else {
-        // Handle discovered API credential creation
-        const discoveredAPI = apiDiscoveryService.getAPI(request.apiId);
-        
-        if (!discoveredAPI) {
-          throw new Error(`API ${request.apiId} not found`);
-        }
+      }
 
-        // Create credential from discovered API
+      // Handle discovered API credential creation
+      const discoveredAPI = apiDiscoveryService.getAPI(request.apiId);
+      if (discoveredAPI) {
         return await this.createDiscoveredAPICredential(discoveredAPI, request);
       }
+
+      // Handle real-world API credential creation
+      const realWorldAPI = this.findRealWorldAPI(request.apiId);
+      if (realWorldAPI) {
+        return await this.createRealWorldAPICredential(realWorldAPI, request);
+      }
+
+      throw new Error(`API ${request.apiId} not found in any service`);
 
     } catch (error) {
       console.error(`❌ Failed to create credential from API ${request.apiId}:`, error);
       throw error;
     }
+  }
+
+  /**
+   * 🔍 Find real-world API by ID
+   */
+  private findRealWorldAPI(apiId: string): any {
+    const healthcareAPIs = realWorldAPIService.getHealthcareAPIs();
+    const governmentAPIs = realWorldAPIService.getGovernmentAPIs();
+    const financialAPIs = realWorldAPIService.getFinancialAPIs();
+
+    return [...healthcareAPIs, ...governmentAPIs, ...financialAPIs]
+      .find(api => api.id === apiId);
+  }
+
+  /**
+   * 🌍 Create credential from real-world API
+   */
+  private async createRealWorldAPICredential(api: any, request: CredentialCreationRequest): Promise<any> {
+    const holderDID = await verifiableCredentialService.getCurrentDID() || 'did:persona:user';
+    
+    // Determine credential type based on API category
+    let credentialType = 'RealWorldCredential';
+    if (api.category === 'eligibility') credentialType = 'HealthInsuranceCredential';
+    else if (api.category === 'identity') credentialType = 'GovernmentIDCredential';
+    else if (api.category === 'account-verification') credentialType = 'BankAccountCredential';
+
+    const vcRequest: VCIssuanceRequest = {
+      apiId: request.apiId,
+      apiData: request.inputData,
+      holderDID,
+      credentialType,
+      options: request.options
+    };
+
+    const result = await enhancedVCIssuanceService.issueCredentialFromAPI(vcRequest);
+    
+    if (!result.success) {
+      throw new Error(`Real-world API credential issuance failed: ${result.error}`);
+    }
+
+    return result.credential;
   }
 
   /**

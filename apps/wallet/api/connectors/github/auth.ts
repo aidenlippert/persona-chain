@@ -2,6 +2,7 @@
  * GitHub OAuth Authentication Handler
  * Production-grade OAuth flow for GitHub credential creation
  * Features: Retry logic, error handling, validation, security
+ * Optimized for Vercel serverless with minimal memory usage
  */
 
 interface GitHubUserData {
@@ -40,6 +41,7 @@ interface APIResponse {
 
 // Request validation schemas
 const GITHUB_SESSION_PATTERN = /^github_session_[a-zA-Z0-9_-]+_\d+_[a-z0-9]{9}$/;
+const SIMPLE_STATE_PATTERN = /^[a-zA-Z0-9]{3,}$/; // Simple alphanumeric state (3+ chars)
 const USER_ID_PATTERN = /^[a-zA-Z0-9:_-]+$/;
 
 function validateRequest(body: any): { valid: boolean; errors: string[] } {
@@ -69,7 +71,8 @@ function validateRequest(body: any): { valid: boolean; errors: string[] } {
       errors.push('Valid OAuth code is required');
     }
     
-    if (!body.state || typeof body.state !== 'string' || !GITHUB_SESSION_PATTERN.test(body.state)) {
+    if (!body.state || typeof body.state !== 'string' || 
+        (!GITHUB_SESSION_PATTERN.test(body.state) && !SIMPLE_STATE_PATTERN.test(body.state))) {
       errors.push('Valid OAuth state is required');
     }
   }
@@ -153,24 +156,53 @@ function createVerifiableCredential(userData: GitHubUserData, userId: string): a
   };
 }
 
+// Helper function to create a timeout promise
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => 
+      setTimeout(() => reject(new Error('Request timeout')), timeoutMs)
+    )
+  ]);
+}
+
 export default async function handler(req: any, res: any) {
+  console.log('🚀🚀🚀 SERVERLESS FUNCTION EXTREME DEBUG START 🚀🚀🚀');
+  console.log('🕐 Request timestamp:', new Date().toISOString());
+  console.log('🌐 Request details:', {
+    method: req.method,
+    url: req.url,
+    headers: {
+      origin: req.headers.origin,
+      referer: req.headers.referer,
+      userAgent: req.headers['user-agent']?.substring(0, 100),
+      contentType: req.headers['content-type'],
+      accept: req.headers.accept,
+      authorization: req.headers.authorization ? 'PRESENT' : 'MISSING'
+    }
+  });
+
   // Set security headers
   res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Request-ID');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Request-ID, X-Debug-Mode, X-Client-Timestamp');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('X-XSS-Protection', '1; mode=block');
 
+  console.log('✅ Security headers set successfully');
+
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('🔄 Handling OPTIONS preflight request');
     res.status(200).end();
     return;
   }
 
   // Only allow POST requests
   if (req.method !== 'POST') {
+    console.error('❌ Invalid method:', req.method);
     const response: APIResponse = {
       success: false,
       error: 'Method not allowed',
@@ -181,6 +213,8 @@ export default async function handler(req: any, res: any) {
     return;
   }
 
+  console.log('✅ POST request confirmed - proceeding with OAuth processing');
+
   // Rate limiting check (simple implementation)
   const clientIP = req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'unknown';
   if (clientIP !== 'unknown') {
@@ -190,9 +224,24 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
+    console.log('📝 Request body extreme debug:', {
+      hasBody: !!req.body,
+      bodyType: typeof req.body,
+      bodyKeys: req.body ? Object.keys(req.body) : [],
+      bodySize: req.body ? JSON.stringify(req.body).length : 0,
+      fullBody: req.body
+    });
+
     // Validate request body
     const validation = validateRequest(req.body);
+    console.log('🔍 Request validation result:', {
+      valid: validation.valid,
+      errors: validation.errors,
+      errorCount: validation.errors.length
+    });
+    
     if (!validation.valid) {
+      console.error('❌ Request validation failed:', validation.errors);
       const response: APIResponse = {
         success: false,
         error: 'Invalid request',
@@ -204,24 +253,117 @@ export default async function handler(req: any, res: any) {
     }
 
     const { userId, code, state } = req.body;
+    console.log('✅ Request validated successfully - extracted parameters:', {
+      hasUserId: !!userId,
+      userIdType: typeof userId,
+      userIdPreview: userId ? userId.substring(0, 20) + '...' : 'null',
+      hasCode: !!code,
+      codeType: typeof code,
+      codeLength: code?.length || 0,
+      codePreview: code ? code.substring(0, 10) + '...' : 'null',
+      hasState: !!state,
+      stateType: typeof state,
+      stateLength: state?.length || 0,
+      statePreview: state ? state.substring(0, 10) + '...' : 'null'
+    });
 
     if (code && state) {
       // OAuth callback processing
-      console.log('🔄 Processing OAuth callback for GitHub credential');
+      console.log('🔄🔄🔄 Processing OAuth callback for GitHub credential');
       
       try {
-        // In production: Exchange authorization code for access token
-        // const tokenResponse = await exchangeCodeForToken(code, state);
-        // const userProfile = await fetchGitHubProfile(tokenResponse.access_token);
+        // Exchange authorization code for access token
+        const clientId = process.env.GITHUB_CLIENT_ID || process.env.VITE_GITHUB_CLIENT_ID;
+        const clientSecret = process.env.GITHUB_CLIENT_SECRET || process.env.VITE_GITHUB_CLIENT_SECRET;
         
-        // For demo: Generate realistic mock data
-        const userData = createMockGitHubData(state);
-        const credential = createVerifiableCredential(userData, `did:persona:${state}`);
+        console.log('🔑 Environment variables debug:', {
+          hasGithubClientId: !!process.env.GITHUB_CLIENT_ID,
+          hasViteGithubClientId: !!process.env.VITE_GITHUB_CLIENT_ID,
+          hasGithubClientSecret: !!process.env.GITHUB_CLIENT_SECRET,
+          hasViteGithubClientSecret: !!process.env.VITE_GITHUB_CLIENT_SECRET,
+          finalClientId: clientId ? clientId.substring(0, 8) + '...' : 'MISSING',
+          finalClientSecret: clientSecret ? '[PRESENT-' + clientSecret.length + '-chars]' : 'MISSING',
+          allEnvKeys: Object.keys(process.env).filter(k => k.includes('GITHUB'))
+        });
+        
+        if (!clientId || !clientSecret) {
+          console.error('❌ GitHub OAuth credentials not configured!');
+          console.error('Available environment variables:', Object.keys(process.env).filter(k => k.includes('GIT')));
+          throw new Error('GitHub OAuth credentials not configured');
+        }
+        
+        // Exchange the authorization code for an access token
+        console.log('Exchanging OAuth code for access token...');
+        
+        const tokenResponse = await withTimeout(
+          fetch('https://github.com/login/oauth/access_token', {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              client_id: clientId,
+              client_secret: clientSecret,
+              code: code,
+              state: state,
+            }),
+          }),
+          5000 // 5 second timeout
+        );
+
+        if (!tokenResponse.ok) {
+          throw new Error(`GitHub token exchange failed: ${tokenResponse.status}`);
+        }
+
+        const tokenData = await tokenResponse.json();
+        
+        if (tokenData.error) {
+          throw new Error(`GitHub OAuth error: ${tokenData.error_description || tokenData.error}`);
+        }
+
+        const accessToken = tokenData.access_token;
+        
+        // Get user data from GitHub API
+        console.log('Fetching GitHub user data...');
+        const userResponse = await withTimeout(
+          fetch('https://api.github.com/user', {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Accept': 'application/vnd.github.v3+json',
+              'User-Agent': 'PersonaPass-Identity-Wallet',
+            },
+          }),
+          5000 // 5 second timeout
+        );
+
+        if (!userResponse.ok) {
+          throw new Error(`GitHub API error: ${userResponse.status}`);
+        }
+
+        const userData = await userResponse.json();
+        
+        // Map GitHub data to our interface
+        const githubUserData: GitHubUserData = {
+          login: userData.login,
+          id: userData.id,
+          name: userData.name || userData.login,
+          email: userData.email || `${userData.login}@users.noreply.github.com`,
+          public_repos: userData.public_repos || 0,
+          followers: userData.followers || 0,
+          following: userData.following || 0,
+          created_at: userData.created_at,
+          bio: userData.bio,
+          company: userData.company,
+          location: userData.location,
+        };
+        
+        const credential = createVerifiableCredential(githubUserData, userId || `did:persona:${state}`);
         
         const response: APIResponse = {
           success: true,
           credential,
-          userData,
+          userData: githubUserData,
           sessionId: state
         };
 

@@ -3,6 +3,12 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "framework": "vite",
+  "functions": {
+    "api/connectors/github/auth.ts": {
+      "maxDuration": 10,
+      "memory": 1024
+    }
+  },
   "env": {
     "VITE_DEMO_MODE": "false",
     "VITE_MOCK_INTEGRATIONS": "false",
@@ -18,7 +24,9 @@
     "VITE_ANALYTICS_ENABLED": "true",
     "VITE_PWA_ENABLED": "true",
     "VITE_WEBSOCKET_ENABLED": "true",
-    "VITE_ENTERPRISE_FEATURES": "true"
+    "VITE_ENTERPRISE_FEATURES": "true",
+    "VITE_STEAM_API_KEY": "C5E88469CD585873CAB4605E86ECBAA5",
+    "VITE_STEAM_DOMAIN": "personapass.xyz"
   },
   "rewrites": [
     {
@@ -65,7 +73,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://personachain-prod.uc.r.appspot.com wss://personachain-prod.uc.r.appspot.com https://api.stripe.com https://raw.githubusercontent.com https://api.apis.guru https://api.globaldatacompany.com https://production.plaid.com https://sandbox.plaid.com https://netverify.com https://api.onfido.com https://api.experian.com https://sandbox-api.experian.com https://api.github.com https://api.linkedin.com; font-src 'self' data:; worker-src 'self' blob:; frame-src 'self' https://js.stripe.com https://*.stripe.com; child-src 'self' https://js.stripe.com https://*.stripe.com; frame-ancestors 'none';"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://personachain-prod.uc.r.appspot.com wss://personachain-prod.uc.r.appspot.com https://api.stripe.com https://raw.githubusercontent.com https://api.apis.guru https://api.globaldatacompany.com https://production.plaid.com https://sandbox.plaid.com https://netverify.com https://api.onfido.com https://api.experian.com https://sandbox-api.experian.com https://api.github.com https://github.com https://api.steampowered.com https://steamcommunity.com https://api.linkedin.com https://api.allorigins.win https://cors-anywhere.herokuapp.com https://api.codetabs.com; font-src 'self' data:; worker-src 'self' blob:; frame-src 'self' https://js.stripe.com https://*.stripe.com https://github.com; child-src 'self' https://js.stripe.com https://*.stripe.com https://github.com; frame-ancestors 'none';"
         }
       ]
     }

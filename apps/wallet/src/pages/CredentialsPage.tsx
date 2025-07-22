@@ -26,7 +26,13 @@ import {
   KeyIcon,
   LockClosedIcon,
   CloudArrowUpIcon,
-  BeakerIcon
+  BeakerIcon,
+  ChartBarIcon,
+  CodeBracketIcon,
+  MusicalNoteIcon,
+  HomeIcon,
+  CubeIcon,
+  HeartIcon
 } from '@heroicons/react/24/outline';
 import { useSecureCredentials } from '../hooks/useSecureCredentials';
 import { unifiedAPIService, UnifiedAPI } from '../services/marketplace/UnifiedAPIService';
@@ -37,6 +43,8 @@ import { corsProxyService } from '../services/proxy/CORSProxyService';
 import { didCryptoService, DIDKeyPair } from '../services/crypto/DIDCryptoService';
 import { professionalFeaturesService } from '../services/marketplace/ProfessionalFeaturesService';
 import { productionZKProofService } from '../services/zkp/ProductionZKProofService';
+import { realAPIIntegrationService, APIConnection, APIProvider } from '../services/api-integrations/RealAPIIntegrationService';
+import APIConnectionModal from '../components/APIConnectionModal';
 
 // 🎯 SMART API MARKETPLACE TYPES
 interface MarketplaceStats {
@@ -63,17 +71,21 @@ interface CredentialCreationRequest {
   };
 }
 
-// 🌍 REAL-WORLD API CATEGORIES WITH COMPLIANCE ICONS
+// 🌍 COMPREHENSIVE API CATEGORIES WITH MODERN ICONS
 const API_CATEGORIES = [
   { id: 'all', name: 'All APIs', icon: GlobeAltIcon, compliance: [] },
-  { id: 'healthcare', name: '🏥 Healthcare', icon: BeakerIcon, compliance: ['HIPAA', 'HITECH'] },
-  { id: 'education', name: '🎓 Education', icon: AcademicCapIcon, compliance: ['FERPA', 'COPPA'] },
-  { id: 'government', name: '🏛️ Government', icon: ShieldCheckIcon, compliance: ['FedRAMP', 'NIST'] },
-  { id: 'financial', name: '💰 Financial', icon: BanknotesIcon, compliance: ['PCI-DSS', 'SOC2'] },
-  { id: 'identity', name: '🔐 Identity & KYC', icon: LockClosedIcon, compliance: ['GDPR', 'SOC2'] },
-  { id: 'professional', name: '👥 Professional', icon: UserGroupIcon, compliance: ['GDPR'] },
-  { id: 'premium', name: '⭐ Premium APIs', icon: StarIcon, compliance: ['All'] },
-  { id: 'real-world', name: '🌍 Real-World', icon: SparklesIcon, compliance: ['Multiple'] },
+  { id: 'finance', name: '💳 Finance & Banking', icon: BanknotesIcon, compliance: ['PCI-DSS', 'SOC2', 'FFIEC'] },
+  { id: 'credit', name: '📊 Credit & Lending', icon: ChartBarIcon, compliance: ['FCRA', 'GLBA', 'SOC2'] },
+  { id: 'professional', name: '💼 Professional & Employment', icon: UserGroupIcon, compliance: ['GDPR', 'SOC2'] },
+  { id: 'skills', name: '🛠️ Professional Skills', icon: CodeBracketIcon, compliance: ['GDPR'] },
+  { id: 'education', name: '🎓 Education & Certifications', icon: AcademicCapIcon, compliance: ['FERPA', 'COPPA'] },
+  { id: 'health', name: '🏥 Health & Wellness', icon: BeakerIcon, compliance: ['HIPAA', 'HITECH'] },
+  { id: 'lifestyle', name: '🎵 Lifestyle & Digital Identity', icon: MusicalNoteIcon, compliance: ['GDPR', 'CCPA'] },
+  { id: 'iot', name: '🏠 IoT & Smart Home', icon: HomeIcon, compliance: ['IoT Security', 'GDPR'] },
+  { id: 'gaming', name: '🎮 Gaming & Digital Reputation', icon: CubeIcon, compliance: ['COPPA', 'GDPR'] },
+  { id: 'identity', name: '🔐 Identity & Communication', icon: LockClosedIcon, compliance: ['GDPR', 'SOC2'] },
+  { id: 'medical', name: '🩺 Health & Medical', icon: HeartIcon, compliance: ['HIPAA', 'HITECH'] },
+  { id: 'premium', name: '⭐ Premium APIs', icon: StarIcon, compliance: ['All Standards'] },
 ];
 
 export const CredentialsPage = () => {
@@ -83,6 +95,8 @@ export const CredentialsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAPI, setSelectedAPI] = useState<UnifiedAPI | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [showConnectionModal, setShowConnectionModal] = useState(false);
+  const [apiConnections, setAPIConnections] = useState<APIConnection[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [didKeyPair, setDidKeyPair] = useState<DIDKeyPair | null>(null);
   
@@ -144,6 +158,20 @@ export const CredentialsPage = () => {
 
   // 🚀 REAL API CONNECTION WITH UNIFIED SERVICE
   const handleConnectAPI = async (api: UnifiedAPI) => {
+    // Check if this is a real API integration (GitHub, Steam)
+    const realAPIProviders = ['github', 'steam'];
+    const isRealAPI = realAPIProviders.some(provider => 
+      api.id.toLowerCase().includes(provider) || 
+      api.provider.toLowerCase().includes(provider)
+    );
+    
+    if (isRealAPI) {
+      // Open the real API connection modal
+      setShowConnectionModal(true);
+      return;
+    }
+    
+    // Original unified API logic for other APIs
     setIsConnecting(true);
     
     try {
@@ -306,57 +334,137 @@ export const CredentialsPage = () => {
     return () => clearTimeout(debounceTimer);
   }, [searchQuery, selectedCategory, activeTab]);
 
+  // 🔗 LOAD API CONNECTIONS STATUS
+  useEffect(() => {
+    const loadAPIConnections = () => {
+      const connections = realAPIIntegrationService.getConnectionsStatus();
+      setAPIConnections(connections);
+    };
+
+    loadAPIConnections();
+    
+    // Reload connections when switching to marketplace or credentials tab
+    if (activeTab === 'marketplace' || activeTab === 'credentials') {
+      loadAPIConnections();
+    }
+  }, [activeTab]);
+
+  // 🎉 HANDLE SUCCESSFUL API CONNECTION
+  const handleConnectionSuccess = async (provider: APIProvider) => {
+    console.log(`🎉 Successfully connected to ${provider}!`);
+    
+    // Reload connections
+    const updatedConnections = realAPIIntegrationService.getConnectionsStatus();
+    setAPIConnections(updatedConnections);
+    
+    // Generate credential based on provider
+    try {
+      let credentialResult;
+      
+      if (provider === 'github') {
+        credentialResult = await realAPIIntegrationService.generateGitHubCredential();
+      } else if (provider === 'steam') {
+        credentialResult = await realAPIIntegrationService.generateSteamCredential();
+      }
+      
+      if (credentialResult?.success && credentialResult.credential) {
+        await addCredential(credentialResult.credential);
+        
+        // Success notification
+        alert(`🎉 Success! ${provider.charAt(0).toUpperCase() + provider.slice(1)} credential created!\\n\\nYour verifiable credential has been added to your wallet.`);
+        
+        // Switch to credentials tab to show the new credential
+        setActiveTab('credentials');
+      }
+    } catch (error) {
+      console.error(`Failed to generate ${provider} credential:`, error);
+      alert(`✅ Connected to ${provider}, but failed to generate credential.\\nError: ${error.message}`);
+    }
+    
+    // Close the connection modal
+    setShowConnectionModal(false);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800">
-      {/* 🎯 HEADER WITH TABS */}
-      <div className="bg-gradient-to-r from-orange-500/10 to-amber-500/10 border-b border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-gray-900 to-slate-900 relative overflow-hidden">
+      {/* 🌟 Background decoration */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-amber-900/20 via-transparent to-transparent"></div>
+      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-full h-96 bg-gradient-to-b from-orange-500/5 to-transparent pointer-events-none"></div>
+      
+      {/* 🎯 ENHANCED HEADER WITH TABS */}
+      <div className="relative bg-gradient-to-r from-orange-500/15 via-amber-500/10 to-orange-500/15 border-b border-amber-500/20 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-6"
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="text-center mb-8"
           >
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">
-              <span className="bg-gradient-to-r from-orange-400 via-amber-400 to-orange-400 bg-clip-text text-transparent">
-                Digital Credentials
-              </span>
-            </h1>
-            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Manage your verifiable credentials and connect to thousands of APIs to expand your digital identity.
+            <div className="relative inline-block mb-6">
+              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight">
+                <span className="bg-gradient-to-r from-amber-300 via-orange-400 to-amber-300 bg-clip-text text-transparent animate-pulse">
+                  Digital Credentials
+                </span>
+              </h1>
+              <div className="absolute -bottom-2 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-orange-400 to-transparent"></div>
+            </div>
+            <p className="text-xl md:text-2xl text-gray-300 max-w-4xl mx-auto leading-relaxed">
+              ✨ Manage your <span className="text-amber-400 font-semibold">verifiable credentials</span> and connect to 
+              <span className="text-orange-400 font-semibold">thousands of APIs</span> to expand your digital identity.
             </p>
           </motion.div>
 
-          {/* 📑 TAB NAVIGATION */}
-          <div className="flex justify-center">
-            <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-1">
-              <div className="flex space-x-1">
+          {/* 📑 ENHANCED TAB NAVIGATION */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.6 }}
+            className="flex justify-center"
+          >
+            <div className="bg-gradient-to-r from-gray-800/80 via-gray-700/80 to-gray-800/80 backdrop-blur-lg rounded-2xl p-2 border border-amber-500/20 shadow-2xl">
+              <div className="flex flex-wrap justify-center gap-2">
                 {[
-                  { id: 'credentials', name: 'My Credentials', icon: CreditCardIcon, count: credentialCount },
-                  { id: 'marketplace', name: 'API Marketplace', icon: GlobeAltIcon, count: marketplaceStats?.totalAPIs || 'Loading...' },
-                  { id: 'professional', name: '🏢 Professional Services', icon: SparklesIcon, count: Object.values(professionalFeatures).filter(f => f !== null).length },
-                  { id: 'payments', name: 'Payments & Tokens', icon: BanknotesIcon, count: currentPlan ? 1 : 0 },
-                  { id: 'security', name: 'DID Security', icon: KeyIcon, count: didKeyPair ? 1 : 0 }
+                  { id: 'credentials', name: 'My Credentials', icon: CreditCardIcon, count: credentialCount, color: 'from-emerald-500 to-teal-500' },
+                  { id: 'marketplace', name: 'API Marketplace', icon: GlobeAltIcon, count: marketplaceStats?.totalAPIs || 'Loading...', color: 'from-orange-500 to-amber-500' },
+                  { id: 'professional', name: '🏢 Professional Services', icon: SparklesIcon, count: Object.values(professionalFeatures).filter(f => f !== null).length, color: 'from-purple-500 to-pink-500' },
+                  { id: 'payments', name: 'Payments & Tokens', icon: BanknotesIcon, count: currentPlan ? 1 : 0, color: 'from-blue-500 to-cyan-500' },
+                  { id: 'security', name: 'DID Security', icon: KeyIcon, count: didKeyPair ? 1 : 0, color: 'from-red-500 to-orange-500' }
                 ].map((tab) => {
                   const Icon = tab.icon;
                   return (
-                    <button
+                    <motion.button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id as any)}
-                      className={`flex items-center space-x-2 px-6 py-3 rounded-lg transition-all ${
+                      whileHover={{ scale: 1.05, y: -2 }}
+                      whileTap={{ scale: 0.95 }}
+                      className={`group flex items-center space-x-3 px-6 py-4 rounded-xl transition-all duration-300 relative overflow-hidden ${
                         activeTab === tab.id
-                          ? 'bg-orange-500 text-white'
-                          : 'text-gray-300 hover:text-white hover:bg-gray-700/50'
+                          ? `bg-gradient-to-r ${tab.color} text-white shadow-lg shadow-orange-500/25`
+                          : 'text-gray-300 hover:text-white hover:bg-gray-700/70 hover:shadow-lg'
                       }`}
                     >
-                      <Icon className="h-5 w-5" />
-                      <span className="font-medium">{tab.name}</span>
-                      <span className="text-xs opacity-75">({tab.count})</span>
-                    </button>
+                      <Icon className={`h-5 w-5 transition-transform group-hover:scale-110 ${
+                        activeTab === tab.id ? 'text-white' : 'text-gray-400 group-hover:text-white'
+                      }`} />
+                      <div className="flex flex-col items-start">
+                        <span className="font-semibold text-sm">{tab.name}</span>
+                        <span className={`text-xs transition-colors ${
+                          activeTab === tab.id ? 'text-white/80' : 'text-gray-500 group-hover:text-gray-300'
+                        }`}>({tab.count})</span>
+                      </div>
+                      {activeTab === tab.id && (
+                        <motion.div
+                          layoutId="activeTab"
+                          className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent rounded-xl"
+                          transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                        />
+                      )}
+                    </motion.button>
                   );
                 })}
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
 
@@ -582,17 +690,28 @@ export const CredentialsPage = () => {
             )}
 
             {!isLoadingAPIs && apis.length === 0 && (
-              <div className="text-center py-12">
-                <ExclamationTriangleIcon className="h-12 w-12 text-gray-500 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-300 mb-2">No APIs found</h3>
-                <p className="text-gray-400 mb-4">Try adjusting your search or filters</p>
-                <button
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-center py-16"
+              >
+                <div className="relative mb-8">
+                  <div className="absolute inset-0 bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-500/10 rounded-full blur-3xl"></div>
+                  <ExclamationTriangleIcon className="relative h-16 w-16 text-amber-400/60 mx-auto animate-pulse" />
+                </div>
+                <h3 className="text-2xl font-bold text-white mb-3">No APIs found</h3>
+                <p className="text-gray-400 mb-8 text-lg max-w-md mx-auto">
+                  🔍 Try adjusting your search terms or filters to discover amazing APIs
+                </p>
+                <motion.button
                   onClick={() => searchAPIs('', 'all')}
-                  className="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors"
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 text-white px-8 py-4 rounded-2xl font-bold hover:from-orange-600 hover:to-amber-600 transition-all shadow-2xl shadow-orange-500/25 text-lg"
                 >
-                  Show All APIs
-                </button>
-              </div>
+                  ✨ Show All APIs
+                </motion.button>
+              </motion.div>
             )}
             
             {/* 📊 MARKETPLACE STATS */}
@@ -1354,6 +1473,14 @@ export const CredentialsPage = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* 🔗 API CONNECTION MODAL */}
+      <APIConnectionModal
+        isOpen={showConnectionModal}
+        onClose={() => setShowConnectionModal(false)}
+        selectedAPI={selectedAPI}
+        onConnectionSuccess={handleConnectionSuccess}
+      />
     </div>
   );
 };

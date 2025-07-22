@@ -15,6 +15,8 @@ interface OAuthCallbackProps {
 export const OAuthCallback = ({ platform }: OAuthCallbackProps) => {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('Processing OAuth...');
+  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [actualError, setActualError] = useState<string | null>(null);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -28,73 +30,172 @@ export const OAuthCallback = ({ platform }: OAuthCallbackProps) => {
       const state = searchParams.get('state');
       const error = searchParams.get('error');
 
+      console.log('🚀🚀🚀 EXTREME OAUTH CALLBACK HEAVY DEBUG START 🚀🚀🚀');
+      
+      const debugData = {
+        url: window.location.href,
+        fullUrl: window.location.toString(),
+        origin: window.location.origin,
+        pathname: window.location.pathname,
+        search: window.location.search,
+        hash: window.location.hash,
+        code: code ? `${code.substring(0, 20)}...` : '❌ CODE IS NULL',
+        codeLength: code?.length || 0,
+        codeType: typeof code,
+        state: state ? `${state.substring(0, 20)}...` : '❌ STATE IS NULL',
+        stateLength: state?.length || 0,
+        stateType: typeof state,
+        error: error || 'none',
+        platform: platform,
+        allParams: Object.fromEntries(searchParams.entries()),
+        allParamsKeys: Array.from(searchParams.keys()),
+        allParamsValues: Array.from(searchParams.values()),
+        sessionState: sessionStorage.getItem('github_oauth_state'),
+        localState: localStorage.getItem('github_oauth_state_backup'),
+        allSessionKeys: Object.keys(sessionStorage),
+        allLocalKeys: Object.keys(localStorage),
+        userAgent: navigator.userAgent.substring(0, 100),
+        referrer: document.referrer,
+        timestamp: new Date().toISOString(),
+        windowOpener: !!window.opener,
+        windowParent: window.parent !== window,
+        isPopup: window.opener !== null,
+        windowFeatures: {
+          innerWidth: window.innerWidth,
+          innerHeight: window.innerHeight,
+          screen: {
+            width: window.screen.width,
+            height: window.screen.height
+          }
+        }
+      };
+      
+      setDebugInfo(debugData);
+      console.log('🔍🔍🔍 OAUTH CALLBACK EXTREME DEBUG:', JSON.stringify(debugData, null, 2));
+      
+      // Add GitHub credentials check
+      const hasGitHubCreds = !!(import.meta.env.VITE_GITHUB_CLIENT_ID && import.meta.env.VITE_GITHUB_CLIENT_SECRET);
+      console.log('🔑 GitHub credentials configured:', hasGitHubCreds);
+
       if (error) {
         setStatus('error');
         setMessage(`OAuth failed: ${error}`);
         return;
       }
 
-      if (!code || !state) {
+      if (!code) {
+        console.error('❌ No code parameter found');
         setStatus('error');
-        setMessage('Missing OAuth parameters');
+        setMessage('Missing OAuth code parameter');
         return;
       }
 
-      // Get stored session info
-      const sessionId = localStorage.getItem(`${platform}_oauth_session`);
-      const credentialType = localStorage.getItem('oauth_credential_type');
-      const returnUrl = localStorage.getItem('oauth_return_url') || '/dashboard';
-
-      if (!sessionId) {
+      if (!state) {
+        console.error('❌ No state parameter found');
         setStatus('error');
-        setMessage('OAuth session not found');
+        setMessage('Missing OAuth state parameter - this may be a security issue');
         return;
       }
 
-      setMessage('Creating credential...');
+      setMessage('Processing authentication...');
 
-      // Process OAuth callback
-      const response = await fetch(`/api/connectors/${platform}/auth`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          code,
-          state,
-          sessionId,
-          credentialType
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Callback processing failed: ${response.status}`);
-      }
-
-      const result = await response.json();
-
-      if (result.success) {
-        setStatus('success');
-        setMessage('Credential created successfully!');
+      // Handle GitHub OAuth directly
+      if (platform === 'github') {
+        console.log('🐙🐙🐙 STARTING GITHUB OAUTH PROCESSING WITH HEAVY DEBUG');
         
-        // Store credential
-        const existingCreds = JSON.parse(localStorage.getItem('credentials') || '[]');
-        existingCreds.push(result.credential);
-        localStorage.setItem('credentials', JSON.stringify(existingCreds));
-
-        // Clean up OAuth data
-        localStorage.removeItem(`${platform}_oauth_session`);
-        localStorage.removeItem('oauth_credential_type');
-        localStorage.removeItem('oauth_return_url');
-
-        // Redirect back to dashboard
-        setTimeout(() => {
-          navigate(returnUrl);
-        }, 2000);
+        const { githubAPIService } = await import('../../services/api-integrations/GitHubAPIService');
+        
+        try {
+          console.log('🔄 About to call githubAPIService.exchangeCodeForToken...');
+          setMessage('Exchanging OAuth code with GitHub...');
+          
+          // Exchange code for credential via serverless function
+          const result = await githubAPIService.exchangeCodeForToken(code, state);
+          
+          console.log('✅ exchangeCodeForToken completed successfully, result:', result);
+          setMessage('GitHub OAuth exchange successful! Getting credential...');
+          
+          // The serverless function already returns the full credential
+          const credential = githubAPIService.getStoredCredential();
+          
+          console.log('🎫 Retrieved credential from service:', {
+            hasCredential: !!credential,
+            credentialType: typeof credential,
+            credentialId: credential?.id,
+            credentialPreview: credential ? JSON.stringify(credential).substring(0, 300) + '...' : 'null'
+          });
+          
+          if (!credential) {
+            console.error('❌ No credential received from GitHub OAuth service');
+            throw new Error('No credential received from GitHub OAuth');
+          }
+          
+          console.log('💾 About to store credential in localStorage...');
+          setMessage('Storing GitHub credential...');
+          
+          // Store credential
+          const existingCreds = JSON.parse(localStorage.getItem('credentials') || '[]');
+          console.log('📦 Existing credentials count:', existingCreds.length);
+          
+          existingCreds.push(credential);
+          localStorage.setItem('credentials', JSON.stringify(existingCreds));
+          
+          console.log('✅ Credential stored! Total credentials now:', existingCreds.length);
+          
+          setStatus('success');
+          setMessage('GitHub developer credential created successfully!');
+          
+          // Check if this is a popup window or same-window navigation
+          console.log('🪟 Window context check:', {
+            hasOpener: !!window.opener,
+            isPopup: window.opener !== null,
+            parentIsSelf: window.parent === window
+          });
+          
+          // Notify parent window if OAuth was opened in popup
+          if (window.opener) {
+            console.log('📨 Sending success message to parent window and closing popup...');
+            window.opener.postMessage({ 
+              type: 'GITHUB_OAUTH_SUCCESS', 
+              credential,
+              username: credential.credentialSubject?.username || 'Unknown User'
+            }, window.location.origin);
+            window.close();
+            return;
+          }
+          
+          // Same window navigation - redirect to credentials page
+          console.log('🔄 Same window OAuth - redirecting to credentials page in 2 seconds...');
+          setTimeout(() => {
+            console.log('🔄 Executing navigation to /credentials');
+            navigate('/credentials');
+          }, 2000);
+          
+        } catch (error) {
+          console.error('🚨 GitHub OAuth error details:', error);
+          setStatus('error');
+          
+          // Show detailed error information for debugging
+          let errorMessage = 'GitHub authentication failed';
+          if (error instanceof Error) {
+            console.error('🔍 Error message:', error.message);
+            console.error('🔍 Error stack:', error.stack);
+            
+            // Store the actual error for display
+            setActualError(error.message);
+            
+            // Always show the actual error for debugging
+            errorMessage = error.message;
+          }
+          
+          setMessage(errorMessage);
+        }
       } else {
+        // For other platforms, show not implemented message
         setStatus('error');
-        setMessage(result.error || 'Failed to create credential');
+        setMessage(`${platform} OAuth integration coming soon!`);
       }
+
     } catch (error) {
       errorService.logError('OAuth callback error:', error);
       setStatus('error');
@@ -193,6 +294,29 @@ export const OAuthCallback = ({ platform }: OAuthCallbackProps) => {
         <div className="text-gray-700 mb-6">
           {message}
         </div>
+
+        {/* Debug Information */}
+        {debugInfo && (
+          <div className="bg-gray-100 border border-gray-300 rounded-xl p-4 mb-6 text-left">
+            <h4 className="text-sm font-semibold text-gray-800 mb-2">🔍 OAuth Debug Information</h4>
+            <div className="text-xs text-gray-600 space-y-1 font-mono">
+              <div><strong>Code:</strong> {debugInfo.code}</div>
+              <div><strong>State:</strong> {debugInfo.state} (length: {debugInfo.stateLength})</div>
+              <div><strong>Error:</strong> {debugInfo.error || 'none'}</div>
+              <div><strong>Session State:</strong> {debugInfo.sessionState ? `${debugInfo.sessionState.substring(0, 10)}...` : 'none'}</div>
+              <div><strong>Local State:</strong> {debugInfo.localState ? `${debugInfo.localState.substring(0, 10)}...` : 'none'}</div>
+              <div><strong>All Params:</strong> {JSON.stringify(debugInfo.allParams)}</div>
+              <div><strong>URL:</strong> {debugInfo.url}</div>
+              {actualError && (
+                <>
+                  <div className="mt-2 pt-2 border-t border-gray-300">
+                    <strong className="text-red-600">Actual Error:</strong> {actualError}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Action Button */}
         {status !== 'loading' && (

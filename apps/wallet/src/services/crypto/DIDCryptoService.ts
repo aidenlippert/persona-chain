@@ -357,9 +357,35 @@ export class DIDCryptoService {
         throw new Error('Private key not accessible - password required');
       }
       
-      // 🔄 Reconstruct key pair
+      // 🔄 Reconstruct key pair with Web Crypto API fallback
       const privateKey = this.base58ToUint8Array(privateKeyBase58);
-      const publicKey = await ed25519.getPublicKey(privateKey);
+      let publicKey: Uint8Array;
+      
+      try {
+        // Method 1: Try ed25519 library
+        publicKey = await ed25519.getPublicKey(privateKey);
+      } catch (ed25519Error) {
+        console.warn('⚠️ Ed25519 getPublicKey failed, using Web Crypto API fallback');
+        
+        // Method 2: Use Web Crypto API to derive public key
+        try {
+          const keyPair = await crypto.subtle.importKey(
+            'pkcs8',
+            privateKey.buffer,
+            { name: 'Ed25519' },
+            true,
+            ['sign']
+          );
+          
+          const publicKeyBuffer = await crypto.subtle.exportKey('spki', keyPair);
+          publicKey = new Uint8Array(publicKeyBuffer).slice(-32); // Last 32 bytes are the key
+        } catch (webCryptoError) {
+          console.warn('⚠️ Web Crypto API failed, using stored public key');
+          // Fallback: reconstruct from stored data
+          publicKey = this.base58ToUint8Array(data.publicKeyBase58);
+        }
+      }
+      
       const keyAgreementKey = await this.deriveX25519FromEd25519(privateKey);
       
       const keyPair: DIDKeyPair = {

@@ -1,21 +1,8 @@
 /**
- * 🔍 SMART API DISCOVERY ENGINE
- * Auto-discovers 1000+ APIs from multiple sources
- * Generates UI and credentials automatically
- * Zero manual work for API additions
+ * 🔍 ESSENTIAL API DISCOVERY ENGINE
+ * Only contains critical APIs for professional identity verification
+ * Clean, curated list of essential services only
  */
-
-// Import removed to fix unused import error
-
-// 🎯 API DISCOVERY SOURCES
-interface APISource {
-  id: string;
-  name: string;
-  url: string;
-  parser: (data: any) => Promise<DiscoveredAPI[]>;
-  enabled: boolean;
-  lastSync?: string;
-}
 
 // 📋 DISCOVERED API STRUCTURE
 export interface DiscoveredAPI {
@@ -74,97 +61,741 @@ interface IntegrationGuide {
 }
 
 /**
- * 🔍 SMART API DISCOVERY ENGINE
- * Automatically discovers and integrates APIs from multiple sources
+ * 🔍 ESSENTIAL API DISCOVERY ENGINE
+ * Only contains critical professional identity APIs
  */
 export class APIDiscoveryService {
   private discoveredAPIs: Map<string, DiscoveredAPI> = new Map();
-  private sources: APISource[] = [];
   private isDiscovering: boolean = false;
 
   constructor() {
-    this.initializeSources();
-    this.loadCachedAPIs();
+    this.initializeEssentialAPIs();
   }
 
   /**
-   * 🎯 Initialize Discovery Sources
+   * 🎯 Initialize only essential APIs
    */
-  private initializeSources(): void {
-    this.sources = [
+  private initializeEssentialAPIs(): void {
+    const essentialAPIs: DiscoveredAPI[] = [
+      // 💳 FINANCE & BANKING
       {
-        id: 'github-public-apis',
-        name: 'GitHub Public APIs',
-        url: 'https://raw.githubusercontent.com/public-apis/public-apis/master/README.md',
-        parser: this.parseGitHubPublicAPIs.bind(this),
-        enabled: true
+        id: 'plaid-banking',
+        name: 'Plaid Banking & Income Verification',
+        description: 'Connect bank accounts, verify balances, transaction history, and income for 12,000+ financial institutions',
+        category: 'Finance & Banking',
+        provider: 'Plaid',
+        baseUrl: 'https://production.plaid.com',
+        authType: 'api-key',
+        pricing: 'freemium',
+        freeQuota: 100,
+        endpoints: [
+          {
+            name: 'Account Verification',
+            path: '/accounts/get',
+            method: 'POST',
+            description: 'Verify bank account ownership and balances',
+            parameters: [
+              { name: 'access_token', type: 'string', required: true, description: 'User access token' },
+              { name: 'account_ids', type: 'array', required: false, description: 'Specific account IDs' }
+            ],
+            credentialFields: ['account_id', 'account_type', 'balance', 'account_name', 'bank_name']
+          },
+          {
+            name: 'Income Verification',
+            path: '/income/verification/get',
+            method: 'POST',
+            description: 'Verify employment and income data',
+            parameters: [
+              { name: 'access_token', type: 'string', required: true, description: 'User access token' }
+            ],
+            credentialFields: ['annual_income', 'employer', 'pay_frequency', 'verification_status']
+          }
+        ],
+        docsUrl: 'https://plaid.com/docs/',
+        verified: true,
+        rating: 4.9,
+        popularity: 98,
+        tags: ['banking', 'income-verification', 'account-verification', 'transactions', 'financial'],
+        credentialTemplate: {
+          type: ['VerifiableCredential', 'BankAccountCredential'],
+          subjectFields: ['accountHolder', 'bankName', 'accountType', 'verifiedBalance'],
+          evidenceFields: ['bankStatement', 'accountVerification'],
+          proofRequirements: ['bankConnection', 'accountOwnership']
+        },
+        integrationGuide: {
+          setupSteps: [
+            'Create Plaid account at plaid.com',
+            'Get API keys from dashboard',
+            'Implement Plaid Link for user authentication',
+            'Set up webhooks for account updates'
+          ],
+          codeExamples: {
+            javascript: `// Plaid Account Verification
+const plaidClient = new PlaidApi(configuration);
+const response = await plaidClient.accountsGet({
+  access_token: userAccessToken
+});`
+          },
+          testingInstructions: ['Use Plaid Sandbox environment', 'Test with sample bank credentials'],
+          troubleshooting: ['Check API key validity', 'Verify Link integration', 'Review webhook setup']
+        }
       },
+
       {
-        id: 'apis-guru',
-        name: 'APIs.guru Directory',
-        url: 'https://api.apis.guru/v2/list.json',
-        parser: this.parseAPIsGuru.bind(this),
-        enabled: true
+        id: 'experian-credit',
+        name: 'Experian Credit Score & Report',
+        description: 'Official credit scores, credit reports, and comprehensive financial identity verification',
+        category: 'Credit & Lending',
+        provider: 'Experian',
+        baseUrl: 'https://api.experian.com',
+        authType: 'oauth2',
+        pricing: 'freemium',
+        freeQuota: 50,
+        endpoints: [
+          {
+            name: 'Credit Score',
+            path: '/credit/v1/scores',
+            method: 'GET',
+            description: 'Get current credit score and grade',
+            parameters: [
+              { name: 'customer_id', type: 'string', required: true, description: 'Customer identifier' }
+            ],
+            credentialFields: ['credit_score', 'score_model', 'credit_grade', 'report_date', 'score_factors']
+          },
+          {
+            name: 'Credit Report',
+            path: '/credit/v1/reports',
+            method: 'GET',
+            description: 'Get detailed credit report information',
+            parameters: [
+              { name: 'customer_id', type: 'string', required: true, description: 'Customer identifier' }
+            ],
+            credentialFields: ['credit_accounts', 'payment_history', 'credit_inquiries', 'public_records']
+          }
+        ],
+        docsUrl: 'https://developer.experian.com/',
+        verified: true,
+        rating: 4.8,
+        popularity: 95,
+        tags: ['credit-score', 'credit-report', 'financial-identity', 'fico', 'creditworthiness'],
+        credentialTemplate: {
+          type: ['VerifiableCredential', 'CreditScoreCredential'],
+          subjectFields: ['creditScore', 'creditGrade', 'scoreModel', 'reportDate'],
+          evidenceFields: ['creditReport', 'bureauVerification'],
+          proofRequirements: ['creditBureauVerification']
+        },
+        integrationGuide: {
+          setupSteps: [
+            'Register with Experian Developer Portal',
+            'Apply for credit API access',
+            'Complete compliance and security review',
+            'Implement OAuth2 flow'
+          ],
+          codeExamples: {
+            javascript: `// Experian Credit Score API
+const response = await fetch('https://api.experian.com/credit/v1/scores', {
+  headers: {
+    'Authorization': 'Bearer ' + accessToken,
+    'Content-Type': 'application/json'
+  }
+});`
+          },
+          testingInstructions: ['Use sandbox customer IDs', 'Test credit report parsing'],
+          troubleshooting: ['Verify API permissions', 'Check compliance requirements']
+        }
       },
+
+      // 💼 PROFESSIONAL & EMPLOYMENT
       {
-        id: 'rapidapi-featured',
-        name: 'RapidAPI Featured',
-        url: 'https://rapidapi.com/search',
-        parser: this.parseRapidAPIFeatured.bind(this),
-        enabled: false // Requires API key
+        id: 'linkedin-professional',
+        name: 'LinkedIn Professional Verification',
+        description: 'Professional work history, skills, endorsements, and network verification through LinkedIn',
+        category: 'Professional & Employment',
+        provider: 'LinkedIn',
+        baseUrl: 'https://api.linkedin.com',
+        authType: 'oauth2',
+        pricing: 'freemium',
+        freeQuota: 500,
+        endpoints: [
+          {
+            name: 'Profile Data',
+            path: '/v2/people/~',
+            method: 'GET',
+            description: 'Get professional profile information',
+            parameters: [
+              { name: 'fields', type: 'string', required: false, description: 'Profile fields to retrieve' }
+            ],
+            credentialFields: ['professional_headline', 'current_position', 'industry', 'location', 'summary']
+          },
+          {
+            name: 'Work Experience',
+            path: '/v2/positions',
+            method: 'GET',
+            description: 'Get employment history and positions',
+            parameters: [
+              { name: 'person', type: 'string', required: true, description: 'Person identifier' }
+            ],
+            credentialFields: ['positions', 'companies', 'duration', 'titles', 'descriptions']
+          }
+        ],
+        docsUrl: 'https://docs.microsoft.com/en-us/linkedin/',
+        verified: true,
+        rating: 4.7,
+        popularity: 92,
+        tags: ['professional', 'employment', 'skills', 'network', 'career', 'work-history'],
+        credentialTemplate: {
+          type: ['VerifiableCredential', 'ProfessionalCredential'],
+          subjectFields: ['professionalTitle', 'currentCompany', 'workHistory', 'skillsEndorsed'],
+          evidenceFields: ['linkedinProfile', 'employmentHistory', 'professionalNetwork'],
+          proofRequirements: ['linkedinVerification', 'professionalConnections']
+        },
+        integrationGuide: {
+          setupSteps: [
+            'Create LinkedIn Developer Application',
+            'Configure OAuth2 scopes and permissions',
+            'Implement LinkedIn Sign In flow',
+            'Test profile data access'
+          ],
+          codeExamples: {
+            javascript: `// LinkedIn Professional API
+const response = await fetch('https://api.linkedin.com/v2/people/~', {
+  headers: {
+    'Authorization': 'Bearer ' + accessToken,
+    'X-Restli-Protocol-Version': '2.0.0'
+  }
+});`
+          },
+          testingInstructions: ['Use LinkedIn test accounts', 'Verify OAuth permissions'],
+          troubleshooting: ['Check OAuth scopes', 'Verify app permissions', 'Review rate limits']
+        }
       },
+
       {
-        id: 'postman-public',
-        name: 'Postman Public APIs',
-        url: 'https://www.postman.com/explore/apis',
-        parser: this.parsePostmanPublic.bind(this),
-        enabled: false // Requires scraping
+        id: 'github-developer',
+        name: 'GitHub Developer Profile & Skills',
+        description: 'Open source contributions, repository statistics, coding activity, and developer reputation verification',
+        category: 'Professional Skills & Development',
+        provider: 'GitHub',
+        baseUrl: 'https://api.github.com',
+        authType: 'oauth2',
+        pricing: 'free',
+        freeQuota: 5000,
+        endpoints: [
+          {
+            name: 'User Profile',
+            path: '/user',
+            method: 'GET',
+            description: 'Get developer profile and statistics',
+            parameters: [],
+            credentialFields: ['username', 'public_repos', 'followers', 'following', 'created_at']
+          },
+          {
+            name: 'Repository Stats',
+            path: '/users/{username}/repos',
+            method: 'GET',
+            description: 'Get repository and contribution statistics',
+            parameters: [
+              { name: 'username', type: 'string', required: true, description: 'GitHub username' },
+              { name: 'sort', type: 'string', required: false, description: 'Sort order' }
+            ],
+            credentialFields: ['total_stars', 'languages', 'commit_count', 'repo_count', 'contributions']
+          }
+        ],
+        docsUrl: 'https://docs.github.com/en/rest',
+        verified: true,
+        rating: 4.9,
+        popularity: 88,
+        tags: ['coding', 'open-source', 'repositories', 'contributions', 'developer-skills'],
+        credentialTemplate: {
+          type: ['VerifiableCredential', 'DeveloperSkillCredential'],
+          subjectFields: ['githubUsername', 'repositoryCount', 'contributionScore', 'programmingLanguages'],
+          evidenceFields: ['repositoryData', 'contributionGraph', 'codeQuality'],
+          proofRequirements: ['githubVerification', 'codeContributions']
+        },
+        integrationGuide: {
+          setupSteps: [
+            'Create GitHub OAuth Application',
+            'Configure authorization scopes',
+            'Implement GitHub OAuth flow',
+            'Parse repository and contribution data'
+          ],
+          codeExamples: {
+            javascript: `// GitHub Developer API
+const response = await fetch('https://api.github.com/user/repos', {
+  headers: {
+    'Authorization': 'token ' + accessToken,
+    'Accept': 'application/vnd.github.v3+json'
+  }
+});`
+          },
+          testingInstructions: ['Test with personal GitHub account', 'Verify repository access'],
+          troubleshooting: ['Check token scopes', 'Review rate limiting', 'Verify repository permissions']
+        }
+      },
+
+      // 🎓 EDUCATION & CERTIFICATIONS
+      {
+        id: 'coursera-education',
+        name: 'Coursera Course Certificates & Education',
+        description: 'University course completions, certificates, and verified learning achievements from top institutions worldwide',
+        category: 'Education & Certifications',
+        provider: 'Coursera',
+        baseUrl: 'https://api.coursera.org',
+        authType: 'oauth2',
+        pricing: 'freemium',
+        freeQuota: 100,
+        endpoints: [
+          {
+            name: 'Course Completions',
+            path: '/api/onDemandCourseCompletions.v1',
+            method: 'GET',
+            description: 'Get completed courses and certificates',
+            parameters: [
+              { name: 'userId', type: 'string', required: true, description: 'Coursera user ID' }
+            ],
+            credentialFields: ['course_name', 'completion_date', 'certificate_url', 'university', 'grade']
+          },
+          {
+            name: 'Specializations',
+            path: '/api/onDemandSpecializationCompletions.v1',
+            method: 'GET',
+            description: 'Get completed specialization programs',
+            parameters: [
+              { name: 'userId', type: 'string', required: true, description: 'Coursera user ID' }
+            ],
+            credentialFields: ['specialization_name', 'completion_date', 'certificate_url', 'courses_completed']
+          }
+        ],
+        docsUrl: 'https://tech.coursera.org/app-platform/catalog/',
+        verified: true,
+        rating: 4.6,
+        popularity: 85,
+        tags: ['education', 'certificates', 'courses', 'universities', 'online-learning'],
+        credentialTemplate: {
+          type: ['VerifiableCredential', 'EducationCredential'],
+          subjectFields: ['courseName', 'institution', 'completionDate', 'certificateUrl'],
+          evidenceFields: ['courseCompletion', 'gradingData', 'assignmentSubmissions'],
+          proofRequirements: ['courseraVerification', 'institutionEndorsement']
+        },
+        integrationGuide: {
+          setupSteps: [
+            'Apply for Coursera Partner API access',
+            'Get approved for education data access',
+            'Implement OAuth2 authentication',
+            'Parse certificate and course data'
+          ],
+          codeExamples: {
+            javascript: `// Coursera Education API
+const response = await fetch('https://api.coursera.org/api/onDemandCourseCompletions.v1', {
+  headers: {
+    'Authorization': 'Bearer ' + accessToken
+  }
+});`
+          },
+          testingInstructions: ['Test with Coursera learner account', 'Verify certificate URLs'],
+          troubleshooting: ['Check API approval status', 'Verify OAuth scopes']
+        }
+      },
+
+      // 🏥 HEALTH & WELLNESS
+      {
+        id: 'apple-health',
+        name: 'Apple Health & Fitness Data',
+        description: 'Comprehensive health metrics, fitness data, wellness insights, and activity tracking from Apple Health',
+        category: 'Health & Wellness',
+        provider: 'Apple',
+        baseUrl: 'https://developer.apple.com/health-fitness/',
+        authType: 'oauth2',
+        pricing: 'free',
+        freeQuota: 1000,
+        endpoints: [
+          {
+            name: 'Fitness Metrics',
+            path: '/fitness/activities',
+            method: 'GET',
+            description: 'Get step count, distance, and activity data',
+            parameters: [
+              { name: 'date_range', type: 'string', required: true, description: 'Date range for data' }
+            ],
+            credentialFields: ['daily_steps', 'active_minutes', 'distance_walked', 'calories_burned']
+          },
+          {
+            name: 'Health Vitals',
+            path: '/health/vitals',
+            method: 'GET',
+            description: 'Get heart rate, sleep, and vital sign data',
+            parameters: [
+              { name: 'metric_types', type: 'array', required: true, description: 'Types of health metrics' }
+            ],
+            credentialFields: ['heart_rate', 'sleep_hours', 'weight', 'blood_pressure']
+          }
+        ],
+        docsUrl: 'https://developer.apple.com/documentation/healthkit',
+        verified: true,
+        rating: 4.8,
+        popularity: 90,
+        tags: ['health', 'fitness', 'wellness', 'vitals', 'activity', 'apple-health'],
+        credentialTemplate: {
+          type: ['VerifiableCredential', 'HealthMetricsCredential'],
+          subjectFields: ['fitnessLevel', 'healthMetrics', 'activityGoals', 'wellnessScore'],
+          evidenceFields: ['healthKitData', 'deviceMeasurements', 'activityLogs'],
+          proofRequirements: ['deviceAuthentication', 'healthDataConsent']
+        },
+        integrationGuide: {
+          setupSteps: [
+            'Implement HealthKit framework in iOS app',
+            'Request appropriate health permissions',
+            'Handle user privacy controls',
+            'Process and aggregate health data'
+          ],
+          codeExamples: {
+            javascript: `// Apple Health (via iOS HealthKit)
+const healthStore = new HKHealthStore();
+await healthStore.requestAuthorization(readTypes, writeTypes);`
+          },
+          testingInstructions: ['Test on physical iOS device', 'Verify health permissions'],
+          troubleshooting: ['Check HealthKit entitlements', 'Review privacy permissions']
+        }
+      },
+
+      // 🎵 LIFESTYLE & DIGITAL IDENTITY
+      {
+        id: 'spotify-music',
+        name: 'Spotify Music & Lifestyle Profile',
+        description: 'Music listening habits, top artists, playlists, and audio preferences for personality and lifestyle insights',
+        category: 'Lifestyle & Digital Identity',
+        provider: 'Spotify',
+        baseUrl: 'https://api.spotify.com',
+        authType: 'oauth2',
+        pricing: 'free',
+        freeQuota: 1000,
+        endpoints: [
+          {
+            name: 'Listening Profile',
+            path: '/v1/me/top/artists',
+            method: 'GET',
+            description: 'Get top artists and listening statistics',
+            parameters: [
+              { name: 'time_range', type: 'string', required: false, description: 'Time range for data' },
+              { name: 'limit', type: 'integer', required: false, description: 'Number of results' }
+            ],
+            credentialFields: ['top_artists', 'top_genres', 'listening_time', 'musical_diversity']
+          },
+          {
+            name: 'Playlist Analysis',
+            path: '/v1/me/playlists',
+            method: 'GET',
+            description: 'Get user playlists and music preferences',
+            parameters: [
+              { name: 'limit', type: 'integer', required: false, description: 'Number of playlists' }
+            ],
+            credentialFields: ['playlist_count', 'music_genres', 'playlist_themes', 'social_sharing']
+          }
+        ],
+        docsUrl: 'https://developer.spotify.com/documentation/web-api/',
+        verified: true,
+        rating: 4.7,
+        popularity: 87,
+        tags: ['music', 'lifestyle', 'preferences', 'personality', 'entertainment', 'culture'],
+        credentialTemplate: {
+          type: ['VerifiableCredential', 'LifestyleCredential'],
+          subjectFields: ['musicalPreferences', 'culturalInterests', 'socialBehavior', 'personalityTraits'],
+          evidenceFields: ['listeningHistory', 'playlistData', 'socialSharing'],
+          proofRequirements: ['spotifyVerification', 'accountHistory']
+        },
+        integrationGuide: {
+          setupSteps: [
+            'Create Spotify Developer Application',
+            'Configure OAuth2 scopes for user data',
+            'Implement Spotify authentication flow',
+            'Process listening and preference data'
+          ],
+          codeExamples: {
+            javascript: `// Spotify Web API
+const response = await fetch('https://api.spotify.com/v1/me/top/artists', {
+  headers: {
+    'Authorization': 'Bearer ' + accessToken
+  }
+});`
+          },
+          testingInstructions: ['Test with personal Spotify account', 'Verify data access permissions'],
+          troubleshooting: ['Check OAuth scopes', 'Verify app registration', 'Review rate limits']
+        }
+      },
+
+      // 🏠 SMART HOME & IOT
+      {
+        id: 'google-nest',
+        name: 'Google Nest Smart Home & IoT',
+        description: 'Smart home device usage, energy efficiency patterns, security events, and home automation insights',
+        category: 'IoT & Smart Home',
+        provider: 'Google Nest',
+        baseUrl: 'https://smartdevicemanagement.googleapis.com',
+        authType: 'oauth2',
+        pricing: 'freemium',
+        freeQuota: 250,
+        endpoints: [
+          {
+            name: 'Device Status',
+            path: '/v1/enterprises/{project_id}/devices',
+            method: 'GET',
+            description: 'Get smart home device status and usage',
+            parameters: [
+              { name: 'project_id', type: 'string', required: true, description: 'Google Cloud project ID' }
+            ],
+            credentialFields: ['device_types', 'energy_usage', 'security_events', 'automation_rules']
+          },
+          {
+            name: 'Energy Insights',
+            path: '/v1/enterprises/{project_id}/structures',
+            method: 'GET',
+            description: 'Get home energy efficiency and usage patterns',
+            parameters: [
+              { name: 'project_id', type: 'string', required: true, description: 'Google Cloud project ID' }
+            ],
+            credentialFields: ['energy_consumption', 'efficiency_score', 'carbon_footprint', 'cost_savings']
+          }
+        ],
+        docsUrl: 'https://developers.google.com/nest/device-access',
+        verified: true,
+        rating: 4.5,
+        popularity: 75,
+        tags: ['smart-home', 'energy', 'security', 'automation', 'iot', 'sustainability'],
+        credentialTemplate: {
+          type: ['VerifiableCredential', 'SmartHomeCredential'],
+          subjectFields: ['homeAutomation', 'energyEfficiency', 'securityLevel', 'deviceOwnership'],
+          evidenceFields: ['deviceLogs', 'energyData', 'automationRules'],
+          proofRequirements: ['deviceAuthentication', 'homeOwnership']
+        },
+        integrationGuide: {
+          setupSteps: [
+            'Enable Google Device Access Console',
+            'Create cloud project and configure OAuth',
+            'Link Nest account and devices',
+            'Set up device access permissions'
+          ],
+          codeExamples: {
+            javascript: `// Google Nest Device Access API
+const response = await fetch('https://smartdevicemanagement.googleapis.com/v1/enterprises/{project_id}/devices', {
+  headers: {
+    'Authorization': 'Bearer ' + accessToken
+  }
+});`
+          },
+          testingInstructions: ['Test with linked Nest devices', 'Verify device permissions'],
+          troubleshooting: ['Check Device Access setup', 'Verify OAuth scopes', 'Review device linking']
+        }
+      },
+
+      // 🎮 GAMING & DIGITAL REPUTATION
+      {
+        id: 'steam-gaming',
+        name: 'Steam Gaming Profile & Achievements',
+        description: 'Gaming achievements, playtime statistics, game library value, community reputation, and digital collectibles',
+        category: 'Gaming & Digital Reputation',
+        provider: 'Steam',
+        baseUrl: 'https://api.steampowered.com',
+        authType: 'api-key',
+        pricing: 'free',
+        freeQuota: 100000,
+        endpoints: [
+          {
+            name: 'Player Summary',
+            path: '/ISteamUser/GetPlayerSummaries/v0002/',
+            method: 'GET',
+            description: 'Get player profile and basic statistics',
+            parameters: [
+              { name: 'steamids', type: 'string', required: true, description: 'Steam ID of the player' }
+            ],
+            credentialFields: ['steam_id', 'profile_level', 'games_owned', 'account_creation_date']
+          },
+          {
+            name: 'Achievement Statistics',
+            path: '/ISteamUserStats/GetPlayerAchievements/v0001/',
+            method: 'GET',
+            description: 'Get gaming achievements and completion statistics',
+            parameters: [
+              { name: 'steamid', type: 'string', required: true, description: 'Steam ID' },
+              { name: 'appid', type: 'string', required: true, description: 'Game application ID' }
+            ],
+            credentialFields: ['total_achievements', 'completion_rate', 'rare_achievements', 'playtime_hours']
+          }
+        ],
+        docsUrl: 'https://steamcommunity.com/dev',
+        verified: true,
+        rating: 4.8,
+        popularity: 80,
+        tags: ['gaming', 'achievements', 'digital-assets', 'community', 'entertainment'],
+        credentialTemplate: {
+          type: ['VerifiableCredential', 'GamingCredential'],
+          subjectFields: ['gamingSkill', 'achievementScore', 'communityRating', 'digitalAssetValue'],
+          evidenceFields: ['achievementData', 'playtimeRecords', 'communityActivity'],
+          proofRequirements: ['steamVerification', 'achievementAuthenticity']
+        },
+        integrationGuide: {
+          setupSteps: [
+            'Get Steam Web API key from Steam',
+            'Implement Steam ID resolution system',
+            'Handle profile privacy settings',
+            'Process achievement and game data'
+          ],
+          codeExamples: {
+            javascript: `// Steam Web API
+const response = await fetch('https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=YOUR_API_KEY&steamids=STEAM_ID');`
+          },
+          testingInstructions: ['Test with public Steam profiles', 'Verify API key functionality'],
+          troubleshooting: ['Check API key validity', 'Handle private profiles', 'Review rate limits']
+        }
+      },
+
+      // 📱 COMMUNICATION & VERIFICATION
+      {
+        id: 'twilio-verify',
+        name: 'Twilio Phone & Identity Verification',
+        description: 'Phone number verification, SMS validation, identity confirmation, and communication security services',
+        category: 'Identity & Communication',
+        provider: 'Twilio',
+        baseUrl: 'https://verify.twilio.com',
+        authType: 'api-key',
+        pricing: 'freemium',
+        freeQuota: 100,
+        endpoints: [
+          {
+            name: 'Phone Verification',
+            path: '/v2/Services/{ServiceSid}/Verifications',
+            method: 'POST',
+            description: 'Verify phone number ownership via SMS or voice call',
+            parameters: [
+              { name: 'To', type: 'string', required: true, description: 'Phone number to verify' },
+              { name: 'Channel', type: 'string', required: true, description: 'Verification channel (sms/call)' }
+            ],
+            credentialFields: ['phone_number', 'country_code', 'verification_date', 'carrier_info']
+          },
+          {
+            name: 'Verification Check',
+            path: '/v2/Services/{ServiceSid}/VerificationCheck',
+            method: 'POST',
+            description: 'Check verification code and confirm ownership',
+            parameters: [
+              { name: 'To', type: 'string', required: true, description: 'Phone number being verified' },
+              { name: 'Code', type: 'string', required: true, description: 'Verification code' }
+            ],
+            credentialFields: ['verification_status', 'verified_timestamp', 'attempt_count']
+          }
+        ],
+        docsUrl: 'https://www.twilio.com/docs/verify/api',
+        verified: true,
+        rating: 4.9,
+        popularity: 95,
+        tags: ['phone-verification', 'sms', 'identity-confirmation', 'security', 'communication'],
+        credentialTemplate: {
+          type: ['VerifiableCredential', 'PhoneVerificationCredential'],
+          subjectFields: ['phoneNumber', 'countryCode', 'carrierInfo', 'verificationDate'],
+          evidenceFields: ['smsVerification', 'carrierData', 'verificationAttempts'],
+          proofRequirements: ['phoneOwnership', 'carrierVerification']
+        },
+        integrationGuide: {
+          setupSteps: [
+            'Create Twilio account and get API credentials',
+            'Set up Verify service in Twilio Console',
+            'Configure verification channels (SMS/Voice)',
+            'Implement verification flow and webhooks'
+          ],
+          codeExamples: {
+            javascript: `// Twilio Verify API
+const client = require('twilio')(accountSid, authToken);
+await client.verify.services(serviceSid).verifications.create({
+  to: '+1234567890',
+  channel: 'sms'
+});`
+          },
+          testingInstructions: ['Test with valid phone numbers', 'Verify SMS delivery'],
+          troubleshooting: ['Check Twilio credentials', 'Verify service configuration', 'Review webhook setup']
+        }
+      },
+
+      // Keep existing healthcare API
+      {
+        id: 'pverify-insurance',
+        name: 'pVerify Healthcare Insurance Verification',
+        description: 'Real-time health insurance eligibility verification and benefits information for healthcare providers',
+        category: 'Health & Medical',
+        provider: 'pVerify',
+        baseUrl: 'https://api.pverify.com',
+        authType: 'api-key',
+        pricing: 'paid',
+        freeQuota: 25,
+        endpoints: [
+          {
+            name: 'Insurance Eligibility',
+            path: '/api/Eligibility',
+            method: 'POST',
+            description: 'Check health insurance eligibility and coverage',
+            parameters: [
+              { name: 'memberId', type: 'string', required: true, description: 'Insurance member ID' },
+              { name: 'payerId', type: 'string', required: true, description: 'Insurance payer ID' }
+            ],
+            credentialFields: ['eligibility_status', 'coverage_details', 'copay_info', 'deductible']
+          }
+        ],
+        docsUrl: 'https://www.pverify.com/api-documentation/',
+        verified: true,
+        rating: 4.8,
+        popularity: 82,
+        tags: ['healthcare', 'insurance', 'eligibility', 'benefits', 'medical-verification'],
+        credentialTemplate: {
+          type: ['VerifiableCredential', 'HealthInsuranceCredential'],
+          subjectFields: ['memberId', 'insuranceProvider', 'coverageType', 'eligibilityStatus'],
+          evidenceFields: ['eligibilityResponse', 'benefitsData', 'payerVerification'],
+          proofRequirements: ['insuranceVerification', 'membershipProof']
+        },
+        integrationGuide: {
+          setupSteps: [
+            'Register with pVerify and complete compliance',
+            'Get API credentials and configure endpoints',
+            'Set up secure HTTPS connections',
+            'Implement HIPAA-compliant data handling'
+          ],
+          codeExamples: {
+            javascript: `// pVerify Insurance API
+const response = await fetch('https://api.pverify.com/api/Eligibility', {
+  method: 'POST',
+  headers: {
+    'X-API-Key': 'YOUR_API_KEY',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({ memberId, payerId })
+});`
+          },
+          testingInstructions: ['Use test member IDs', 'Verify sandbox payer connections'],
+          troubleshooting: ['Check HIPAA compliance', 'Verify payer connectivity', 'Review member ID formats']
+        }
       }
     ];
 
-    console.log('🎯 Initialized API discovery sources:', this.sources.length);
+    essentialAPIs.forEach(api => {
+      this.discoveredAPIs.set(api.id, api);
+    });
+
+    console.log('🔍 Initialized essential APIs:', essentialAPIs.length);
   }
 
   /**
-   * 🚀 Discover APIs from All Sources
+   * 🚀 Discover APIs (now just loads essential APIs)
    */
-  async discoverAPIs(forceRefresh: boolean = false): Promise<DiscoveredAPI[]> {
-    if (this.isDiscovering) {
-      console.log('🔄 Discovery already in progress...');
-      return Array.from(this.discoveredAPIs.values());
-    }
+  async discoverAPIs(forceRefresh: boolean = false): Promise<void> {
+    if (this.isDiscovering) return;
 
     this.isDiscovering = true;
-
     try {
-      console.log('🔍 Starting API discovery from all sources...');
-
-      const discoveryPromises = this.sources
-        .filter(source => source.enabled)
-        .map(source => this.discoverFromSource(source, forceRefresh));
-
-      const results = await Promise.allSettled(discoveryPromises);
+      console.log('🔍 Loading essential APIs...');
       
-      let totalDiscovered = 0;
-      results.forEach((result, index) => {
-        const source = this.sources.filter(s => s.enabled)[index];
-        if (result.status === 'fulfilled') {
-          totalDiscovered += result.value.length;
-          console.log(`✅ ${source.name}: ${result.value.length} APIs discovered`);
-        } else {
-          console.error(`❌ ${source.name}: Discovery failed:`, result.reason);
-        }
-      });
-
-      console.log(`🎉 Total APIs discovered: ${totalDiscovered}`);
+      // Essential APIs are already loaded in constructor
+      // This method exists for compatibility with existing code
       
-      // Cache discovered APIs
-      await this.cacheDiscoveredAPIs();
-      
-      return Array.from(this.discoveredAPIs.values());
-
+      console.log('✅ Essential API loading completed');
     } catch (error) {
-      console.error('❌ API discovery failed:', error);
+      console.error('❌ Failed to load essential APIs:', error);
       throw error;
     } finally {
       this.isDiscovering = false;
@@ -172,631 +803,15 @@ export class APIDiscoveryService {
   }
 
   /**
-   * 🔍 Discover from Single Source
-   */
-  private async discoverFromSource(source: APISource, forceRefresh: boolean): Promise<DiscoveredAPI[]> {
-    try {
-      // Check cache first
-      if (!forceRefresh && source.lastSync) {
-        const lastSync = new Date(source.lastSync);
-        const hoursSinceSync = (Date.now() - lastSync.getTime()) / (1000 * 60 * 60);
-        if (hoursSinceSync < 24) { // Cache for 24 hours
-          console.log(`📦 Using cached data for ${source.name}`);
-          return [];
-        }
-      }
-
-      console.log(`🔍 Discovering from ${source.name}...`);
-      
-      const response = await fetch(source.url, {
-        headers: {
-          'User-Agent': 'PersonaChain-API-Discovery/1.0',
-          'Accept': 'application/json, text/plain, */*'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.text();
-      const discoveredAPIs = await source.parser(data);
-
-      // Add to discovered APIs map
-      discoveredAPIs.forEach(api => {
-        api.id = `${source.id}_${api.id}`;
-        this.discoveredAPIs.set(api.id, api);
-      });
-
-      // Update last sync
-      source.lastSync = new Date().toISOString();
-
-      return discoveredAPIs;
-
-    } catch (error) {
-      console.error(`❌ Failed to discover from ${source.name}:`, error);
-      return [];
-    }
-  }
-
-  /**
-   * 📋 Parse GitHub Public APIs Repository
-   */
-  private async parseGitHubPublicAPIs(readmeContent: string): Promise<DiscoveredAPI[]> {
-    const apis: DiscoveredAPI[] = [];
-    
-    try {
-      // Parse the README.md table format
-      const lines = readmeContent.split('\n');
-      let currentCategory = '';
-      let inTable = false;
-      
-      for (const line of lines) {
-        // Detect category headers
-        if (line.startsWith('### ')) {
-          currentCategory = line.replace('### ', '').trim();
-          continue;
-        }
-        
-        // Detect table start
-        if (line.includes('| API |') || line.includes('|---|')) {
-          inTable = line.includes('| API |');
-          continue;
-        }
-        
-        // Parse table rows
-        if (inTable && line.startsWith('|') && line.includes('|')) {
-          const columns = line.split('|').map(col => col.trim()).filter(col => col);
-          
-          if (columns.length >= 4) {
-            const [name, description, auth] = columns;
-            
-            // Clean up markdown links
-            const cleanName = name.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
-            const urlMatch = name.match(/\[([^\]]+)\]\(([^)]+)\)/);
-            const baseUrl = urlMatch ? urlMatch[2] : '';
-            
-            if (cleanName && description && baseUrl) {
-              const api: DiscoveredAPI = {
-                id: this.generateAPIId(cleanName, baseUrl),
-                name: cleanName,
-                description: description,
-                category: this.categorizeAPI(currentCategory, cleanName, description),
-                provider: this.extractProvider(baseUrl),
-                baseUrl: baseUrl,
-                authType: this.parseAuthType(auth),
-                pricing: 'free', // GitHub public-apis are typically free
-                endpoints: await this.generateEndpointsFromDescription(description),
-                verified: false,
-                rating: 4.0, // Default rating for public APIs
-                popularity: this.calculatePopularity(cleanName, description),
-                tags: this.generateTags(cleanName, description, currentCategory),
-                credentialTemplate: this.generateCredentialTemplate(cleanName, description),
-                integrationGuide: this.generateIntegrationGuide(cleanName, baseUrl, auth)
-              };
-              
-              apis.push(api);
-            }
-          }
-        }
-        
-        // Stop table parsing on empty line
-        if (inTable && line.trim() === '') {
-          inTable = false;
-        }
-      }
-      
-      console.log(`📋 Parsed ${apis.length} APIs from GitHub public-apis`);
-      return apis;
-      
-    } catch (error) {
-      console.error('❌ Failed to parse GitHub public APIs:', error);
-      return [];
-    }
-  }
-
-  /**
-   * 🌐 Parse APIs.guru Directory
-   */
-  private async parseAPIsGuru(jsonData: string): Promise<DiscoveredAPI[]> {
-    const apis: DiscoveredAPI[] = [];
-    
-    // 🚨 FILTER: APIs we want to EXCLUDE (useless/irrelevant for identity)
-    const excludedAPIs = [
-      'linkedin', 'aws', 'amazon', 'facebook', 'twitter', 'instagram', 'tiktok',
-      'youtube', 'netflix', 'spotify', 'gaming', 'entertainment', 'social',
-      'weather', 'news', 'sports', 'recipe', 'movie', 'music', 'video',
-      'jokes', 'memes', 'fun', 'cat', 'dog', 'pet', 'anime', 'comic',
-      'wikipedia', 'dictionary', 'translator', 'language'
-    ];
-
-    // 🎯 FILTER: APIs we want to INCLUDE (relevant for identity/professional)
-    const relevantKeywords = [
-      'identity', 'verification', 'kyc', 'auth', 'credential', 'certificate',
-      'financial', 'banking', 'payment', 'money', 'tax', 'invoice', 
-      'education', 'university', 'degree', 'learning', 'course', 'skill',
-      'health', 'medical', 'doctor', 'patient', 'insurance', 'pharmacy',
-      'government', 'public', 'legal', 'law', 'document', 'record',
-      'employment', 'job', 'career', 'professional', 'work', 'business',
-      'security', 'crypto', 'blockchain', 'compliance', 'audit'
-    ];
-    
-    try {
-      const data = JSON.parse(jsonData);
-      let totalProcessed = 0;
-      let filteredOut = 0;
-      
-      for (const [apiKey, apiInfo] of Object.entries(data)) {
-        totalProcessed++;
-        const info = apiInfo as any;
-        const versions = info.versions || {};
-        const latestVersion = Object.keys(versions).pop();
-        const versionInfo = latestVersion ? versions[latestVersion] || {} : {};
-        
-        const fullText = `${apiKey} ${info.title || ''} ${info.description || ''}`.toLowerCase();
-        
-        // Skip if contains excluded keywords
-        const isExcluded = excludedAPIs.some(excluded => fullText.includes(excluded));
-        if (isExcluded) {
-          filteredOut++;
-          continue;
-        }
-        
-        // Only include if contains relevant keywords OR has high potential
-        const isRelevant = relevantKeywords.some(keyword => fullText.includes(keyword)) ||
-                          fullText.includes('verify') || fullText.includes('authenticate') ||
-                          fullText.includes('credential') || fullText.includes('certificate');
-        
-        if (!isRelevant) {
-          filteredOut++;
-          continue;
-        }
-        
-        const api: DiscoveredAPI = {
-          id: this.generateAPIId(apiKey, versionInfo.swaggerUrl || ''),
-          name: info.title || apiKey,
-          description: info.description || `${apiKey} API service`,
-          category: this.categorizeAPI('', apiKey, info.description || ''),
-          provider: this.extractProvider(versionInfo.swaggerUrl || ''),
-          baseUrl: versionInfo.swaggerUrl || '',
-          authType: 'api-key', // Most APIs.guru entries use API keys
-          pricing: 'freemium',
-          endpoints: [], // Will be populated from OpenAPI spec
-          openApiSpec: versionInfo.swaggerUrl,
-          verified: true, // APIs.guru entries are verified
-          rating: 4.2,
-          popularity: this.calculatePopularity(apiKey, info.description || ''),
-          tags: this.generateTags(apiKey, info.description || '', ''),
-          credentialTemplate: this.generateCredentialTemplate(apiKey, info.description || ''),
-          integrationGuide: this.generateIntegrationGuide(apiKey, versionInfo.swaggerUrl || '', 'API Key')
-        };
-        
-        apis.push(api);
-      }
-      
-      console.log(`🌐 Parsed ${apis.length} relevant APIs from APIs.guru (filtered ${filteredOut} out of ${totalProcessed})`);
-      return apis;
-      
-    } catch (error) {
-      console.error('❌ Failed to parse APIs.guru:', error);
-      return [];
-    }
-  }
-
-  /**
-   * ⚡ Parse RapidAPI Featured (Placeholder)
-   */
-  private async parseRapidAPIFeatured(_data: string): Promise<DiscoveredAPI[]> {
-    // TODO: Implement RapidAPI scraping/API integration
-    console.log('⚡ RapidAPI parsing not implemented yet');
-    return [];
-  }
-
-  /**
-   * 📮 Parse Postman Public APIs (Placeholder)
-   */
-  private async parsePostmanPublic(_data: string): Promise<DiscoveredAPI[]> {
-    // TODO: Implement Postman API Network integration
-    console.log('📮 Postman parsing not implemented yet');
-    return [];
-  }
-
-  // 🧠 SMART CATEGORIZATION AND ANALYSIS
-
-  /**
-   * 🏷️ Categorize API intelligently
-   */
-  private categorizeAPI(sourceCategory: string, name: string, description: string): string {
-    const text = `${sourceCategory} ${name} ${description}`.toLowerCase();
-    
-    const categories = {
-      'Identity & KYC': ['identity', 'verification', 'kyc', 'passport', 'license', 'background'],
-      'Financial & Credit': ['financial', 'banking', 'credit', 'payment', 'money', 'currency', 'invoice'],
-      'Education & Skills': ['education', 'university', 'degree', 'certificate', 'learning', 'course'],
-      'Professional & Work': ['job', 'career', 'employment', 'linkedin', 'resume', 'professional'],
-      'Health & Medical': ['health', 'medical', 'hospital', 'doctor', 'patient', 'drug'],
-      'Social & Digital': ['social', 'twitter', 'facebook', 'instagram', 'github', 'reddit'],
-      'Government & Public': ['government', 'public', 'city', 'state', 'federal', 'tax'],
-      'Business & Analytics': ['business', 'analytics', 'metrics', 'data', 'crm', 'sales'],
-      'Communication': ['email', 'sms', 'messaging', 'notification', 'chat', 'voice'],
-      'Media & Content': ['image', 'video', 'audio', 'photo', 'media', 'content'],
-      'Location & Maps': ['location', 'maps', 'geography', 'coordinates', 'address'],
-      'Weather & Environment': ['weather', 'climate', 'environment', 'air', 'pollution'],
-      'Transportation': ['transport', 'travel', 'flight', 'shipping', 'logistics'],
-      'Entertainment': ['game', 'movie', 'music', 'entertainment', 'sport', 'news'],
-      'Developer Tools': ['developer', 'code', 'programming', 'api', 'tool', 'utility']
-    };
-    
-    for (const [category, keywords] of Object.entries(categories)) {
-      if (keywords.some(keyword => text.includes(keyword))) {
-        return category;
-      }
-    }
-    
-    return sourceCategory || 'Other';
-  }
-
-  /**
-   * 🔐 Parse authentication type
-   */
-  private parseAuthType(authString: string): 'none' | 'api-key' | 'oauth2' | 'bearer' | 'basic' {
-    if (!authString) return 'none';
-    
-    const auth = authString.toLowerCase();
-    if (auth.includes('oauth')) return 'oauth2';
-    if (auth.includes('api') || auth.includes('key')) return 'api-key';
-    if (auth.includes('bearer') || auth.includes('token')) return 'bearer';
-    if (auth.includes('basic')) return 'basic';
-    if (auth.includes('no') || auth === 'none') return 'none';
-    
-    return 'api-key'; // Default assumption
-  }
-
-  /**
-   * 📊 Calculate popularity score based on identity/professional relevance
-   */
-  private calculatePopularity(name: string, description: string): number {
-    const text = `${name} ${description}`.toLowerCase();
-    
-    // Focus on identity/professional services, not consumer social media
-    const popularityKeywords = {
-      'stripe': 95,     // Payment processing
-      'plaid': 90,      // Financial data
-      'okta': 90,       // Identity management  
-      'auth0': 85,      // Authentication
-      'github': 80,     // Professional development
-      'microsoft': 80,  // Enterprise services
-      'google': 75,     // Business APIs only
-      'paypal': 70,     // Business payments
-      'healthcare': 85, // Health services
-      'medical': 80,    // Medical services
-      'education': 75,  // Educational verification
-      'government': 80, // Government services
-      'compliance': 85, // Compliance tools
-      'verification': 90, // Identity verification
-      'banking': 85,    // Banking services
-      'insurance': 75   // Insurance services
-    };
-    
-    for (const [keyword, score] of Object.entries(popularityKeywords)) {
-      if (text.includes(keyword)) {
-        return score;
-      }
-    }
-    
-    // Base score calculation for professional relevance
-    let score = 30; // Lower base score
-    
-    // Boost for professional keywords
-    if (text.includes('business') || text.includes('enterprise') || text.includes('professional')) {
-      score += 20;
-    }
-    
-    // Boost for identity-related keywords
-    if (text.includes('identity') || text.includes('auth') || text.includes('verify')) {
-      score += 25;
-    }
-    
-    // Boost for good documentation
-    const hasDocumentation = description.length > 50 ? 10 : 0;
-    score += hasDocumentation;
-    
-    return Math.min(score, 95);
-  }
-
-  /**
-   * 🏷️ Generate tags
-   */
-  private generateTags(name: string, description: string, category: string): string[] {
-    const text = `${name} ${description} ${category}`.toLowerCase();
-    const tags = new Set<string>();
-    
-    // Extract meaningful words
-    const words = text.match(/\b\w{3,}\b/g) || [];
-    words.forEach(word => {
-      if (word.length > 3 && !['api', 'the', 'and', 'for', 'with'].includes(word)) {
-        tags.add(word);
-      }
-    });
-    
-    return Array.from(tags).slice(0, 8); // Limit to 8 tags
-  }
-
-  /**
-   * 📋 Generate credential template
-   */
-  private generateCredentialTemplate(name: string, description: string): CredentialTemplate {
-    const category = this.categorizeAPI('', name, description);
-    
-    const templates = {
-      'Identity & KYC': {
-        type: ['VerifiableCredential', 'IdentityCredential'],
-        subjectFields: ['fullName', 'dateOfBirth', 'nationalId', 'verificationLevel'],
-        evidenceFields: ['documentType', 'documentNumber', 'issuingAuthority'],
-        proofRequirements: ['documentVerification', 'biometricMatch']
-      },
-      'Financial & Credit': {
-        type: ['VerifiableCredential', 'FinancialCredential'],
-        subjectFields: ['accountHolder', 'institutionName', 'accountType', 'verificationDate'],
-        evidenceFields: ['bankStatement', 'accountBalance', 'creditScore'],
-        proofRequirements: ['bankVerification', 'incomeVerification']
-      },
-      'Education & Skills': {
-        type: ['VerifiableCredential', 'EducationalCredential'],
-        subjectFields: ['studentName', 'institution', 'degree', 'graduationDate'],
-        evidenceFields: ['transcript', 'diploma', 'accreditation'],
-        proofRequirements: ['institutionVerification', 'degreeValidation']
-      }
-    };
-    
-    return (templates as any)[category] || {
-      type: ['VerifiableCredential', 'APICredential'],
-      subjectFields: ['apiProvider', 'serviceType', 'verificationDate'],
-      evidenceFields: ['apiResponse', 'dataSource'],
-      proofRequirements: ['apiAuthentication', 'dataValidation']
-    };
-  }
-
-  /**
-   * 📖 Generate integration guide
-   */
-  private generateIntegrationGuide(name: string, baseUrl: string, auth: string): IntegrationGuide {
-    const authType = this.parseAuthType(auth);
-    
-    return {
-      setupSteps: [
-        `Sign up for ${name} API access`,
-        authType === 'api-key' ? 'Get your API key from the dashboard' : 'Configure OAuth2 authentication',
-        'Test the connection in PersonaChain',
-        'Generate your first verifiable credential'
-      ],
-      codeExamples: {
-        javascript: this.generateJavaScriptExample(name, baseUrl, authType),
-        python: this.generatePythonExample(name, baseUrl, authType),
-        curl: this.generateCurlExample(baseUrl, authType)
-      },
-      testingInstructions: [
-        'Use the built-in API tester',
-        'Verify response format',
-        'Check credential generation',
-        'Test with sample data'
-      ],
-      troubleshooting: [
-        'Check API key validity',
-        'Verify endpoint URL',
-        'Review rate limits',
-        'Contact support if needed'
-      ]
-    };
-  }
-
-  // 🔧 UTILITY METHODS
-
-  private generateAPIId(name: string, url: string): string {
-    const cleanName = name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-    const urlHash = url ? url.split('/').pop()?.replace(/[^a-zA-Z0-9]/g, '') || '' : '';
-    return `${cleanName}_${urlHash}`.substring(0, 50);
-  }
-
-  private extractProvider(url: string): string {
-    try {
-      const hostname = new URL(url).hostname;
-      return hostname.replace('www.', '').replace('api.', '').split('.')[0];
-    } catch {
-      return 'Unknown Provider';
-    }
-  }
-
-  private async generateEndpointsFromDescription(description: string): Promise<APIEndpoint[]> {
-    // Simple endpoint generation based on description keywords
-    const endpoints: APIEndpoint[] = [];
-    
-    if (description.toLowerCase().includes('search')) {
-      endpoints.push({
-        name: 'Search',
-        path: '/search',
-        method: 'GET',
-        description: 'Search the API database',
-        parameters: [
-          { name: 'q', type: 'string', required: true, description: 'Search query' },
-          { name: 'limit', type: 'number', required: false, description: 'Results limit' }
-        ],
-        credentialFields: ['searchResults', 'timestamp']
-      });
-    }
-    
-    if (description.toLowerCase().includes('verify') || description.toLowerCase().includes('validation')) {
-      endpoints.push({
-        name: 'Verify',
-        path: '/verify',
-        method: 'POST',
-        description: 'Verify information',
-        parameters: [
-          { name: 'data', type: 'object', required: true, description: 'Data to verify' }
-        ],
-        credentialFields: ['verificationResult', 'confidence', 'timestamp']
-      });
-    }
-    
-    return endpoints;
-  }
-
-  private generateJavaScriptExample(name: string, baseUrl: string, authType: string): string {
-    const authHeader = authType === 'api-key' ? 
-      `'X-API-Key': 'your-api-key'` : 
-      `'Authorization': 'Bearer your-token'`;
-    
-    return `
-// ${name} Integration
-const response = await fetch('${baseUrl}/endpoint', {
-  method: 'GET',
-  headers: {
-    'Content-Type': 'application/json',
-    ${authHeader}
-  }
-});
-
-const data = await response.json();
-const credential = await personaChain.createCredential(data);
-    `.trim();
-  }
-
-  private generatePythonExample(name: string, baseUrl: string, authType: string): string {
-    const authHeader = authType === 'api-key' ? 
-      `'X-API-Key': 'your-api-key'` : 
-      `'Authorization': 'Bearer your-token'`;
-    
-    return `
-# ${name} Integration
-import requests
-
-headers = {
-    'Content-Type': 'application/json',
-    ${authHeader}
-}
-
-response = requests.get('${baseUrl}/endpoint', headers=headers)
-data = response.json()
-credential = persona_chain.create_credential(data)
-    `.trim();
-  }
-
-  private generateCurlExample(baseUrl: string, authType: string): string {
-    const authHeader = authType === 'api-key' ? 
-      `-H "X-API-Key: your-api-key"` : 
-      `-H "Authorization: Bearer your-token"`;
-    
-    return `
-curl -X GET "${baseUrl}/endpoint" \\
-  -H "Content-Type: application/json" \\
-  ${authHeader}
-    `.trim();
-  }
-
-  /**
-   * 💾 Cache discovered APIs with size limits
-   */
-  private async cacheDiscoveredAPIs(): Promise<void> {
-    try {
-      // 🚨 PRODUCTION FIX: Implement cache size limits to prevent quota exceeded errors
-      const MAX_CACHE_SIZE = 2 * 1024 * 1024; // 2MB limit
-      const MAX_APIS_TO_CACHE = 100; // Maximum number of APIs to cache
-      
-      // Limit the number of APIs we cache
-      const apisToCache = Array.from(this.discoveredAPIs.values()).slice(0, MAX_APIS_TO_CACHE);
-      
-      const cacheData = {
-        apis: apisToCache,
-        lastUpdate: new Date().toISOString(),
-        sources: this.sources.map(s => ({ id: s.id, lastSync: s.lastSync })),
-        cacheInfo: {
-          totalDiscovered: this.discoveredAPIs.size,
-          cached: apisToCache.length,
-          cacheVersion: '2.0'
-        }
-      };
-      
-      const cacheString = JSON.stringify(cacheData);
-      
-      // Check cache size before storing
-      if (cacheString.length > MAX_CACHE_SIZE) {
-        console.warn('⚠️ Cache size too large, reducing API count');
-        
-        // Reduce to 50 APIs if still too large
-        cacheData.apis = apisToCache.slice(0, 50);
-        cacheData.cacheInfo.cached = 50;
-        
-        const reducedCacheString = JSON.stringify(cacheData);
-        
-        if (reducedCacheString.length > MAX_CACHE_SIZE) {
-          console.error('❌ Cache still too large after reduction, clearing old cache');
-          localStorage.removeItem('persona_discovered_apis');
-          return;
-        }
-        
-        localStorage.setItem('persona_discovered_apis', reducedCacheString);
-      } else {
-        localStorage.setItem('persona_discovered_apis', cacheString);
-      }
-      
-      console.log('💾 Cached discovered APIs:', {
-        total: this.discoveredAPIs.size,
-        cached: cacheData.cacheInfo.cached,
-        size: `${(cacheString.length / 1024).toFixed(1)}KB`
-      });
-      
-    } catch (error) {
-      if (error instanceof Error && error.name === 'QuotaExceededError') {
-        console.warn('⚠️ localStorage quota exceeded, clearing API cache');
-        try {
-          localStorage.removeItem('persona_discovered_apis');
-        } catch (clearError) {
-          console.error('❌ Failed to clear API cache:', clearError);
-        }
-      } else {
-        console.error('❌ Failed to cache APIs:', error);
-      }
-    }
-  }
-
-  /**
-   * 📦 Load cached APIs
-   */
-  private loadCachedAPIs(): void {
-    try {
-      const cached = localStorage.getItem('persona_discovered_apis');
-      if (cached) {
-        const cacheData = JSON.parse(cached);
-        
-        // Check if cache is less than 24 hours old
-        const lastUpdate = new Date(cacheData.lastUpdate);
-        const hoursSinceUpdate = (Date.now() - lastUpdate.getTime()) / (1000 * 60 * 60);
-        
-        if (hoursSinceUpdate < 24) {
-          cacheData.apis.forEach((api: DiscoveredAPI) => {
-            this.discoveredAPIs.set(api.id, api);
-          });
-          
-          console.log('📦 Loaded cached APIs:', this.discoveredAPIs.size);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Failed to load cached APIs:', error);
-    }
-  }
-
-  // 🔍 PUBLIC API METHODS
-
-  /**
-   * 🔍 Search discovered APIs
+   * 🔍 Search APIs
    */
   searchAPIs(query: string, category?: string, limit: number = 50): DiscoveredAPI[] {
-    const searchTerms = query.toLowerCase().split(' ');
+    const searchTerms = query.toLowerCase().split(' ').filter(term => term.length > 2);
     const results: { api: DiscoveredAPI; score: number }[] = [];
     
     for (const api of this.discoveredAPIs.values()) {
       let score = 0;
-      const searchText = `${api.name} ${api.description} ${api.tags.join(' ')}`.toLowerCase();
+      const searchText = `${api.name} ${api.description} ${api.provider}`.toLowerCase();
       
       // Category filter
       if (category && category !== 'all' && !api.category.toLowerCase().includes(category.toLowerCase())) {
@@ -811,8 +826,8 @@ curl -X GET "${baseUrl}/endpoint" \\
         if (searchText.includes(term)) score += 1;
       }
       
-      if (score > 0) {
-        results.push({ api, score });
+      if (score > 0 || !query) {
+        results.push({ api, score: score || api.popularity });
       }
     }
     
@@ -852,11 +867,9 @@ curl -X GET "${baseUrl}/endpoint" \\
     return {
       isDiscovering: this.isDiscovering,
       totalAPIs: this.discoveredAPIs.size,
-      sources: this.sources.map(s => ({
-        name: s.name,
-        enabled: s.enabled,
-        lastSync: s.lastSync
-      }))
+      sources: [
+        { name: 'Essential APIs', enabled: true, lastSync: new Date().toISOString() }
+      ]
     };
   }
 
@@ -872,7 +885,7 @@ curl -X GET "${baseUrl}/endpoint" \\
    */
   getFeaturedAPIs(limit: number = 10): DiscoveredAPI[] {
     return Array.from(this.discoveredAPIs.values())
-      .filter(api => api.verified && api.rating > 4.0)
+      .filter(api => api.verified && api.rating > 4.5)
       .sort((a, b) => b.popularity - a.popularity)
       .slice(0, limit);
   }
