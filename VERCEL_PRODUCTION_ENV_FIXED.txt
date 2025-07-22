@@ -1,0 +1,23 @@
+🚀 UPDATED VERCEL ENVIRONMENT VARIABLES - REAL WORKING BACKEND
+===============================================================
+
+✅ COPY AND PASTE THESE INTO VERCEL DASHBOARD:
+
+VITE_BLOCKCHAIN_RPC=https://personachain-prod.uc.r.appspot.com
+VITE_BLOCKCHAIN_REST=https://personachain-prod.uc.r.appspot.com/api
+VITE_CHAIN_ID=personachain-1
+VITE_BLOCKCHAIN_NETWORK=personachain
+
+🎯 CRITICAL CHANGES:
+- Updated to use our REAL working backend with DID endpoints
+- Backend URL: https://personachain-prod.uc.r.appspot.com
+- This backend has WORKING /persona_chain/did/v1/ endpoints
+- No more 404 errors on DID operations!
+
+📋 DEPLOYMENT STEPS:
+1. Go to Vercel Dashboard → personachain-wallet → Settings → Environment Variables
+2. Update/add the variables above
+3. Redeploy the production site
+4. Test login - should work without registration errors!
+
+🎉 RESULT: Production site will use REAL working DID endpoints!

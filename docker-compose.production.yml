@@ -1,0 +1,240 @@
+# PersonaChain Enterprise Production Docker Compose
+# Complete enterprise infrastructure with all services
+
+version: '3.8'
+
+services:
+  # Main backend application
+  personachain-backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    container_name: personachain-backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+      - "8082:8082"
+      - "8083:8083"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:personachain123@postgres:5432/personachain
+      - REDIS_URL=redis://redis:6379
+      - BLOCKCHAIN_RPC=http://blockchain:26657
+      - BLOCKCHAIN_REST=http://blockchain:1317
+    depends_on:
+      - postgres
+      - redis
+      - blockchain
+    networks:
+      - personachain-network
+    volumes:
+      - ./logs/backend:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # PostgreSQL database
+  postgres:
+    image: postgres:14-alpine
+    container_name: personachain-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: personachain
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: personachain123
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - personachain-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d personachain"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis cache
+  redis:
+    image: redis:7-alpine
+    container_name: personachain-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./config/redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - personachain-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PersonaChain blockchain
+  blockchain:
+    image: personachain/blockchain:latest
+    container_name: personachain-blockchain
+    restart: unless-stopped
+    ports:
+      - "26657:26657"  # RPC
+      - "1317:1317"    # REST API
+      - "9090:9090"    # gRPC
+      - "26656:26656"  # P2P
+    volumes:
+      - blockchain_data:/root/.persona-chain
+      - ./config/blockchain:/config
+    command: >
+      sh -c "persona-chaind start
+             --home=/root/.persona-chain
+             --rpc.laddr=tcp://0.0.0.0:26657
+             --api.address=tcp://0.0.0.0:1317
+             --grpc.address=0.0.0.0:9090
+             --api.enable=true
+             --api.enabled-unsafe-cors=true
+             --grpc.enable=true
+             --minimum-gas-prices=0.025persona"
+    networks:
+      - personachain-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:26657/status"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 120s
+
+  # Monitoring stack
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: personachain-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - personachain-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: personachain-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=personachain123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+    networks:
+      - personachain-network
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: personachain-jaeger
+    restart: unless-stopped
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+      - "14250:14250"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - personachain-network
+
+  # Load balancer
+  nginx:
+    image: nginx:alpine
+    container_name: personachain-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      - personachain-backend
+    networks:
+      - personachain-network
+
+  # Log management
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.8.0
+    container_name: personachain-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - personachain-network
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.8.0
+    container_name: personachain-kibana
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - personachain-network
+
+# Networks
+networks:
+  personachain-network:
+    driver: bridge
+    name: personachain-network
+
+# Volumes
+volumes:
+  postgres_data:
+    driver: local
+    name: personachain_postgres_data
+
+  redis_data:
+    driver: local
+    name: personachain_redis_data
+
+  blockchain_data:
+    driver: local
+    name: personachain_blockchain_data
+
+  prometheus_data:
+    driver: local
+    name: personachain_prometheus_data
+
+  grafana_data:
+    driver: local
+    name: personachain_grafana_data
+
+  elasticsearch_data:
+    driver: local
+    name: personachain_elasticsearch_data

@@ -1,0 +1,52 @@
+runtime: nodejs22
+
+env_variables:
+  NODE_ENV: production
+  PORT: 8080
+  API_BASE_URL: https://personachain-backend.run.app
+  BLOCKCHAIN_RPC: https://personachain-proxy.aidenlippert.workers.dev/rpc
+  BLOCKCHAIN_REST: https://personachain-proxy.aidenlippert.workers.dev/api
+  CORS_ORIGIN: https://personachain-wallet.vercel.app,https://personachain-proxy.aidenlippert.workers.dev
+  ENABLE_REAL_APIS: true
+  MONITORING_ENABLED: true
+  ANALYTICS_ENABLED: true
+  ENTERPRISE_FEATURES: true
+
+automatic_scaling:
+  min_instances: 1
+  max_instances: 10
+  target_cpu_utilization: 0.6
+
+network:
+  forwarded_ports:
+    - 8080
+    - 8081
+    - 8082
+    - 8083
+
+handlers:
+- url: /.*
+  script: auto
+  secure: always
+
+health_check:
+  enable_health_check: true
+  check_interval_sec: 30
+  timeout_sec: 10
+  unhealthy_threshold: 3
+  healthy_threshold: 2
+
+liveness_check:
+  path: "/health"
+  check_interval_sec: 30
+  timeout_sec: 10
+  failure_threshold: 3
+  success_threshold: 1
+
+readiness_check:
+  path: "/health"
+  check_interval_sec: 10
+  timeout_sec: 4
+  failure_threshold: 3
+  success_threshold: 1
+  app_start_timeout_sec: 300

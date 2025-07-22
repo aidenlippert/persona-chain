@@ -30,6 +30,12 @@ service Query {
     option (google.api.http).get = "/persona_chain/did/v1/did_document";
   
   }
+  
+  // Queries a DidDocument by controller address.
+  rpc DidDocumentByController (QueryGetDidDocumentByControllerRequest) returns (QueryGetDidDocumentByControllerResponse) {
+    option (google.api.http).get = "/persona_chain/did/v1/did-by-controller/{controller}";
+  
+  }
 }
 // QueryParamsRequest is request type for the Query/Params RPC method.
 message QueryParamsRequest {}
@@ -56,4 +62,13 @@ message QueryAllDidDocumentRequest {
 message QueryAllDidDocumentResponse {
   repeated DidDocument didDocument = 1 [(gogoproto.nullable) = false];
   cosmos.base.query.v1beta1.PageResponse pagination = 2;
+}
+
+message QueryGetDidDocumentByControllerRequest {
+  string controller = 1;
+}
+
+message QueryGetDidDocumentByControllerResponse {
+  DidDocument didDocument = 1 [(gogoproto.nullable) = false];
+  bool found = 2;
 }

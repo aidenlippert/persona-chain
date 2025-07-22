@@ -7,6 +7,7 @@
 
 import * as ed25519 from '@noble/ed25519';
 import { sha256 } from '@noble/hashes/sha256';
+import { sha512 } from '@noble/hashes/sha512';
 import { randomBytes } from '@noble/hashes/utils';
 
 // 🎯 W3C DID:key Method Types
@@ -43,8 +44,18 @@ export class DIDCryptoService {
   constructor(config: SecureStorageConfig = { storagePrefix: 'persona_did' }) {
     this.storageConfig = config;
     
-    // 🔒 Initialize Ed25519 with secure entropy
-    // Ed25519 library handles its own hashing internally
+    // 🔒 Initialize Ed25519 with secure entropy and SHA-512 hash
+    if (typeof ed25519.utils.sha512Sync === 'undefined') {
+      ed25519.utils.sha512Sync = (...messages: Uint8Array[]) => {
+        const combined = new Uint8Array(messages.reduce((acc, msg) => acc + msg.length, 0));
+        let offset = 0;
+        for (const msg of messages) {
+          combined.set(msg, offset);
+          offset += msg.length;
+        }
+        return sha512(combined);
+      };
+    }
   }
 
   /**
