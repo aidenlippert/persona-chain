@@ -109,3 +109,4 @@ circuits/powersOfTau*.ptau
 test-results/
 .nyc_output/
 junit.xml 
+package-lock.json

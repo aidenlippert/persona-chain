@@ -4,11 +4,11 @@ FROM node:20-alpine
 # Set the working directory inside the container
 WORKDIR /app
 
-# Copy package files first for better caching
-COPY package*.json ./
+# Copy package.json first for better caching
+COPY package.json ./
 
-# Install dependencies (include devDependencies for build)
-RUN npm ci --verbose --no-audit --no-fund
+# Install dependencies (more flexible than npm ci)
+RUN npm install --verbose --no-audit --no-fund --legacy-peer-deps
 
 # Copy the application source code
 COPY . .
