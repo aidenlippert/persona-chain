@@ -1,13 +1,13 @@
 /**
  * GitHub OAuth Token Exchange - Vercel API Route
- * Handles secure token exchange and user data fetching
+ * DIRECT API ROUTE: /api/github-oauth
  */
 
 export default async function handler(req, res) {
-  console.log('🚀🚀🚀 GITHUB OAUTH API ROUTE STARTED 🚀🚀🚀');
+  console.log('🚀🚀🚀 GITHUB OAUTH API ROUTE STARTED (DIRECT) 🚀🚀🚀');
   console.log('🔍 Request method:', req.method);
   console.log('🔍 Request URL:', req.url);
-  console.log('🔍 Request headers:', JSON.stringify(req.headers, null, 2));
+  console.log('🔍 User-Agent:', req.headers['user-agent']);
 
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -24,7 +24,9 @@ export default async function handler(req, res) {
     return res.status(200).json({ 
       success: true, 
       message: 'GitHub OAuth API endpoint is working',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      route: '/api/github-oauth',
+      method: 'GET'
     });
   }
 
@@ -51,15 +53,13 @@ export default async function handler(req, res) {
     console.log('🔍 Environment check:', {
       hasClientId: !!clientId,
       hasClientSecret: !!clientSecret,
-      clientIdPrefix: clientId?.substring(0, 8) + '...',
-      allEnvKeys: Object.keys(process.env).filter(k => k.includes('GITHUB'))
+      clientIdPrefix: clientId?.substring(0, 8) + '...'
     });
 
     if (!clientId || !clientSecret) {
       console.error('❌ Missing GitHub credentials in environment');
       return res.status(500).json({ 
-        error: 'Server configuration error - missing GitHub credentials',
-        envKeys: Object.keys(process.env).filter(k => k.includes('GITHUB'))
+        error: 'Server configuration error - missing GitHub credentials'
       });
     }
 
@@ -190,8 +190,7 @@ export default async function handler(req, res) {
     console.error('🔍 Error stack:', error.stack);
     return res.status(500).json({ 
       error: 'Internal server error',
-      message: error.message,
-      stack: error.stack?.substring(0, 200) + '...'
+      message: error.message
     });
   }
 }

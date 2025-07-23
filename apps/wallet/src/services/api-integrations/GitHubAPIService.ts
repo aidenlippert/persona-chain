@@ -183,7 +183,7 @@ export class GitHubAPIService {
       // Use serverless function for secure token exchange
       console.log('🔑 Step 1: Exchanging code via secure serverless function...');
       
-      const response = await fetch('/api/auth/github', {
+      const response = await fetch('/api/github-oauth', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
