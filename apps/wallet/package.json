@@ -82,7 +82,8 @@
     "gemini:analyze": "gemini-cli analyze src/",
     "gemini:optimize": "gemini-cli optimize src/",
     "gemini:security": "gemini-cli security src/",
-    "startup:all": "npm run startup:test && npm run startup:build && npm run startup:deploy"
+    "startup:all": "npm run startup:test && npm run startup:build && npm run startup:deploy",
+    "start": "serve -s dist -l 8080"
   },
   "dependencies": {
     "@cosmjs/cosmwasm-stargate": "^0.34.0",
@@ -133,7 +134,8 @@
     "workbox-window": "^7.0.0",
     "zen-observable-ts": "^1.1.0",
     "zod": "^3.22.4",
-    "zustand": "^4.4.7"
+    "zustand": "^4.4.7",
+    "serve": "^14.2.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.1",

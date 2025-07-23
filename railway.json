@@ -1,0 +1,14 @@
+{
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "cd apps/wallet && npm run build",
+    "watchPatterns": [
+      "apps/wallet/**/*"
+    ]
+  },
+  "deploy": {
+    "startCommand": "cd apps/wallet && npx serve -s dist -l 8080",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  }
+}
