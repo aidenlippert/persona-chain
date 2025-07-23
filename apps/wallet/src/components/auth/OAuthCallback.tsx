@@ -78,8 +78,16 @@ export const OAuthCallback = ({ platform }: OAuthCallbackProps) => {
       console.log('🔑 GitHub credentials configured:', hasGitHubCreds);
 
       if (error) {
+        console.error('🚨 GitHub returned error parameter:', error);
+        console.log('🔍 Error analysis:', {
+          errorParam: error,
+          errorDescription: searchParams.get('error_description'),
+          errorURI: searchParams.get('error_uri'),
+          allParams: Object.fromEntries(searchParams.entries())
+        });
         setStatus('error');
-        setMessage(`OAuth failed: ${error}`);
+        setMessage(`GitHub OAuth error: ${error}`);
+        setActualError(`GitHub returned error: ${error} - ${searchParams.get('error_description') || 'No description'}`);
         return;
       }
 
@@ -173,6 +181,7 @@ export const OAuthCallback = ({ platform }: OAuthCallbackProps) => {
           
         } catch (error) {
           console.error('🚨 GitHub OAuth error details:', error);
+          console.error('🔍 Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
           setStatus('error');
           
           // Show detailed error information for debugging
@@ -180,9 +189,16 @@ export const OAuthCallback = ({ platform }: OAuthCallbackProps) => {
           if (error instanceof Error) {
             console.error('🔍 Error message:', error.message);
             console.error('🔍 Error stack:', error.stack);
+            console.error('🔍 Error name:', error.name);
             
             // Store the actual error for display
             setActualError(error.message);
+            
+            // Check if this is the mysterious "OAuth session not found" error
+            if (error.message.includes('OAuth session not found')) {
+              console.error('🔍 FOUND THE CULPRIT! This is where "OAuth session not found" comes from');
+              console.error('🔍 Error came from GitHub service exchange method');
+            }
             
             // Always show the actual error for debugging
             errorMessage = error.message;

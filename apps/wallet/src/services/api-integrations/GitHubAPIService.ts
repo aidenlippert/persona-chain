@@ -180,78 +180,45 @@ export class GitHubAPIService {
     console.log('🔑 REAL MODE: Exchanging code for actual GitHub access token...');
     
     try {
-      // Step 1: Exchange code for access token - Use direct GitHub API
-      console.log('🔑 Step 1: Exchanging code for real GitHub access token...');
+      // Use serverless function for secure token exchange
+      console.log('🔑 Step 1: Exchanging code via secure serverless function...');
       
-      const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
+      const response = await fetch('/api/auth/github', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Accept': 'application/json'
+          'Content-Type': 'application/json'
         },
-        body: new URLSearchParams({
-          client_id: import.meta.env.VITE_GITHUB_CLIENT_ID,
-          client_secret: import.meta.env.VITE_GITHUB_CLIENT_SECRET,
-          code: code
+        body: JSON.stringify({
+          code: code,
+          state: state
         })
       });
 
-      if (!tokenResponse.ok) {
-        throw new Error(`Token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ Serverless function failed:', errorData);
+        throw new Error(errorData.error || `Server error: ${response.status}`);
       }
 
-      const responseText = await tokenResponse.text();
-      console.log('🔍 Raw token response:', responseText);
+      const result = await response.json();
       
-      let tokenData;
-      try {
-        tokenData = JSON.parse(responseText);
-      } catch (parseError) {
-        // If response is URL-encoded (GitHub's default)
-        const params = new URLSearchParams(responseText);
-        tokenData = {
-          access_token: params.get('access_token'),
-          token_type: params.get('token_type'),
-          scope: params.get('scope')
-        };
-      }
-      
-      if (!tokenData.access_token) {
-        throw new Error('No access token received from GitHub');
-      }
-      
-      console.log('✅ Real GitHub access token received');
-      this.setAccessToken(tokenData.access_token);
-
-      // Step 2: Fetch real user data from GitHub API
-      console.log('👤 Step 2: Fetching your REAL GitHub profile...');
-      
-      const userResponse = await fetch('https://api.github.com/user', {
-        headers: {
-          'Authorization': `token ${tokenData.access_token}`,
-          'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'PersonaPass-Wallet'
-        }
-      });
-
-      if (!userResponse.ok) {
-        throw new Error(`GitHub API call failed: ${userResponse.status} ${userResponse.statusText}`);
+      if (!result.success) {
+        throw new Error(result.error || 'GitHub authentication failed');
       }
 
-      const realUserData = await userResponse.json();
-      console.log('🎉 REAL GitHub data received for user:', realUserData.login);
-
-      // Create credential with REAL data
-      const realGitHubCredential = this.createCredentialFromRealData(realUserData, tokenData.access_token);
+      console.log('🎉 REAL GitHub data received for user:', result.user.login);
       
-      // Store the credential properly
-      this.credentialData = realGitHubCredential;
-      localStorage.setItem('github_credential_cache_v3', JSON.stringify(realGitHubCredential));
+      // Set access token
+      this.setAccessToken(result.access_token);
+      
+      // Store the credential
+      this.credentialData = result.credential;
+      localStorage.setItem('github_credential_cache_v3', JSON.stringify(result.credential));
       
       // Clear OAuth state after successful processing
       this.clearOAuthStateAfterValidation();
       
-      return tokenData.access_token;
+      return result.access_token;
       
     } catch (error) {
       console.error('❌ Failed to get real GitHub data:', error);
