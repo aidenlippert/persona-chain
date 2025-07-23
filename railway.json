@@ -1,13 +1,11 @@
 {
+  "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "cd apps/wallet && npm run build",
-    "watchPatterns": [
-      "apps/wallet/**/*"
-    ]
+    "nixpacksPath": "./apps/wallet"
   },
   "deploy": {
-    "startCommand": "cd apps/wallet && npx serve -s dist -l 8080",
+    "startCommand": "npm start",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }
