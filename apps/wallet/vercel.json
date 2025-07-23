@@ -1,14 +1,5 @@
 {
-  "functions": {
-    "vercel/functions/*.js": {
-      "runtime": "nodejs18.x"
-    }
-  },
   "rewrites": [
-    {
-      "source": "/api/auth/github",
-      "destination": "/vercel/functions/github"
-    },
     {
       "source": "/(.*)",
       "destination": "/index.html"

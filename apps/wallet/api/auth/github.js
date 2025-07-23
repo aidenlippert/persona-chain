@@ -1,29 +1,43 @@
 /**
- * GitHub OAuth Token Exchange - Vercel Serverless Function
+ * GitHub OAuth Token Exchange - Vercel API Route
  * Handles secure token exchange and user data fetching
  */
 
 export default async function handler(req, res) {
+  console.log('🚀🚀🚀 GITHUB OAUTH API ROUTE STARTED 🚀🚀🚀');
+  console.log('🔍 Request method:', req.method);
+  console.log('🔍 Request URL:', req.url);
+  console.log('🔍 Request headers:', JSON.stringify(req.headers, null, 2));
+
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
+    console.log('✅ Handling OPTIONS request');
     return res.status(200).end();
   }
 
+  if (req.method === 'GET') {
+    console.log('✅ GET request received - API is working!');
+    return res.status(200).json({ 
+      success: true, 
+      message: 'GitHub OAuth API endpoint is working',
+      timestamp: new Date().toISOString()
+    });
+  }
+
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    console.error('❌ Invalid method:', req.method);
+    return res.status(405).json({ error: 'Method not allowed', method: req.method });
   }
 
   try {
-    console.log('🚀 Serverless GitHub OAuth handler started');
-    console.log('🔍 Request method:', req.method);
-    console.log('🔍 Request headers:', req.headers);
+    console.log('🔍 Processing POST request...');
+    console.log('🔍 Request body:', JSON.stringify(req.body, null, 2));
     
     const { code, state } = req.body;
-    console.log('🔍 Request body:', { code: code?.substring(0, 10) + '...', state: state?.substring(0, 10) + '...' });
 
     if (!code) {
       console.error('❌ Missing OAuth code');
@@ -37,15 +51,19 @@ export default async function handler(req, res) {
     console.log('🔍 Environment check:', {
       hasClientId: !!clientId,
       hasClientSecret: !!clientSecret,
-      clientIdPrefix: clientId?.substring(0, 8) + '...'
+      clientIdPrefix: clientId?.substring(0, 8) + '...',
+      allEnvKeys: Object.keys(process.env).filter(k => k.includes('GITHUB'))
     });
 
     if (!clientId || !clientSecret) {
       console.error('❌ Missing GitHub credentials in environment');
-      return res.status(500).json({ error: 'Server configuration error' });
+      return res.status(500).json({ 
+        error: 'Server configuration error - missing GitHub credentials',
+        envKeys: Object.keys(process.env).filter(k => k.includes('GITHUB'))
+      });
     }
 
-    console.log('🔑 Serverless: Exchanging OAuth code for token...');
+    console.log('🔑 Exchanging OAuth code for token...');
 
     // Step 1: Exchange code for access token
     const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
@@ -168,12 +186,12 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('❌ Serverless function error:', error);
+    console.error('❌ API route error:', error);
     console.error('🔍 Error stack:', error.stack);
     return res.status(500).json({ 
       error: 'Internal server error',
       message: error.message,
-      details: error.stack?.substring(0, 200) + '...'
+      stack: error.stack?.substring(0, 200) + '...'
     });
   }
 }
