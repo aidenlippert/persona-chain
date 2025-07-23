@@ -67,18 +67,16 @@ export class GitHubAPIService {
   }
 
   /**
-   * 🔗 Start GitHub OAuth flow (SAME WINDOW NAVIGATION - NOT POPUP)
+   * 🔗 Start GitHub OAuth flow (FRESH SESSION EVERY TIME)
    */
   startOAuthFlow(): void {
-    console.log('🚀🚀🚀 HEAVY DEBUG: Starting GitHub OAuth flow');
+    console.log('🚀🚀🚀 FRESH SESSION: Starting NEW GitHub OAuth flow');
+    
+    // CLEAR ALL PREVIOUS OAUTH STATE FOR FRESH SESSION
+    this.clearOAuthState();
     
     const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
     console.log('🔍 DEBUG: Client ID exists:', !!clientId);
-    console.log('🔍 DEBUG: Environment check:', {
-      VITE_GITHUB_CLIENT_ID: !!import.meta.env.VITE_GITHUB_CLIENT_ID,
-      NODE_ENV: import.meta.env.NODE_ENV,
-      VITE_ENVIRONMENT: import.meta.env.VITE_ENVIRONMENT
-    });
     
     if (!clientId) {
       console.error('❌ CRITICAL ERROR: GitHub Client ID not configured!');
@@ -87,21 +85,26 @@ export class GitHubAPIService {
 
     const scopes = ['user', 'public_repo', 'read:org'];
     const redirectUri = `https://personapass.xyz/oauth/github/callback`;
-    const state = Math.random().toString(36).substring(2, 15); // Generate 13-character state
     
-    console.log('🔍 DEBUG: OAuth parameters:', {
+    // Generate FRESH state with timestamp to ensure uniqueness
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(2, 15);
+    const state = `${timestamp}_${randomString}`;
+    
+    console.log('🔍 DEBUG: FRESH OAuth parameters:', {
       clientId: clientId.substring(0, 8) + '...',
       redirectUri,
       state,
       stateLength: state.length,
-      scopes: scopes.join(' ')
+      scopes: scopes.join(' '),
+      timestamp
     });
     
-    // Store state for verification (with fallback support)
+    // Store FRESH state
     try {
       sessionStorage.setItem('github_oauth_state', state);
-      localStorage.setItem('github_oauth_state_backup', state); // Fallback for cross-domain
-      console.log('✅ DEBUG: OAuth state stored successfully');
+      localStorage.setItem('github_oauth_state_backup', state);
+      console.log('✅ DEBUG: FRESH OAuth state stored successfully:', state);
     } catch (error) {
       console.warn('⚠️ DEBUG: Could not store OAuth state:', error);
     }
@@ -111,13 +114,33 @@ export class GitHubAPIService {
     authUrl.searchParams.set('redirect_uri', redirectUri);
     authUrl.searchParams.set('scope', scopes.join(' '));
     authUrl.searchParams.set('state', state);
+    // Force fresh consent by adding timestamp
+    authUrl.searchParams.set('allow_signup', 'true');
     
     const finalUrl = authUrl.toString();
-    console.log('🔗 DEBUG: Final OAuth URL:', finalUrl);
+    console.log('🔗 DEBUG: FRESH OAuth URL:', finalUrl);
     
-    // SAME WINDOW NAVIGATION - NO MORE POPUPS!
-    console.log('🔄 DEBUG: Redirecting to GitHub OAuth in SAME WINDOW...');
+    // SAME WINDOW NAVIGATION WITH FRESH SESSION
+    console.log('🔄 DEBUG: Redirecting to GitHub OAuth in SAME WINDOW (FRESH SESSION)...');
     window.location.href = finalUrl;
+  }
+
+  /**
+   * 🧹 Clear OAuth state for fresh sessions
+   */
+  private clearOAuthState(): void {
+    console.log('🧹 CLEARING OAuth state for fresh session...');
+    
+    // Clear all OAuth-related storage
+    sessionStorage.removeItem('github_oauth_state');
+    localStorage.removeItem('github_oauth_state_backup');
+    localStorage.removeItem('github_credential_cache_v3');
+    
+    // Clear service state
+    this.accessToken = null;
+    this.credentialData = null;
+    
+    console.log('✅ OAuth state cleared - ready for fresh session');
   }
 
   /**
@@ -132,39 +155,92 @@ export class GitHubAPIService {
     localStorage.removeItem('github_oauth_state_backup');
     
     try {
-      // Step 1: Exchange code for access token using CORS proxy
+      // Step 1: Exchange code for access token using different CORS proxy
       console.log('🔑 Step 1: Exchanging code for access token...');
-      const tokenResponse = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://github.com/login/oauth/access_token')}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({
-          client_id: import.meta.env.VITE_GITHUB_CLIENT_ID,
-          client_secret: import.meta.env.VITE_GITHUB_CLIENT_SECRET || 'cd7dee35528940f659bdc5e19fec5ecfaf6a1264',
-          code: code
-        })
-      });
-
-      if (!tokenResponse.ok) {
-        throw new Error(`Token exchange failed: ${tokenResponse.status}`);
+      
+      // Try cors-anywhere proxy first
+      let tokenResponse;
+      try {
+        tokenResponse = await fetch('https://cors-anywhere.herokuapp.com/https://github.com/login/oauth/access_token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json'
+          },
+          body: new URLSearchParams({
+            client_id: import.meta.env.VITE_GITHUB_CLIENT_ID,
+            client_secret: import.meta.env.VITE_GITHUB_CLIENT_SECRET || 'cd7dee35528940f659bdc5e19fec5ecfaf6a1264',
+            code: code
+          })
+        });
+      } catch (corsError) {
+        console.log('🔄 CORS proxy failed, trying direct GitHub API...');
+        // Fallback to direct call (may fail due to CORS but worth trying)
+        tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json'
+          },
+          body: new URLSearchParams({
+            client_id: import.meta.env.VITE_GITHUB_CLIENT_ID,
+            client_secret: import.meta.env.VITE_GITHUB_CLIENT_SECRET || 'cd7dee35528940f659bdc5e19fec5ecfaf6a1264',
+            code: code
+          })
+        });
       }
 
-      const tokenData = await tokenResponse.json();
+      if (!tokenResponse.ok) {
+        throw new Error(`Token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText}`);
+      }
+
+      const responseText = await tokenResponse.text();
+      console.log('🔍 Raw token response:', responseText);
+      
+      let tokenData;
+      try {
+        tokenData = JSON.parse(responseText);
+      } catch (parseError) {
+        // If response is URL-encoded (GitHub's default)
+        const params = new URLSearchParams(responseText);
+        tokenData = {
+          access_token: params.get('access_token'),
+          token_type: params.get('token_type'),
+          scope: params.get('scope')
+        };
+      }
+      
+      if (!tokenData.access_token) {
+        throw new Error('No access token received from GitHub');
+      }
+      
       console.log('✅ Access token received');
 
       // Step 2: Fetch real user data from GitHub API
       console.log('👤 Step 2: Fetching your real GitHub profile...');
-      const userResponse = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent('https://api.github.com/user')}`, {
-        headers: {
-          'Authorization': `token ${tokenData.access_token}`,
-          'Accept': 'application/vnd.github.v3+json'
-        }
-      });
+      
+      let userResponse;
+      try {
+        userResponse = await fetch('https://cors-anywhere.herokuapp.com/https://api.github.com/user', {
+          headers: {
+            'Authorization': `token ${tokenData.access_token}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'User-Agent': 'PersonaPass-Wallet'
+          }
+        });
+      } catch (corsError) {
+        console.log('🔄 CORS proxy failed for user data, trying direct call...');
+        userResponse = await fetch('https://api.github.com/user', {
+          headers: {
+            'Authorization': `token ${tokenData.access_token}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'User-Agent': 'PersonaPass-Wallet'
+          }
+        });
+      }
 
       if (!userResponse.ok) {
-        throw new Error(`GitHub API call failed: ${userResponse.status}`);
+        throw new Error(`GitHub API call failed: ${userResponse.status} ${userResponse.statusText}`);
       }
 
       const realUserData = await userResponse.json();
@@ -173,8 +249,8 @@ export class GitHubAPIService {
       // Create credential with REAL data
       const realGitHubCredential = this.createCredentialFromRealData(realUserData, tokenData.access_token);
       
-      // Store the credential
-      this.storedCredential = realGitHubCredential;
+      // Store the credential properly
+      this.credentialData = realGitHubCredential;
       localStorage.setItem('github_credential_cache_v3', JSON.stringify(realGitHubCredential));
       
       return tokenData.access_token;
@@ -283,11 +359,11 @@ export class GitHubAPIService {
       blockchainTxHash: `0x${Math.random().toString(16).substring(2, 66)}`
     };
     
-    // Store the demo credential
-    this.storedCredential = mockCredential;
+    // Store the demo credential properly
+    this.credentialData = mockCredential;
     localStorage.setItem('github_credential_cache_v3', JSON.stringify(mockCredential));
     
-    console.log('🎭 Demo credential created');
+    console.log('🎭 Demo credential created and stored');
     return 'demo_credential_created';
   }
 
@@ -466,13 +542,42 @@ export class GitHubAPIService {
    * 🎫 Get stored credential from OAuth flow - WITH HEAVY DEBUG
    */
   getStoredCredential(): any {
-    console.log('🔍 HEAVY DEBUG: Getting stored credential:', {
-      hasCredential: !!this.credentialData,
+    // Check service memory first
+    if (this.credentialData) {
+      console.log('🔍 HEAVY DEBUG: Found credential in service memory:', {
+        hasCredential: true,
+        credentialType: typeof this.credentialData,
+        credentialId: this.credentialData?.id,
+        credentialPreview: JSON.stringify(this.credentialData).substring(0, 200) + '...'
+      });
+      return this.credentialData;
+    }
+    
+    // Check localStorage cache
+    try {
+      const cachedCredential = localStorage.getItem('github_credential_cache_v3');
+      if (cachedCredential) {
+        const parsedCredential = JSON.parse(cachedCredential);
+        this.credentialData = parsedCredential; // Store in memory too
+        console.log('🔍 HEAVY DEBUG: Found credential in localStorage cache:', {
+          hasCredential: true,
+          credentialType: typeof parsedCredential,
+          credentialId: parsedCredential?.id,
+          credentialPreview: JSON.stringify(parsedCredential).substring(0, 200) + '...'
+        });
+        return parsedCredential;
+      }
+    } catch (error) {
+      console.error('❌ Error reading cached credential:', error);
+    }
+    
+    console.log('🔍 HEAVY DEBUG: No stored credential found:', {
+      hasCredential: false,
       credentialType: typeof this.credentialData,
-      credentialId: this.credentialData?.id,
-      credentialPreview: this.credentialData ? JSON.stringify(this.credentialData).substring(0, 200) + '...' : 'null'
+      credentialId: undefined,
+      credentialPreview: 'null'
     });
-    return this.credentialData;
+    return null;
   }
 
   /**
