@@ -55,14 +55,23 @@ class SecureCredentialStorageService {
     try {
       await this.ensureInitialized();
       
+      console.log('🔍 DEBUG: secureCredentialStorage.storeCredential called with:', {
+        credential,
+        credentialId: credential?.id,
+        credentialType: typeof credential,
+        credentialKeys: credential ? Object.keys(credential) : 'no keys',
+        hasCredentialSubject: !!credential?.credentialSubject,
+        credentialSubject: credential?.credentialSubject
+      });
+      
       // Store in encrypted IndexedDB via DatabaseService
       await this.databaseService.storeCredential({
         id: credential.id,
-        did: credential.credentialSubject.id || 'unknown',
-        type: credential.type.join(','),
+        did: credential.credentialSubject?.id || credential.id || 'unknown',
+        type: Array.isArray(credential.type) ? credential.type.join(',') : 'VerifiableCredential',
         issuer: credential.issuer,
         data: credential,
-        tags: [credential.type[1] || 'unknown'],
+        tags: [Array.isArray(credential.type) ? credential.type[1] || 'unknown' : 'unknown'],
         metadata: {
           blockchainTxHash: credential.blockchainTxHash,
           issuanceDate: credential.issuanceDate,
