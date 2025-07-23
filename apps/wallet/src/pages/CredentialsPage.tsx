@@ -135,6 +135,45 @@ export const CredentialsPage = () => {
   // 🔐 SECURE CREDENTIALS HOOK
   const { credentials, loading, error, addCredential, removeCredential, credentialCount } = useSecureCredentials();
 
+  // 🛡️ Helper function to safely add credential with validation
+  const safeAddCredential = async (credential: any) => {
+    try {
+      if (!credential) {
+        throw new Error('Credential is null or undefined');
+      }
+
+      // Handle array of credentials (take the first one)
+      if (Array.isArray(credential)) {
+        if (credential.length === 0) {
+          throw new Error('Credential array is empty');
+        }
+        credential = credential[0];
+      }
+
+      // Ensure credential has required fields for SecureCredential
+      if (!credential.id) {
+        console.error('❌ Credential missing id:', credential);
+        throw new Error('Credential missing required id field');
+      }
+
+      // Normalize the credential structure
+      const normalizedCredential = {
+        id: credential.id,
+        type: credential.type || ['VerifiableCredential'],
+        issuer: credential.issuer || 'unknown',
+        issuanceDate: credential.issuanceDate || new Date().toISOString(),
+        credentialSubject: credential.credentialSubject || {},
+        proof: credential.proof,
+        blockchainTxHash: credential.blockchainTxHash
+      };
+
+      await addCredential(normalizedCredential);
+    } catch (error) {
+      console.error('❌ Failed to safely add credential:', error);
+      throw error;
+    }
+  };
+
   // 🔍 ENHANCED API SEARCH WITH REAL-WORLD APIS
   const searchAPIs = async (query: string = searchQuery, category: string = selectedCategory) => {
     try {
@@ -212,7 +251,7 @@ export const CredentialsPage = () => {
       });
       
       // Step 3: Add to local storage
-      await addCredential(credential);
+      await safeAddCredential(credential);
       
       console.log(`✅ Successfully connected to ${api.name} and created real W3C credential!`);
       alert(`🎉 Successfully connected to ${api.name}!\n\nA verifiable credential has been created and added to your wallet.`);
@@ -550,7 +589,7 @@ export const CredentialsPage = () => {
       }
       
       if (credentialResult?.success && credentialResult.credential) {
-        await addCredential(credentialResult.credential);
+        await safeAddCredential(credentialResult.credential);
         
         // Success notification
         alert(`🎉 Success! ${provider.charAt(0).toUpperCase() + provider.slice(1)} credential created!\\n\\nYour verifiable credential has been added to your wallet.`);

@@ -430,6 +430,51 @@ export class GitHubAPIService {
     try {
       console.log('🏆 Generating GitHub developer credential...');
 
+      // First, check if we have stored credential data from OAuth flow
+      const storedCredential = this.getStoredCredential();
+      if (storedCredential) {
+        console.log('✅ Using stored credential data from OAuth flow');
+        
+        // Convert stored credential to expected format
+        const credentialData: GitHubCredentialData = {
+          user: {
+            id: storedCredential.credentialSubject.githubId,
+            login: storedCredential.credentialSubject.username,
+            name: storedCredential.credentialSubject.name,
+            email: storedCredential.credentialSubject.email || '',
+            bio: storedCredential.credentialSubject.bio || '',
+            public_repos: storedCredential.credentialSubject.publicRepos,
+            followers: storedCredential.credentialSubject.followers,
+            following: storedCredential.credentialSubject.following || 0,
+            created_at: storedCredential.credentialSubject.accountCreated,
+            updated_at: new Date().toISOString(),
+            avatar_url: storedCredential.credentialSubject.avatarUrl,
+            html_url: storedCredential.credentialSubject.profileUrl,
+          },
+          stats: {
+            totalStars: storedCredential.credentialSubject.totalStars || 0,
+            totalForks: storedCredential.credentialSubject.totalForks || 0,
+            totalCommits: storedCredential.credentialSubject.totalCommits || 0,
+            languages: storedCredential.credentialSubject.topLanguages || {},
+            topRepositories: storedCredential.credentialSubject.topRepositories || [],
+            contributionScore: storedCredential.credentialSubject.contributionScore || 0,
+          },
+          verificationDate: storedCredential.issuanceDate || new Date().toISOString(),
+          credentialType: 'DeveloperSkillCredential',
+        };
+
+        console.log('✅ GitHub developer credential generated from stored data:', {
+          username: credentialData.user.login,
+          repos: credentialData.user.public_repos,
+          stars: credentialData.stats.totalStars,
+          score: credentialData.stats.contributionScore,
+        });
+
+        return credentialData;
+      }
+
+      // Fallback to API calls if no stored data (this requires access token)
+      console.log('⚠️ No stored credential data, making API calls...');
       const [user, stats] = await Promise.all([
         this.getUser(),
         this.getDeveloperStats(),
@@ -442,7 +487,7 @@ export class GitHubAPIService {
         credentialType: 'DeveloperSkillCredential',
       };
 
-      console.log('✅ GitHub developer credential generated:', {
+      console.log('✅ GitHub developer credential generated via API:', {
         username: user.login,
         repos: user.public_repos,
         stars: stats.totalStars,
