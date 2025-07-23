@@ -194,13 +194,39 @@ export class GitHubAPIService {
         })
       });
 
+      console.log('🔍 Serverless response status:', response.status);
+      console.log('🔍 Serverless response headers:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('❌ Serverless function failed:', errorData);
+        const responseText = await response.text();
+        console.error('❌ Serverless function failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          responseText: responseText.substring(0, 500) + '...'
+        });
+        
+        // Try to parse as JSON, fallback to text
+        let errorData;
+        try {
+          errorData = JSON.parse(responseText);
+        } catch (e) {
+          errorData = { error: responseText || `Server error: ${response.status}` };
+        }
+        
         throw new Error(errorData.error || `Server error: ${response.status}`);
       }
 
-      const result = await response.json();
+      const responseText = await response.text();
+      console.log('🔍 Raw serverless response:', responseText.substring(0, 500) + '...');
+      
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('❌ Failed to parse serverless response as JSON:', parseError);
+        console.error('🔍 Response text:', responseText);
+        throw new Error('Invalid response from authentication server');
+      }
       
       if (!result.success) {
         throw new Error(result.error || 'GitHub authentication failed');

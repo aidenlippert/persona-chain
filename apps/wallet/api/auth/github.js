@@ -18,10 +18,31 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log('🚀 Serverless GitHub OAuth handler started');
+    console.log('🔍 Request method:', req.method);
+    console.log('🔍 Request headers:', req.headers);
+    
     const { code, state } = req.body;
+    console.log('🔍 Request body:', { code: code?.substring(0, 10) + '...', state: state?.substring(0, 10) + '...' });
 
     if (!code) {
+      console.error('❌ Missing OAuth code');
       return res.status(400).json({ error: 'Missing OAuth code' });
+    }
+
+    // Check environment variables
+    const clientId = process.env.GITHUB_CLIENT_ID || process.env.VITE_GITHUB_CLIENT_ID;
+    const clientSecret = process.env.GITHUB_CLIENT_SECRET || process.env.VITE_GITHUB_CLIENT_SECRET;
+    
+    console.log('🔍 Environment check:', {
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+      clientIdPrefix: clientId?.substring(0, 8) + '...'
+    });
+
+    if (!clientId || !clientSecret) {
+      console.error('❌ Missing GitHub credentials in environment');
+      return res.status(500).json({ error: 'Server configuration error' });
     }
 
     console.log('🔑 Serverless: Exchanging OAuth code for token...');
@@ -35,8 +56,8 @@ export default async function handler(req, res) {
         'User-Agent': 'PersonaPass-Wallet'
       },
       body: new URLSearchParams({
-        client_id: process.env.GITHUB_CLIENT_ID || process.env.VITE_GITHUB_CLIENT_ID,
-        client_secret: process.env.GITHUB_CLIENT_SECRET || process.env.VITE_GITHUB_CLIENT_SECRET,
+        client_id: clientId,
+        client_secret: clientSecret,
         code: code
       })
     });
@@ -148,9 +169,11 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('❌ Serverless function error:', error);
+    console.error('🔍 Error stack:', error.stack);
     return res.status(500).json({ 
       error: 'Internal server error',
-      message: error.message 
+      message: error.message,
+      details: error.stack?.substring(0, 200) + '...'
     });
   }
 }
