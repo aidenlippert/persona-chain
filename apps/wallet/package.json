@@ -83,7 +83,9 @@
     "gemini:optimize": "gemini-cli optimize src/",
     "gemini:security": "gemini-cli security src/",
     "startup:all": "npm run startup:test && npm run startup:build && npm run startup:deploy",
-    "start": "node server.js"
+    "start": "node server.js",
+    "heroku-postbuild": "npm run build",
+    "railway-build": "npm run build"
   },
   "dependencies": {
     "@cosmjs/cosmwasm-stargate": "^0.34.0",
@@ -168,6 +170,10 @@
     "vite-plugin-wasm": "^3.5.0",
     "vitest": "^3.2.4",
     "webpack-bundle-analyzer": "^4.10.2"
+  },
+  "engines": {
+    "node": "18.x",
+    "npm": "9.x"
   },
   "browserslist": {
     "production": [
