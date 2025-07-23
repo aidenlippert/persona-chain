@@ -5,7 +5,7 @@ nixPkgs = ["nodejs_22"]
 cmds = ["npm ci"]
 
 [phases.build]
-cmds = ["npm run build"]
+cmds = ["echo 'Skipping build for test'"]
 
 [start]
 cmd = "npm start"
