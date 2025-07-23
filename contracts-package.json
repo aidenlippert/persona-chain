@@ -1,0 +1,41 @@
+{
+  "name": "@personapass/smart-contracts",
+  "version": "1.0.0",
+  "description": "PersonaPass Smart Contracts for Polygon deployment",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "test:coverage": "hardhat coverage",
+    "deploy:local": "hardhat run scripts/deploy-mainnet-contracts.js --network localhost",
+    "deploy:mumbai": "hardhat run scripts/deploy-mainnet-contracts.js --network polygon-mumbai",
+    "deploy:mainnet": "hardhat run scripts/deploy-mainnet-contracts.js --network polygon-mainnet",
+    "verify:mumbai": "hardhat verify --network polygon-mumbai",
+    "verify:mainnet": "hardhat verify --network polygon-mainnet",
+    "node": "hardhat node",
+    "clean": "hardhat clean"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^3.0.2",
+    "@nomiclabs/hardhat-ethers": "^2.2.3",
+    "@nomiclabs/hardhat-etherscan": "^3.1.7",
+    "@openzeppelin/contracts": "^4.9.3",
+    "chai": "^4.3.8",
+    "dotenv": "^16.3.1",
+    "ethers": "^5.7.2",
+    "hardhat": "^2.17.1",
+    "hardhat-gas-reporter": "^1.0.9",
+    "solidity-coverage": "^0.8.4"
+  },
+  "keywords": [
+    "solidity",
+    "ethereum",
+    "polygon",
+    "smart-contracts",
+    "defi",
+    "identity",
+    "verifiable-credentials"
+  ],
+  "author": "PersonaPass Team",
+  "license": "MIT"
+}

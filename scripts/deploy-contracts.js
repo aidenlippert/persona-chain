@@ -1,200 +1,181 @@
+#!/usr/bin/env node
+
 /**
- * PersonaPass Smart Contract Deployment Script
- * Deploys DID Registry and related contracts
+ * Contract Deployment Script
+ * Deploys PERS token contracts to specified network
  */
 
-const { ethers } = require("hardhat");
-const fs = require("fs");
-const path = require("path");
+const { ethers } = require('ethers');
+const fs = require('fs');
+const path = require('path');
 
-async function main() {
-  console.log("🚀 Starting PersonaPass smart contract deployment...");
-  
-  // Get deployment configuration
-  const network = await ethers.getDefaultProvider().getNetwork();
-  const [deployer] = await ethers.getSigners();
-  
-  console.log("📊 Deployment Configuration:");
-  console.log(`Network: ${network.name} (${network.chainId})`);
-  console.log(`Deployer: ${deployer.address}`);
-  console.log(`Balance: ${ethers.utils.formatEther(await deployer.getBalance())} ETH`);
-  
-  // Deploy DID Registry
-  console.log("\n📜 Deploying DID Registry...");
-  const DIDRegistry = await ethers.getContractFactory("DIDRegistry");
-  const didRegistry = await DIDRegistry.deploy();
-  await didRegistry.deployed();
-  
-  console.log(`✅ DID Registry deployed at: ${didRegistry.address}`);
-  console.log(`📊 Transaction hash: ${didRegistry.deployTransaction.hash}`);
-  
-  // Verify deployment
-  console.log("\n🔍 Verifying deployment...");
-  const version = await didRegistry.version();
-  const owner = await didRegistry.owner();
-  
-  console.log(`Contract version: ${version}`);
-  console.log(`Contract owner: ${owner}`);
-  
-  // Save deployment info
-  const deploymentInfo = {
-    network: network.name,
-    chainId: network.chainId,
-    deployer: deployer.address,
-    contracts: {
-      DIDRegistry: {
-        address: didRegistry.address,
-        txHash: didRegistry.deployTransaction.hash,
-        deployedAt: new Date().toISOString()
-      }
-    },
-    gasUsed: {
-      DIDRegistry: didRegistry.deployTransaction.gasLimit?.toString() || "0"
-    }
-  };
-  
-  // Write deployment info to file
-  const deploymentsDir = path.join(__dirname, "..", "deployments");
-  if (!fs.existsSync(deploymentsDir)) {
-    fs.mkdirSync(deploymentsDir, { recursive: true });
-  }
-  
-  const deploymentFile = path.join(deploymentsDir, `${network.name}-deployment.json`);
-  fs.writeFileSync(deploymentFile, JSON.stringify(deploymentInfo, null, 2));
-  
-  console.log(`\n💾 Deployment info saved to: ${deploymentFile}`);
-  
-  // Generate TypeScript types
-  console.log("\n📝 Generating TypeScript types...");
-  await generateTypes(didRegistry);
-  
-  // Test basic functionality
-  console.log("\n🧪 Testing basic functionality...");
-  await testBasicFunctionality(didRegistry);
-  
-  console.log("\n✅ Deployment completed successfully!");
-  console.log("\n📋 Next steps:");
-  console.log("1. Update blockchain configuration in PersonaPass wallet");
-  console.log("2. Initialize blockchain persistence service");
-  console.log("3. Test DID registration and credential management");
-  console.log("4. Deploy to mainnet when ready");
-}
+// Load environment variables
+require('dotenv').config({ path: path.join(__dirname, '..', '.env.local') });
 
-async function generateTypes(didRegistry) {
-  const typeDefinitions = `
-// Auto-generated TypeScript types for PersonaPass smart contracts
-// Generated at: ${new Date().toISOString()}
+// Contract ABIs and bytecodes
+const PERSTokenABI = require('../src/contracts/abi/PERSToken.json');
+const PERSStakingABI = require('../src/contracts/abi/PERSStaking.json');
+const PERSRewardsABI = require('../src/contracts/abi/PERSRewards.json');
 
-export interface DIDRegistryContract {
-  address: string;
-  abi: any[];
-  chainId: number;
-  network: string;
-}
+const PERSTokenBytecode = require('../src/contracts/abi/PERSToken.bytecode.json');
+const PERSStakingBytecode = require('../src/contracts/abi/PERSStaking.bytecode.json');
+const PERSRewardsBytecode = require('../src/contracts/abi/PERSRewards.bytecode.json');
 
-export interface DeploymentInfo {
-  network: string;
-  chainId: number;
-  deployer: string;
-  contracts: {
-    DIDRegistry: {
-      address: string;
-      txHash: string;
-      deployedAt: string;
-    };
-  };
-  gasUsed: {
-    DIDRegistry: string;
-  };
-}
+// Deployment configuration
+const config = {
+  network: process.env.VITE_DEFAULT_NETWORK || 'polygon',
+  rpcUrl: process.env.VITE_RPC_URL || 'https://polygon-rpc.com',
+  privateKey: process.env.DEPLOYER_PRIVATE_KEY,
+  gasPrice: process.env.GAS_PRICE || '30000000000', // 30 gwei
+  gasLimit: process.env.GAS_LIMIT || '8000000',
+};
 
-export const DID_REGISTRY_ADDRESS = "${didRegistry.address}";
-export const DID_REGISTRY_ABI = ${JSON.stringify(didRegistry.interface.fragments.map(f => f.format()), null, 2)};
-`;
-  
-  const typesDir = path.join(__dirname, "..", "types");
-  if (!fs.existsSync(typesDir)) {
-    fs.mkdirSync(typesDir, { recursive: true });
-  }
-  
-  fs.writeFileSync(
-    path.join(typesDir, "contracts.ts"),
-    typeDefinitions
-  );
-  
-  console.log("✅ TypeScript types generated");
-}
+// Wallet addresses for token distribution
+const walletAddresses = {
+  credentialRewards: process.env.CREDENTIAL_REWARDS_WALLET,
+  stakingRewards: process.env.STAKING_REWARDS_WALLET,
+  ecosystem: process.env.ECOSYSTEM_WALLET,
+  team: process.env.TEAM_WALLET,
+  liquidity: process.env.LIQUIDITY_WALLET,
+};
 
-async function testBasicFunctionality(didRegistry) {
+async function deployContracts() {
   try {
-    // Test DID registration
-    const testDID = "did:key:z6MkjjCpsoQrwnEmqHzLdxWowXk5gjbwor4urC1RPDmGeV8r";
-    const testDocument = JSON.stringify({
-      "@context": ["https://www.w3.org/ns/did/v1"],
-      "id": testDID,
-      "verificationMethod": [{
-        "id": `${testDID}#key-1`,
-        "type": "Ed25519VerificationKey2020",
-        "controller": testDID,
-        "publicKeyMultibase": "z6MkjjCpsoQrwnEmqHzLdxWowXk5gjbwor4urC1RPDmGeV8r"
-      }]
+    console.log('🚀 Starting contract deployment...');
+    console.log(`Network: ${config.network}`);
+    console.log(`RPC URL: ${config.rpcUrl}`);
+    
+    // Validate configuration
+    if (!config.privateKey) {
+      throw new Error('DEPLOYER_PRIVATE_KEY not set in environment');
+    }
+    
+    for (const [name, address] of Object.entries(walletAddresses)) {
+      if (!address) {
+        throw new Error(`${name} wallet address not set in environment`);
+      }
+    }
+    
+    // Connect to network
+    const provider = new ethers.JsonRpcProvider(config.rpcUrl);
+    const wallet = new ethers.Wallet(config.privateKey, provider);
+    
+    console.log(`Deployer address: ${wallet.address}`);
+    
+    // Check deployer balance
+    const balance = await provider.getBalance(wallet.address);
+    console.log(`Deployer balance: ${ethers.formatEther(balance)} ETH`);
+    
+    if (balance === 0n) {
+      throw new Error('Deployer has no balance');
+    }
+    
+    // Deploy PERSToken
+    console.log('\n📄 Deploying PERSToken...');
+    const PERSTokenFactory = new ethers.ContractFactory(
+      PERSTokenABI,
+      PERSTokenBytecode.bytecode,
+      wallet
+    );
+    
+    const persToken = await PERSTokenFactory.deploy({
+      gasPrice: config.gasPrice,
+      gasLimit: config.gasLimit,
     });
     
-    console.log("🧪 Testing DID registration...");
-    const registerTx = await didRegistry.registerDID(testDID, testDocument);
-    await registerTx.wait();
+    await persToken.waitForDeployment();
+    const persTokenAddress = await persToken.getAddress();
+    console.log(`✅ PERSToken deployed at: ${persTokenAddress}`);
     
-    console.log("✅ DID registration test passed");
-    
-    // Test DID resolution
-    console.log("🧪 Testing DID resolution...");
-    const [document, created, updated, isActive] = await didRegistry.getDIDDocument(testDID);
-    
-    console.log(`📄 Retrieved document length: ${document.length}`);
-    console.log(`📅 Created: ${new Date(created * 1000).toISOString()}`);
-    console.log(`🔄 Updated: ${new Date(updated * 1000).toISOString()}`);
-    console.log(`✅ Active: ${isActive}`);
-    
-    // Test credential registration
-    console.log("🧪 Testing credential registration...");
-    const credentialId = "urn:uuid:test-credential-123";
-    const issuerDID = testDID;
-    const subjectDID = "did:key:z6MkjjCpsoQrwnEmqHzLdxWowXk5gjbwor4urC1RPDmGeV8s";
-    const schemaHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("TestCredential"));
-    const commitmentHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("test-commitment"));
-    
-    const registerCredTx = await didRegistry.registerCredential(
-      credentialId,
-      issuerDID,
-      subjectDID,
-      schemaHash,
-      commitmentHash,
-      0 // No expiration
+    // Initialize wallets
+    console.log('\n🏦 Initializing token distribution wallets...');
+    const initTx = await persToken.initializeWallets(
+      walletAddresses.credentialRewards,
+      walletAddresses.stakingRewards,
+      walletAddresses.ecosystem,
+      walletAddresses.team,
+      walletAddresses.liquidity,
+      {
+        gasPrice: config.gasPrice,
+        gasLimit: '1000000',
+      }
     );
-    await registerCredTx.wait();
     
-    console.log("✅ Credential registration test passed");
+    await initTx.wait();
+    console.log('✅ Token distribution completed');
     
-    // Test credential status
-    console.log("🧪 Testing credential status...");
-    const [exists, isRevoked, revocationReason, isExpired] = await didRegistry.getCredentialStatus(credentialId);
+    // Deploy PERSStaking
+    console.log('\n📄 Deploying PERSStaking...');
+    const PERSStakingFactory = new ethers.ContractFactory(
+      PERSStakingABI,
+      PERSStakingBytecode.bytecode,
+      wallet
+    );
     
-    console.log(`📄 Exists: ${exists}`);
-    console.log(`❌ Revoked: ${isRevoked}`);
-    console.log(`⏰ Expired: ${isExpired}`);
+    const persStaking = await PERSStakingFactory.deploy(
+      persTokenAddress,
+      walletAddresses.stakingRewards,
+      {
+        gasPrice: config.gasPrice,
+        gasLimit: config.gasLimit,
+      }
+    );
     
-    console.log("✅ All tests passed!");
+    await persStaking.waitForDeployment();
+    const persStakingAddress = await persStaking.getAddress();
+    console.log(`✅ PERSStaking deployed at: ${persStakingAddress}`);
+    
+    // Deploy PERSRewards
+    console.log('\n📄 Deploying PERSRewards...');
+    const PERSRewardsFactory = new ethers.ContractFactory(
+      PERSRewardsABI,
+      PERSRewardsBytecode.bytecode,
+      wallet
+    );
+    
+    const persRewards = await PERSRewardsFactory.deploy(
+      persTokenAddress,
+      walletAddresses.credentialRewards,
+      {
+        gasPrice: config.gasPrice,
+        gasLimit: config.gasLimit,
+      }
+    );
+    
+    await persRewards.waitForDeployment();
+    const persRewardsAddress = await persRewards.getAddress();
+    console.log(`✅ PERSRewards deployed at: ${persRewardsAddress}`);
+    
+    // Save deployment addresses
+    const deployment = {
+      network: config.network,
+      deployedAt: new Date().toISOString(),
+      contracts: {
+        PERSToken: persTokenAddress,
+        PERSStaking: persStakingAddress,
+        PERSRewards: persRewardsAddress,
+      },
+      wallets: walletAddresses,
+      deployer: wallet.address,
+    };
+    
+    const deploymentPath = path.join(__dirname, '..', 'deployment.json');
+    fs.writeFileSync(deploymentPath, JSON.stringify(deployment, null, 2));
+    console.log(`\n💾 Deployment info saved to: ${deploymentPath}`);
+    
+    // Output environment variables
+    console.log('\n🔧 Add these to your .env.local file:');
+    console.log(`VITE_PERS_TOKEN_ADDRESS=${persTokenAddress}`);
+    console.log(`VITE_PERS_STAKING_ADDRESS=${persStakingAddress}`);
+    console.log(`VITE_PERS_REWARDS_ADDRESS=${persRewardsAddress}`);
+    
+    console.log('\n✅ Deployment completed successfully!');
     
   } catch (error) {
-    console.error("❌ Test failed:", error);
-    throw error;
+    console.error('\n❌ Deployment failed:', error.message);
+    process.exit(1);
   }
 }
 
-// Handle errors
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error("❌ Deployment failed:", error);
-    process.exit(1);
-  });
+// Run deployment
+deployContracts();

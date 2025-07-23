@@ -1,0 +1,36 @@
+{
+  "timestamp": "2025-07-18T05:25:38.337Z",
+  "credentials": {
+    "elements": {
+      "cards": 0,
+      "buttons": 10,
+      "containers": 0,
+      "grids": 49,
+      "text": 174
+    },
+    "issues": [
+      "Many elements have zero dimensions"
+    ],
+    "bodyWidth": 1920,
+    "viewportWidth": 1920
+  },
+  "proofs": {
+    "elements": {
+      "cards": 0,
+      "buttons": 10,
+      "forms": 0,
+      "containers": 0
+    },
+    "issues": [],
+    "bodyWidth": 1920,
+    "viewportWidth": 1920
+  },
+  "recommendations": [
+    "Fix horizontal overflow if detected",
+    "Improve card layout and spacing",
+    "Add proper responsive design",
+    "Implement better visual hierarchy",
+    "Add loading states and error handling",
+    "Improve typography and readability"
+  ]
+}
