@@ -95,7 +95,7 @@ export class APIRoadmapService {
   private initializePhase1KYC(): void {
     const phase1APIs: RoadmapAPI[] = [
       {
-        id: 'plaid-kyc',
+        id: 'plaid',
         name: 'Plaid KYC Verification',
         provider: 'Plaid',
         domain: 'Finance & Banking',
@@ -195,7 +195,7 @@ export class APIRoadmapService {
           enabled: true,
           priority: 2,
           estimatedDays: 5,
-          dependencies: ['plaid-kyc']
+          dependencies: ['plaid']
         }
       },
       {
@@ -256,7 +256,7 @@ export class APIRoadmapService {
   private initializePhase2Employment(): void {
     const phase2APIs: RoadmapAPI[] = [
       {
-        id: 'linkedin-employment',
+        id: 'linkedin',
         name: 'LinkedIn Employment History',
         provider: 'LinkedIn',
         domain: 'Professional & Work',
@@ -297,7 +297,7 @@ export class APIRoadmapService {
           enabled: false,
           priority: 4,
           estimatedDays: 4,
-          dependencies: ['plaid-kyc', 'trulioo-identity']
+          dependencies: ['plaid', 'trulioo-identity']
         }
       },
       {
@@ -342,7 +342,7 @@ export class APIRoadmapService {
           enabled: false,
           priority: 5,
           estimatedDays: 7,
-          dependencies: ['plaid-kyc', 'trulioo-identity']
+          dependencies: ['plaid', 'trulioo-identity']
         }
       }
     ];
@@ -406,7 +406,7 @@ export class APIRoadmapService {
           enabled: false,
           priority: 6,
           estimatedDays: 10,
-          dependencies: ['plaid-kyc', 'trulioo-identity']
+          dependencies: ['plaid', 'trulioo-identity']
         }
       }
     ];
@@ -463,7 +463,7 @@ export class APIRoadmapService {
           enabled: false,
           priority: 7,
           estimatedDays: 5,
-          dependencies: ['linkedin-employment']
+          dependencies: ['linkedin']
         }
       }
     ];
@@ -520,7 +520,7 @@ export class APIRoadmapService {
           enabled: false,
           priority: 8,
           estimatedDays: 6,
-          dependencies: ['plaid-kyc', 'trulioo-identity']
+          dependencies: ['plaid', 'trulioo-identity']
         }
       }
     ];
@@ -577,7 +577,7 @@ export class APIRoadmapService {
           enabled: false,
           priority: 9,
           estimatedDays: 14,
-          dependencies: ['plaid-kyc', 'linkedin-employment', 'experian-credit']
+          dependencies: ['plaid', 'linkedin', 'experian-credit']
         }
       }
     ];
