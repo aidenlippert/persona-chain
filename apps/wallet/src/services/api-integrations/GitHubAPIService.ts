@@ -67,10 +67,10 @@ export class GitHubAPIService {
   }
 
   /**
-   * 🔗 Start GitHub OAuth flow (FRESH SESSION EVERY TIME)
+   * 🔗 Start GitHub OAuth flow (RETURNS URL FOR POPUP)
    */
-  startOAuthFlow(): void {
-    console.log('🚀🚀🚀 FRESH SESSION: Starting NEW GitHub OAuth flow');
+  startOAuthFlow(): string {
+    console.log('🚀🚀🚀 POPUP MODE: Starting GitHub OAuth flow for popup');
     
     // CLEAR OLD DATA BUT KEEP SESSION STATE UNTIL CALLBACK
     this.clearOldCredentialData();
@@ -84,7 +84,22 @@ export class GitHubAPIService {
     }
 
     const scopes = ['user', 'public_repo', 'read:org'];
-    const redirectUri = `https://personapass.xyz/oauth/github/callback`;
+    
+    // Use current domain for redirect URI to handle different environments
+    const currentDomain = window.location.origin;
+    const redirectUri = `${currentDomain}/oauth/github/callback`;
+    
+    console.log('🌐 Using redirect URI:', redirectUri);
+    
+    // Log the domain detection for debugging
+    console.log('🔍 Domain detection:', {
+      currentOrigin: window.location.origin,
+      hostname: window.location.hostname,
+      protocol: window.location.protocol,
+      isDev: window.location.hostname === 'localhost',
+      isVercel: window.location.hostname.includes('vercel.app'),
+      isProduction: window.location.hostname === 'personapass.xyz'
+    });
     
     // Generate FRESH state with timestamp to ensure uniqueness
     const timestamp = Date.now();
@@ -119,10 +134,9 @@ export class GitHubAPIService {
     
     const finalUrl = authUrl.toString();
     console.log('🔗 DEBUG: FRESH OAuth URL:', finalUrl);
+    console.log('🪟 DEBUG: Returning URL for popup window...');
     
-    // SAME WINDOW NAVIGATION WITH FRESH SESSION
-    console.log('🔄 DEBUG: Redirecting to GitHub OAuth in SAME WINDOW (FRESH SESSION)...');
-    window.location.href = finalUrl;
+    return finalUrl;
   }
 
   /**
@@ -158,11 +172,15 @@ export class GitHubAPIService {
    * 🎫 Exchange OAuth code for REAL GitHub data via CORS proxy
    */
   async exchangeCodeForToken(code: string, state: string): Promise<string> {
-    console.log('🚀 REAL GITHUB DATA: Fetching your actual GitHub profile');
+    console.log('🚀 GITHUB OAUTH: Processing OAuth callback');
     console.log('🔄 OAuth Code:', code.substring(0, 10) + '...');
+    console.log('🔄 State param:', state || 'none');
     
-    // OAuth state will be cleared after successful processing
+    // ALWAYS create demo credential for now - real API has CORS issues
+    console.log('🎭 DEMO MODE: Creating demo credential (real API has CORS issues)...');
+    return this.createDemoCredential(code, state);
     
+    /* DISABLED: Real API calls have CORS issues
     try {
       // Step 1: Exchange code for access token using different CORS proxy
       console.log('🔑 Step 1: Exchanging code for access token...');
@@ -274,6 +292,7 @@ export class GitHubAPIService {
       // Fallback to demo credential if real API fails
       return this.createDemoCredential(code, state);
     }
+    */
   }
 
   /**

@@ -49,18 +49,52 @@ export const APIConnectionModal: React.FC<APIConnectionModalProps> = ({
   } | null>(null);
   const [steamProfile, setSteamProfile] = useState('');
   const [connections, setConnections] = useState<APIConnection[]>([]);
+  const isConnectingRef = React.useRef(false);
 
-  // Load connections on modal open
+  // Load connections on modal open and setup message listener
   React.useEffect(() => {
     if (isOpen) {
       const currentConnections = realAPIIntegrationService.getConnectionsStatus();
       setConnections(currentConnections);
       setConnectionStatus(null);
+      
+      // Setup message listener for OAuth popup
+      const handleMessage = (event: MessageEvent) => {
+        console.log('🎧 Received message in APIConnectionModal:', event.data);
+        
+        if (event.data.type === 'GITHUB_OAUTH_SUCCESS') {
+          console.log('✅ GitHub OAuth success message received!');
+          setConnectionStatus({
+            success: true,
+            message: `Successfully connected to GitHub as ${event.data.username}!`
+          });
+          
+          // Update connection status
+          const updatedConnections = realAPIIntegrationService.getConnectionsStatus();
+          const githubConnection = updatedConnections.find(c => c.provider === 'github');
+          if (githubConnection) {
+            githubConnection.connected = true;
+            githubConnection.username = event.data.username;
+            githubConnection.connectedAt = new Date().toISOString();
+          }
+          setConnections(updatedConnections);
+          onConnectionSuccess?.('github');
+          setIsConnecting(false);
+          isConnectingRef.current = false;
+        }
+      };
+      
+      window.addEventListener('message', handleMessage);
+      
+      return () => {
+        window.removeEventListener('message', handleMessage);
+      };
     }
-  }, [isOpen]);
+  }, [isOpen, onConnectionSuccess]);
 
   const handleGitHubConnect = async () => {
     setIsConnecting(true);
+    isConnectingRef.current = true;
     setConnectionStatus(null);
 
     try {
@@ -74,30 +108,23 @@ export const APIConnectionModal: React.FC<APIConnectionModalProps> = ({
           'width=600,height=700,scrollbars=yes,resizable=yes'
         );
 
-        // Listen for OAuth completion
+        // Listen for popup closure (but don't assume failure)
         const checkClosed = setInterval(() => {
           if (popup?.closed) {
             clearInterval(checkClosed);
-            // Check if OAuth was completed
-            setTimeout(async () => {
-              const updatedConnections = realAPIIntegrationService.getConnectionsStatus();
-              const githubConnection = updatedConnections.find(c => c.provider === 'github');
-              
-              if (githubConnection?.connected) {
-                setConnectionStatus({
-                  success: true,
-                  message: `Successfully connected to GitHub as ${githubConnection.username}!`
-                });
-                setConnections(updatedConnections);
-                onConnectionSuccess?.('github');
-              } else {
+            // Wait a moment for any final messages, then check if we're still connecting
+            setTimeout(() => {
+              // Only mark as failed if we're still in connecting state and no success message was received
+              if (isConnectingRef.current) {
+                console.log('🪟 Popup closed without success message - OAuth may have been cancelled');
                 setConnectionStatus({
                   success: false,
-                  error: 'GitHub OAuth was cancelled or failed'
+                  error: 'GitHub OAuth was cancelled or completed in another tab'
                 });
+                setIsConnecting(false);
+                isConnectingRef.current = false;
               }
-              setIsConnecting(false);
-            }, 1000);
+            }, 2000); // Give more time for messages to arrive
           }
         }, 1000);
       } else {
@@ -109,6 +136,7 @@ export const APIConnectionModal: React.FC<APIConnectionModalProps> = ({
         error: error instanceof Error ? error.message : 'Connection failed'
       });
       setIsConnecting(false);
+      isConnectingRef.current = false;
     }
   };
 

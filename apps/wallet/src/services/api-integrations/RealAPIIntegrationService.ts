@@ -67,6 +67,7 @@ export class RealAPIIntegrationService {
    */
   async connectGitHub(): Promise<{ success: boolean; authUrl?: string; error?: string }> {
     try {
+      console.log('🔌 Starting GitHub connection flow...');
       const authUrl = githubAPIService.startOAuthFlow();
       
       // Update connection status
@@ -76,7 +77,7 @@ export class RealAPIIntegrationService {
         connectedAt: new Date().toISOString(),
       });
 
-      console.log('🐙 GitHub OAuth flow started');
+      console.log('🐙 GitHub OAuth flow started, authUrl:', authUrl.substring(0, 50) + '...');
       return { success: true, authUrl };
 
     } catch (error) {
