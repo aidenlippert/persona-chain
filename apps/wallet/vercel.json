@@ -1,12 +1,12 @@
 {
-  "functions": {
-    "api/**/*.js": {
-      "runtime": "nodejs18.x"
-    }
-  },
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "devCommand": "npm run dev",
+  "installCommand": "cd ../.. && npm install && cd apps/wallet",
+  "framework": null,
   "rewrites": [
     {
-      "source": "/((?!api).*)",
+      "source": "/((?!api/.*).*)",
       "destination": "/index.html"
     }
   ]
