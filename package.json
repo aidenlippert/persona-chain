@@ -85,7 +85,7 @@
     "start": "node server.js",
     "railway-start": "node server.js",
     "heroku-postbuild": "npm run build",
-    "build": "vite build",
+    "build": "vite build"
   },
   "dependencies": {
     "@cosmjs/cosmwasm-stargate": "^0.34.0",
