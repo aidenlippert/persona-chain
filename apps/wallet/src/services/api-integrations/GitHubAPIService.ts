@@ -72,8 +72,8 @@ export class GitHubAPIService {
   startOAuthFlow(): void {
     console.log('🚀🚀🚀 FRESH SESSION: Starting NEW GitHub OAuth flow');
     
-    // CLEAR ALL PREVIOUS OAUTH STATE FOR FRESH SESSION
-    this.clearOAuthState();
+    // CLEAR OLD DATA BUT KEEP SESSION STATE UNTIL CALLBACK
+    this.clearOldCredentialData();
     
     const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
     console.log('🔍 DEBUG: Client ID exists:', !!clientId);
@@ -100,7 +100,7 @@ export class GitHubAPIService {
       timestamp
     });
     
-    // Store FRESH state
+    // Store FRESH state for callback validation
     try {
       sessionStorage.setItem('github_oauth_state', state);
       localStorage.setItem('github_oauth_state_backup', state);
@@ -126,21 +126,32 @@ export class GitHubAPIService {
   }
 
   /**
-   * 🧹 Clear OAuth state for fresh sessions
+   * 🧹 Clear old credential data but preserve OAuth state
    */
-  private clearOAuthState(): void {
-    console.log('🧹 CLEARING OAuth state for fresh session...');
+  private clearOldCredentialData(): void {
+    console.log('🧹 CLEARING old credential data for fresh session...');
     
-    // Clear all OAuth-related storage
-    sessionStorage.removeItem('github_oauth_state');
-    localStorage.removeItem('github_oauth_state_backup');
+    // Clear old credential data but NOT OAuth state (needed for validation)
     localStorage.removeItem('github_credential_cache_v3');
     
     // Clear service state
     this.accessToken = null;
     this.credentialData = null;
     
-    console.log('✅ OAuth state cleared - ready for fresh session');
+    console.log('✅ Old credential data cleared - OAuth state preserved for validation');
+  }
+
+  /**
+   * 🧹 Clear OAuth state after successful validation
+   */
+  private clearOAuthStateAfterValidation(): void {
+    console.log('🧹 CLEARING OAuth state after successful validation...');
+    
+    // Now safe to clear OAuth state after successful callback
+    sessionStorage.removeItem('github_oauth_state');
+    localStorage.removeItem('github_oauth_state_backup');
+    
+    console.log('✅ OAuth state cleared after successful validation');
   }
 
   /**
@@ -150,9 +161,7 @@ export class GitHubAPIService {
     console.log('🚀 REAL GITHUB DATA: Fetching your actual GitHub profile');
     console.log('🔄 OAuth Code:', code.substring(0, 10) + '...');
     
-    // Clean up OAuth state
-    sessionStorage.removeItem('github_oauth_state');
-    localStorage.removeItem('github_oauth_state_backup');
+    // OAuth state will be cleared after successful processing
     
     try {
       // Step 1: Exchange code for access token using different CORS proxy
@@ -252,6 +261,9 @@ export class GitHubAPIService {
       // Store the credential properly
       this.credentialData = realGitHubCredential;
       localStorage.setItem('github_credential_cache_v3', JSON.stringify(realGitHubCredential));
+      
+      // Clear OAuth state after successful processing
+      this.clearOAuthStateAfterValidation();
       
       return tokenData.access_token;
       
@@ -362,6 +374,9 @@ export class GitHubAPIService {
     // Store the demo credential properly
     this.credentialData = mockCredential;
     localStorage.setItem('github_credential_cache_v3', JSON.stringify(mockCredential));
+    
+    // Clear OAuth state after successful demo credential creation
+    this.clearOAuthStateAfterValidation();
     
     console.log('🎭 Demo credential created and stored');
     return 'demo_credential_created';
