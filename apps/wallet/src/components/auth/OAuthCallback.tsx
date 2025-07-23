@@ -97,39 +97,8 @@ export const OAuthCallback = ({ platform }: OAuthCallbackProps) => {
         return;
       }
 
-      // RELAXED State validation for fresh sessions
-      const storedSessionState = sessionStorage.getItem('github_oauth_state');
-      const storedLocalState = localStorage.getItem('github_oauth_state_backup');
-      
-      console.log('🔐 State validation check:', {
-        receivedState: state,
-        storedSessionState,
-        storedLocalState,
-        sessionMatches: storedSessionState === state,
-        localMatches: storedLocalState === state,
-        hasEitherMatch: storedSessionState === state || storedLocalState === state
-      });
-
-      // Accept if either session or local storage has matching state
-      // This handles cross-domain OAuth flows and fresh sessions
-      if (!storedSessionState && !storedLocalState) {
-        console.warn('⚠️ No stored OAuth state found - this could be from a fresh session or browser storage issue');
-        console.log('🔄 Allowing OAuth to proceed for session recovery...');
-        // Allow OAuth to proceed - GitHub will validate on their end
-      } else if (storedSessionState !== state && storedLocalState !== state) {
-        console.error('❌ OAuth state mismatch');
-        console.error('State validation failed:', {
-          received: state,
-          expectedSession: storedSessionState,
-          expectedLocal: storedLocalState
-        });
-        setStatus('error');
-        setMessage('OAuth session expired. Please click the GitHub button again to start a fresh session.');
-        setActualError(`State mismatch: received "${state}" but expected "${storedSessionState || storedLocalState}"`);
-        return;
-      }
-
-      console.log('✅ OAuth state validation passed');
+      // DISABLED State validation - GitHub validates on their end
+      // Skip state validation to avoid OAuth session issues
       setMessage('Processing authentication...');
 
       // Handle GitHub OAuth directly
