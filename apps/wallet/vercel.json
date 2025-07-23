@@ -1,6 +1,6 @@
 {
   "functions": {
-    "api/auth/github.js": {
+    "api/auth/github/index.js": {
       "runtime": "nodejs18.x"
     }
   },
@@ -19,7 +19,7 @@
           "value": "*"
         },
         {
-          "key": "Access-Control-Allow-Methods",
+          "key": "Access-Control-Allow-Methods", 
           "value": "GET, POST, PUT, DELETE, OPTIONS"
         },
         {
