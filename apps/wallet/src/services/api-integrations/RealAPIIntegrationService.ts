@@ -6,10 +6,12 @@
 
 import { githubAPIService, GitHubCredentialData } from './GitHubAPIService';
 import { steamAPIService, SteamCredentialData } from './SteamAPIService';
+import { plaidAPIService, PlaidCredentialData } from './PlaidAPIService';
+import { linkedInAPIService, LinkedInCredentialData } from './LinkedInAPIService';
 import { verifiableCredentialService } from '../credentials/VerifiableCredentialService';
 
-export type APIProvider = 'github' | 'steam' | 'spotify' | 'twilio' | 'plaid';
-export type CredentialType = 'DeveloperSkillCredential' | 'GamingCredential' | 'LifestyleCredential' | 'PhoneVerificationCredential' | 'BankAccountCredential';
+export type APIProvider = 'github' | 'steam' | 'plaid' | 'linkedin' | 'twilio';
+export type CredentialType = 'DeveloperSkillCredential' | 'GamingCredential' | 'BankAccountCredential' | 'IncomeVerificationCredential' | 'ProfessionalCredential' | 'PhoneVerificationCredential';
 
 export interface APIConnection {
   id: string;
@@ -51,7 +53,7 @@ export class RealAPIIntegrationService {
    * 🔧 Initialize connection status
    */
   private initializeConnections(): void {
-    const providers: APIProvider[] = ['github', 'steam', 'spotify', 'twilio', 'plaid'];
+    const providers: APIProvider[] = ['github', 'steam', 'plaid', 'linkedin', 'twilio'];
     
     providers.forEach(provider => {
       this.connections.set(provider, {
@@ -396,6 +398,133 @@ export class RealAPIIntegrationService {
   }
 
   /**
+   * 🏦 Connect to Plaid API
+   */
+  async connectPlaid(userId: string): Promise<{ success: boolean; linkToken?: string; error?: string }> {
+    try {
+      console.log('🏦 Starting Plaid connection flow...');
+      const linkToken = await plaidAPIService.createLinkToken(userId);
+      
+      // Update connection status
+      this.connections.set('plaid', {
+        ...this.connections.get('plaid')!,
+        connected: false, // Will be true after Link completion
+        connectedAt: new Date().toISOString(),
+      });
+
+      console.log('💳 Plaid Link token created successfully');
+      return { success: true, linkToken };
+
+    } catch (error) {
+      console.error('❌ Failed to start Plaid connection:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * ✅ Complete Plaid Link flow
+   */
+  async completePlaidLink(publicToken: string, userId: string): Promise<{ success: boolean; credentials?: any[]; error?: string }> {
+    try {
+      const credentialData = await plaidAPIService.exchangeTokenAndGenerateCredentials(publicToken, userId);
+      
+      // Generate credentials
+      const userDid = `did:persona:user_${userId}`;
+      const bankCredential = plaidAPIService.createBankAccountCredential(credentialData, userDid);
+      const incomeCredential = credentialData.income.total_income > 0 
+        ? plaidAPIService.createIncomeCredential(credentialData, userDid)
+        : null;
+
+      const credentials = [bankCredential, incomeCredential].filter(Boolean);
+
+      // Update connection status
+      this.connections.set('plaid', {
+        ...this.connections.get('plaid')!,
+        connected: true,
+        lastUsed: new Date().toISOString(),
+        username: credentialData.institution.name,
+        credentials: { accountCount: credentialData.accounts.length },
+      });
+
+      console.log('✅ Plaid Link completed successfully');
+      return { success: true, credentials };
+
+    } catch (error) {
+      console.error('❌ Plaid Link completion failed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Link completion failed'
+      };
+    }
+  }
+
+  /**
+   * 💼 Connect to LinkedIn API
+   */
+  async connectLinkedIn(): Promise<{ success: boolean; authUrl?: string; error?: string }> {
+    try {
+      console.log('💼 Starting LinkedIn connection flow...');
+      const authUrl = linkedInAPIService.startOAuthFlow();
+      
+      // Update connection status
+      this.connections.set('linkedin', {
+        ...this.connections.get('linkedin')!,
+        connected: false, // Will be true after OAuth completion
+        connectedAt: new Date().toISOString(),
+      });
+
+      console.log('💼 LinkedIn OAuth flow started');
+      return { success: true, authUrl };
+
+    } catch (error) {
+      console.error('❌ Failed to start LinkedIn connection:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * ✅ Complete LinkedIn OAuth flow
+   */
+  async completeLinkedInOAuth(code: string, state: string): Promise<{ success: boolean; username?: string; error?: string }> {
+    try {
+      await linkedInAPIService.exchangeCodeForToken(code, state);
+      
+      // Get stored credential data
+      const storedCredential = linkedInAPIService.getStoredCredential();
+      if (!storedCredential) {
+        throw new Error('No credential data received from LinkedIn');
+      }
+
+      const fullName = `${storedCredential.profile.firstName} ${storedCredential.profile.lastName}`;
+
+      // Update connection status
+      this.connections.set('linkedin', {
+        ...this.connections.get('linkedin')!,
+        connected: true,
+        lastUsed: new Date().toISOString(),
+        username: fullName,
+        profileUrl: `https://linkedin.com/in/${storedCredential.profile.id}`,
+      });
+
+      console.log('✅ LinkedIn OAuth completed successfully');
+      return { success: true, username: fullName };
+
+    } catch (error) {
+      console.error('❌ LinkedIn OAuth completion failed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'OAuth completion failed'
+      };
+    }
+  }
+
+  /**
    * 🔍 Test all API connections
    */
   async testAllConnections(): Promise<{ [provider: string]: { success: boolean; message?: string; error?: string } }> {
@@ -411,6 +540,12 @@ export class RealAPIIntegrationService {
     } else {
       results.github = { success: false, error: 'Not connected' };
     }
+
+    // Test Plaid configuration
+    results.plaid = await plaidAPIService.testConfiguration();
+
+    // Test LinkedIn configuration
+    results.linkedin = await linkedInAPIService.testConfiguration();
 
     return results;
   }
