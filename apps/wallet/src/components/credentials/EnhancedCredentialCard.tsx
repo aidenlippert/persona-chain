@@ -4,7 +4,7 @@
  * 🛡️ Security Analytics | 🔗 Integration Status | 💼 Professional Features
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   CheckCircleIcon,
@@ -96,11 +96,29 @@ export const EnhancedCredentialCard: React.FC<EnhancedCredentialCardProps> = ({
   const [isGeneratingZK, setIsGeneratingZK] = useState(false);
   const [showActions, setShowActions] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const actionsRef = useRef<HTMLDivElement>(null);
   
   // Calculate days until expiration
   const daysUntilExpiry = metadata.expiresAt 
     ? Math.ceil((new Date(metadata.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     : null;
+
+  // Close actions menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (actionsRef.current && !actionsRef.current.contains(event.target as Node)) {
+        setShowActions(false);
+      }
+    };
+
+    if (showActions) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showActions]);
   
   // Determine card status and styling
   const getStatusConfig = () => {
@@ -298,7 +316,7 @@ export const EnhancedCredentialCard: React.FC<EnhancedCredentialCardProps> = ({
         </button>
 
         {/* More Actions */}
-        <div className="relative">
+        <div className="relative" ref={actionsRef}>
           <button
             onClick={() => setShowActions(!showActions)}
             className="flex items-center gap-2 px-4 py-2 bg-gray-500/20 text-gray-400 rounded-lg hover:bg-gray-500/30 transition-colors text-sm"
@@ -310,10 +328,10 @@ export const EnhancedCredentialCard: React.FC<EnhancedCredentialCardProps> = ({
           <AnimatePresence>
             {showActions && (
               <motion.div
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                initial={{ opacity: 0, y: -10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                className="absolute right-0 top-12 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-2 z-50 min-w-48"
+                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                className="absolute right-0 bottom-full mb-2 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-2 z-[9999] min-w-56 max-h-96 overflow-y-auto"
               >
                 <button
                   onClick={() => {
