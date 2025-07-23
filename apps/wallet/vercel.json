@@ -1,26 +1,5 @@
 {
-  "rewrites": [
-    {
-      "source": "/",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/login",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/credentials",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/dashboard",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/oauth/github/callback",
-      "destination": "/index.html"
-    }
-  ],
+  "trailingSlash": false,
   "headers": [
     {
       "source": "/api/(.*)",
