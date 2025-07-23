@@ -158,10 +158,10 @@ export class PremiumAPIService {
         setupGuide: [
           'Create account at plaid.com',
           'Get client ID and secret from dashboard',
-          'Add PLAID_CLIENT_ID and PLAID_SECRET to environment',
+          'Add VITE_PLAID_CLIENT_ID and VITE_PLAID_SECRET to environment',
           'Configure webhook URL'
         ],
-        requiredEnvVars: ['PLAID_CLIENT_ID', 'PLAID_SECRET'],
+        requiredEnvVars: ['VITE_PLAID_CLIENT_ID', 'VITE_PLAID_SECRET'],
         testEndpoints: [
           {
             name: 'Create Link Token',
@@ -429,17 +429,37 @@ export class PremiumAPIService {
       if (isProduction) {
         console.log(`🔗 Simulating connection test for ${provider.name} (production mode)`);
         
-        // Validate credentials are provided
+        // Validate credentials are provided (check both credentials param and environment variables)
         const requiredFields = provider.authType === 'api-key' ? ['apiKey'] : ['accessToken'];
-        const hasCredentials = requiredFields.every(field => 
-          credentials[field] || credentials[provider.requiredEnvVars?.[0] || field]
-        );
         
-        if (!hasCredentials) {
-          return {
-            success: false,
-            error: 'Missing required credentials'
-          };
+        // For Plaid, check environment variables directly
+        if (provider.id === 'plaid') {
+          const hasPlaidCredentials = 
+            (import.meta.env.VITE_PLAID_CLIENT_ID && import.meta.env.VITE_PLAID_CLIENT_ID !== 'development_client_id_here') &&
+            (import.meta.env.VITE_PLAID_SECRET && import.meta.env.VITE_PLAID_SECRET !== 'development_secret_here');
+          
+          if (!hasPlaidCredentials) {
+            console.log('🔍 Plaid credentials check:', {
+              clientId: import.meta.env.VITE_PLAID_CLIENT_ID ? 'provided' : 'missing',
+              secret: import.meta.env.VITE_PLAID_SECRET ? 'provided' : 'missing'
+            });
+            return {
+              success: false,
+              error: 'Missing required Plaid credentials in environment variables'
+            };
+          }
+        } else {
+          // For other providers, use original logic
+          const hasCredentials = requiredFields.every(field => 
+            credentials[field] || credentials[provider.requiredEnvVars?.[0] || field]
+          );
+          
+          if (!hasCredentials) {
+            return {
+              success: false,
+              error: 'Missing required credentials'
+            };
+          }
         }
         
         // Simulate successful connection
