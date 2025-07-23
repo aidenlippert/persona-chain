@@ -30,6 +30,10 @@ Thumbs.db
 *_test.go
 *test*
 coverage.out
+test-results/
+test-screenshots/
+playwright-report/
+*.png
 
 # Documentation
 docs/

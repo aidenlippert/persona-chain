@@ -3,7 +3,6 @@
   "version": "1.0.0-rc1-cachebust-force-deploy",
   "description": "PersonaPass Identity Wallet - Release Candidate 1",
   "private": true,
-  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -83,7 +82,7 @@
     "gemini:optimize": "gemini-cli optimize src/",
     "gemini:security": "gemini-cli security src/",
     "startup:all": "npm run startup:test && npm run startup:build && npm run startup:deploy",
-    "start": "node test-server.js",
+    "start": "node server.js",
     "railway-start": "node server.js",
     "heroku-postbuild": "npm run build",
     "build": "vite build",
@@ -174,7 +173,7 @@
     "webpack-bundle-analyzer": "^4.10.2"
   },
   "engines": {
-    "node": "22.x",
+    "node": "20.x",
     "npm": "10.x"
   },
   "browserslist": {
