@@ -1,5 +1,9 @@
-const express = require('express');
-const path = require('path');
+import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -18,11 +22,16 @@ app.get('/health', (req, res) => {
 // GitHub OAuth API endpoint
 app.all('/api/github-oauth', async (req, res) => {
   try {
-    const handler = require('./api/github-oauth.js').default;
+    console.log('🔍 GitHub OAuth API endpoint called:', req.method, req.url);
+    const { default: handler } = await import('./api/github-oauth.js');
     await handler(req, res);
   } catch (error) {
-    console.error('GitHub OAuth API error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('❌ GitHub OAuth API error:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
@@ -45,4 +54,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 PersonaPass Wallet server running on port ${PORT}`);
   console.log(`📍 Environment: ${process.env.NODE_ENV || 'production'}`);
   console.log(`🌐 Access: http://localhost:${PORT}`);
+  console.log(`🔍 API endpoints: /health, /api/test, /api/github-oauth`);
 });
