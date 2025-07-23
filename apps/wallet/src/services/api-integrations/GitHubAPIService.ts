@@ -176,46 +176,25 @@ export class GitHubAPIService {
     console.log('🔄 OAuth Code:', code.substring(0, 10) + '...');
     console.log('🔄 State param:', state || 'none');
     
-    // ALWAYS create demo credential for now - real API has CORS issues
-    console.log('🎭 DEMO MODE: Creating demo credential (real API has CORS issues)...');
-    return this.createDemoCredential(code, state);
+    // Exchange code for REAL GitHub access token
+    console.log('🔑 REAL MODE: Exchanging code for actual GitHub access token...');
     
-    /* DISABLED: Real API calls have CORS issues
     try {
-      // Step 1: Exchange code for access token using different CORS proxy
-      console.log('🔑 Step 1: Exchanging code for access token...');
+      // Step 1: Exchange code for access token - Use direct GitHub API
+      console.log('🔑 Step 1: Exchanging code for real GitHub access token...');
       
-      // Try cors-anywhere proxy first
-      let tokenResponse;
-      try {
-        tokenResponse = await fetch('https://cors-anywhere.herokuapp.com/https://github.com/login/oauth/access_token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Accept': 'application/json'
-          },
-          body: new URLSearchParams({
-            client_id: import.meta.env.VITE_GITHUB_CLIENT_ID,
-            client_secret: import.meta.env.VITE_GITHUB_CLIENT_SECRET || 'cd7dee35528940f659bdc5e19fec5ecfaf6a1264',
-            code: code
-          })
-        });
-      } catch (corsError) {
-        console.log('🔄 CORS proxy failed, trying direct GitHub API...');
-        // Fallback to direct call (may fail due to CORS but worth trying)
-        tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Accept': 'application/json'
-          },
-          body: new URLSearchParams({
-            client_id: import.meta.env.VITE_GITHUB_CLIENT_ID,
-            client_secret: import.meta.env.VITE_GITHUB_CLIENT_SECRET || 'cd7dee35528940f659bdc5e19fec5ecfaf6a1264',
-            code: code
-          })
-        });
-      }
+      const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json'
+        },
+        body: new URLSearchParams({
+          client_id: import.meta.env.VITE_GITHUB_CLIENT_ID,
+          client_secret: import.meta.env.VITE_GITHUB_CLIENT_SECRET,
+          code: code
+        })
+      });
 
       if (!tokenResponse.ok) {
         throw new Error(`Token exchange failed: ${tokenResponse.status} ${tokenResponse.statusText}`);
@@ -241,37 +220,26 @@ export class GitHubAPIService {
         throw new Error('No access token received from GitHub');
       }
       
-      console.log('✅ Access token received');
+      console.log('✅ Real GitHub access token received');
+      this.setAccessToken(tokenData.access_token);
 
       // Step 2: Fetch real user data from GitHub API
-      console.log('👤 Step 2: Fetching your real GitHub profile...');
+      console.log('👤 Step 2: Fetching your REAL GitHub profile...');
       
-      let userResponse;
-      try {
-        userResponse = await fetch('https://cors-anywhere.herokuapp.com/https://api.github.com/user', {
-          headers: {
-            'Authorization': `token ${tokenData.access_token}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'User-Agent': 'PersonaPass-Wallet'
-          }
-        });
-      } catch (corsError) {
-        console.log('🔄 CORS proxy failed for user data, trying direct call...');
-        userResponse = await fetch('https://api.github.com/user', {
-          headers: {
-            'Authorization': `token ${tokenData.access_token}`,
-            'Accept': 'application/vnd.github.v3+json',
-            'User-Agent': 'PersonaPass-Wallet'
-          }
-        });
-      }
+      const userResponse = await fetch('https://api.github.com/user', {
+        headers: {
+          'Authorization': `token ${tokenData.access_token}`,
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'PersonaPass-Wallet'
+        }
+      });
 
       if (!userResponse.ok) {
         throw new Error(`GitHub API call failed: ${userResponse.status} ${userResponse.statusText}`);
       }
 
       const realUserData = await userResponse.json();
-      console.log('🎉 REAL GitHub data received:', realUserData.login);
+      console.log('🎉 REAL GitHub data received for user:', realUserData.login);
 
       // Create credential with REAL data
       const realGitHubCredential = this.createCredentialFromRealData(realUserData, tokenData.access_token);
@@ -287,12 +255,8 @@ export class GitHubAPIService {
       
     } catch (error) {
       console.error('❌ Failed to get real GitHub data:', error);
-      console.log('🔄 Falling back to demo data for now...');
-      
-      // Fallback to demo credential if real API fails
-      return this.createDemoCredential(code, state);
+      throw new Error(`GitHub OAuth failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-    */
   }
 
   /**
@@ -349,57 +313,6 @@ export class GitHubAPIService {
     return realCredential;
   }
 
-  /**
-   * Create demo credential (fallback)
-   */
-  private createDemoCredential(code: string, state: string) {
-    console.log('🎭 Creating DEMO credential as fallback...');
-    
-    const mockCredential = {
-      id: `github_demo_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-      "@context": [
-        "https://www.w3.org/2018/credentials/v1",
-        "https://persona.xyz/contexts/v1"
-      ],
-      type: ["VerifiableCredential", "GitHubCredential"],
-      issuer: "did:persona:github",
-      issuanceDate: new Date().toISOString(),
-      credentialSubject: {
-        id: `did:persona:demo_user_${Date.now()}`,
-        platform: 'github',
-        username: 'demo-user',
-        userId: Math.floor(Math.random() * 1000000),
-        name: 'Demo GitHub User',
-        email: 'demo@example.com',
-        publicRepos: Math.floor(Math.random() * 50) + 10,
-        followers: Math.floor(Math.random() * 200) + 50,
-        following: Math.floor(Math.random() * 100) + 30,
-        memberSince: '2020-01-01T00:00:00Z',
-        bio: 'Demo user - PersonaPass Identity Wallet',
-        company: 'Demo Company',
-        location: 'Demo Location',
-        verifiedAt: new Date().toISOString(),
-        note: 'This is demo data - enable real GitHub API for actual data'
-      },
-      proof: {
-        type: "Ed25519Signature2020",
-        created: new Date().toISOString(),
-        proofPurpose: "assertionMethod",
-        verificationMethod: "did:persona:github#key-1"
-      },
-      blockchainTxHash: `0x${Math.random().toString(16).substring(2, 66)}`
-    };
-    
-    // Store the demo credential properly
-    this.credentialData = mockCredential;
-    localStorage.setItem('github_credential_cache_v3', JSON.stringify(mockCredential));
-    
-    // Clear OAuth state after successful demo credential creation
-    this.clearOAuthStateAfterValidation();
-    
-    console.log('🎭 Demo credential created and stored');
-    return 'demo_credential_created';
-  }
 
   /**
    * 🧑‍💻 Get authenticated user profile
