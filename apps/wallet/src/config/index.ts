@@ -10,8 +10,8 @@ const envSchema = z.object({
   VITE_DEMO_MODE: z.string().transform(val => val === 'true').default('false'),
 
   // API Configuration
-  VITE_API_BASE_URL: z.string().url().default('http://localhost:3000'),
-  VITE_CONNECTOR_API_URL: z.string().url().default('http://localhost:8080'),
+  VITE_API_BASE_URL: z.string().url().default('https://api.personapass.xyz'),
+  VITE_CONNECTOR_API_URL: z.string().url().default('https://api.personapass.xyz'),
   VITE_API_TIMEOUT: z.string().transform(val => parseInt(val, 10)).default('10000'),
 
   // Blockchain Configuration - UPDATED FOR LIVE PERSONACHAIN
