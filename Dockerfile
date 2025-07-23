@@ -13,8 +13,8 @@ RUN npm ci --verbose --no-audit --no-fund
 # Copy the application source code
 COPY . .
 
-# Build the application
-RUN npm run build
+# Skip build for minimal test
+# RUN npm run build
 
 # Remove devDependencies after build
 RUN npm prune --production
@@ -37,4 +37,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD node -e "const http=require('http');const options={hostname:'localhost',port:8080,path:'/health',timeout:2000};const req=http.request(options,res=>{process.exit(res.statusCode===200?0:1)});req.on('error',()=>process.exit(1));req.end();"
 
 # Define the command to run the application
-CMD ["node", "server.js"]
+CMD ["node", "minimal-server.js"]

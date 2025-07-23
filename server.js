@@ -2,7 +2,7 @@ const express = require('express');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 8080;
+const PORT = parseInt(process.env.PORT || '8080', 10);
 
 console.log('🚀 Starting PersonaPass Wallet server...');
 console.log('📍 Environment:', process.env.NODE_ENV);
