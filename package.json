@@ -84,6 +84,7 @@
     "gemini:security": "gemini-cli security src/",
     "startup:all": "npm run startup:test && npm run startup:build && npm run startup:deploy",
     "start": "node server.js",
+    "railway-start": "node server.js",
     "heroku-postbuild": "npm run build",
     "railway-build": "npm run build"
   },

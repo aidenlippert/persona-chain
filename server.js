@@ -9,6 +9,9 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 
 console.log('🚀 Starting PersonaPass Wallet server...');
+console.log('📍 Environment:', process.env.NODE_ENV);
+console.log('📍 Port:', process.env.PORT);
+console.log('📍 Working Directory:', process.cwd());
 
 // Parse JSON bodies
 app.use(express.json());
