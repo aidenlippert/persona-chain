@@ -72,104 +72,36 @@ window.addEventListener('error', (event) => {
   });
 });
 
-// Override console.error to filter ONLY extension errors
+// Minimal console filtering - only suppress clear extension errors
 const originalConsoleError = console.error;
 console.error = function(...args) {
   const message = args.join(' ');
   
-  // Get the stack trace to identify the source
-  const stack = new Error().stack || '';
-  
-  // AGGRESSIVELY filter out ALL browser extension errors including hook.js
+  // Only suppress clearly extension-related errors
   if (message.includes('chrome-extension') ||
       message.includes('moz-extension') ||
-      message.includes('contentScripts') ||
-      message.includes('injectedScript') ||
-      message.includes('Refused to compile or instantiate WebAssembly') ||
-      message.includes('Content Security Policy') ||
-      message.includes('unsafe-eval') ||
-      message.includes('[Report Only]') ||
-      message.includes('hook.js') ||
-      message.includes('overrideMethod') ||
-      message.includes('ErrorBoundary: Caught legitimate application error') ||
-      message.includes('ComponentDidCatch: Processing legitimate application error') ||
-      message.includes('Page Error in Credentials') ||
-      message.includes('Error Boundary caught error') ||
-      message.includes('Invalid or unexpected token') ||
-      stack.includes('hook.js') ||
-      stack.includes('chrome-extension') ||
-      stack.includes('contentScripts')) {
-    return; // Completely suppress these errors
+      message.includes('hook.js') && message.includes('overrideMethod')) {
+    return;
   }
   
-  // Call original console.error for legitimate errors only
+  // Allow all other errors through
   originalConsoleError.apply(console, args);
 };
 
-// Also override console.warn for CSP warnings
-const originalConsoleWarn = console.warn;
-console.warn = function(...args) {
-  const message = args.join(' ');
-  
-  // Filter out CSP and extension warnings
-  if (message.includes('Content Security Policy') ||
-      message.includes('unsafe-eval') ||
-      message.includes('[Report Only]') ||
-      message.includes('WebAssembly') ||
-      message.includes('contentScripts') ||
-      message.includes('injectedScript') ||
-      message.includes('chrome-extension') ||
-      message.includes('moz-extension') ||
-      message.includes('hook.js')) {
-    return; // Completely suppress these warnings
-  }
-  
-  // Call original console.warn for legitimate warnings
-  originalConsoleWarn.apply(console, args);
-};
-
-// NUCLEAR OPTION: Complete React DCE Error Suppression
+// Minimal React DevTools compatibility
 try {
-  // Block ALL React development checks from extensions
-  if (typeof window !== 'undefined') {
-    // Prevent React DevTools global hook from triggering DCE errors
-    Object.defineProperty(window, '__REACT_DEVTOOLS_GLOBAL_HOOK__', {
-      value: {
-        checkDCE: () => {}, // No-op to prevent DCE check
-        supportsFiber: true,
-        inject: () => {},
-        onCommitFiberRoot: () => {},
-        onCommitFiberUnmount: () => {},
-      },
-      writable: false,
-      configurable: false
-    });
-    
-    // Override any extension error reporting that might trigger React errors
-    const blockExtensionErrors = () => {
-      ['reportError', 'logError', 'trackError', 'sendError'].forEach(method => {
-        if (window[method]) {
-          window[method] = () => {}; // No-op
-        }
-      });
+  if (typeof window !== 'undefined' && !window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
+    // Only set up if not already present
+    window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
+      checkDCE: () => {},
+      supportsFiber: true,
+      inject: () => {},
+      onCommitFiberRoot: () => {},
+      onCommitFiberUnmount: () => {},
     };
-    
-    blockExtensionErrors();
-    
-    // Re-run after DOM loads in case extensions load later
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', blockExtensionErrors);
-    }
   }
-  
-  // Prevent extensions from overriding our console methods
-  Object.defineProperty(console, 'error', {
-    value: console.error,
-    writable: false,
-    configurable: false
-  });
 } catch (e) {
-  // Ignore errors from trying to override properties
+  // Ignore errors
 }
 
 // Create root and render app
