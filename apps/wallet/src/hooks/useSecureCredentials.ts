@@ -57,6 +57,15 @@ export const useSecureCredentials = (): UseSecureCredentialsReturn => {
   const addCredential = useCallback(async (credential: SecureCredential) => {
     try {
       setError(null);
+      
+      console.log('🔍 DEBUG: useSecureCredentials.addCredential called with:', {
+        credential,
+        credentialId: credential?.id,
+        credentialType: typeof credential,
+        credentialKeys: credential ? Object.keys(credential) : 'no keys',
+        hasCredentialSubject: !!credential?.credentialSubject
+      });
+
       await secureCredentialStorage.storeCredential(credential);
       await loadCredentials(); // Refresh list
       console.log(`✅ Added credential: ${credential.id}`);

@@ -138,21 +138,35 @@ export const CredentialsPage = () => {
   // 🛡️ Helper function to safely add credential with validation
   const safeAddCredential = async (credential: any) => {
     try {
+      console.log('🔍 DEBUG: safeAddCredential called with:', {
+        credential,
+        credentialType: typeof credential,
+        isArray: Array.isArray(credential),
+        hasId: credential?.id,
+        credentialKeys: credential ? Object.keys(credential) : 'no keys'
+      });
+
       if (!credential) {
         throw new Error('Credential is null or undefined');
       }
 
       // Handle array of credentials (take the first one)
       if (Array.isArray(credential)) {
+        console.log('🔍 DEBUG: Credential is array, length:', credential.length);
         if (credential.length === 0) {
           throw new Error('Credential array is empty');
         }
         credential = credential[0];
+        console.log('🔍 DEBUG: Using first element:', credential);
       }
 
       // Ensure credential has required fields for SecureCredential
       if (!credential.id) {
-        console.error('❌ Credential missing id:', credential);
+        console.error('❌ Credential missing id:', {
+          credential,
+          credentialKeys: Object.keys(credential || {}),
+          credentialStringified: JSON.stringify(credential, null, 2)
+        });
         throw new Error('Credential missing required id field');
       }
 
@@ -166,6 +180,13 @@ export const CredentialsPage = () => {
         proof: credential.proof,
         blockchainTxHash: credential.blockchainTxHash
       };
+
+      console.log('🔍 DEBUG: Normalized credential before storage:', {
+        id: normalizedCredential.id,
+        type: normalizedCredential.type,
+        issuer: normalizedCredential.issuer,
+        hasCredentialSubject: !!normalizedCredential.credentialSubject
+      });
 
       await addCredential(normalizedCredential);
     } catch (error) {
