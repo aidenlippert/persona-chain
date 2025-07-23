@@ -9,6 +9,17 @@ console.log('📍 Environment:', process.env.NODE_ENV);
 console.log('📍 Port:', process.env.PORT);
 console.log('📍 Working Directory:', process.cwd());
 
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
+
 // Parse JSON bodies
 app.use(express.json());
 
@@ -62,14 +73,32 @@ app.get('*', (req, res) => {
   res.sendFile(indexPath);
 });
 
-app.listen(PORT, '0.0.0.0', (err) => {
-  if (err) {
-    console.error('❌ Server failed to start:', err);
-    process.exit(1);
-  }
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 PersonaPass Wallet server running on port ${PORT}`);
   console.log(`📍 Environment: ${process.env.NODE_ENV || 'production'}`);
-  console.log(`🌐 Access: http://localhost:${PORT}`);
+  console.log(`🌐 Server binding: 0.0.0.0:${PORT}`);
   console.log(`🔍 API endpoints: /health, /api/test, /api/github-oauth`);
   console.log(`📁 Static files served from: ${staticPath}`);
+});
+
+server.on('error', (err) => {
+  console.error('❌ Server error:', err);
+  process.exit(1);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('🛑 SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    console.log('✅ Server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('🛑 SIGINT received, shutting down gracefully');
+  server.close(() => {
+    console.log('✅ Server closed');
+    process.exit(0);
+  });
 });
