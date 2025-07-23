@@ -183,7 +183,13 @@ export class GitHubAPIService {
       // Use serverless function for secure token exchange
       console.log('🔑 Step 1: Exchanging code via secure serverless function...');
       
-      const response = await fetch('/api/github-oauth', {
+      // Get the API base URL from config
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.personapass.xyz';
+      const oauthEndpoint = `${API_BASE_URL}/api/github-oauth`;
+      
+      console.log('🔍 Using OAuth endpoint:', oauthEndpoint);
+      
+      const response = await fetch(oauthEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
