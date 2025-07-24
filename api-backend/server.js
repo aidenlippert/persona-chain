@@ -257,6 +257,121 @@ app.post('/api/v1/connectors/plaid/auth', async (req, res) => {
   }
 });
 
+// GitHub OAuth Routes (PersonaPass frontend integration)
+app.get('/oauth/github/init', async (req, res) => {
+  try {
+    const clientId = process.env.GITHUB_CLIENT_ID;
+    if (!clientId) {
+      return res.status(500).json({ error: 'GitHub OAuth not configured' });
+    }
+
+    // Generate secure state parameter
+    const state = Buffer.from(JSON.stringify({
+      timestamp: Date.now(),
+      nonce: Math.random().toString(36).substring(2, 15)
+    })).toString('base64');
+
+    // Build GitHub OAuth URL
+    const authUrl = new URL('https://github.com/login/oauth/authorize');
+    authUrl.searchParams.set('client_id', clientId);
+    authUrl.searchParams.set('redirect_uri', 'https://api.personapass.xyz/oauth/github/callback');
+    authUrl.searchParams.set('scope', 'user:email read:user');
+    authUrl.searchParams.set('state', state);
+    authUrl.searchParams.set('response_type', 'code');
+
+    console.log(`🐙 GitHub OAuth init: ${authUrl.toString()}`);
+    
+    res.json({
+      authUrl: authUrl.toString(),
+      state: state,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('GitHub OAuth init error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/oauth/github/callback', async (req, res) => {
+  try {
+    const { code, state } = req.query;
+    
+    if (!code) {
+      return res.redirect('https://personapass.xyz/oauth/github/callback?error=no_code');
+    }
+
+    const clientId = process.env.GITHUB_CLIENT_ID;
+    const clientSecret = process.env.GITHUB_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      return res.redirect('https://personapass.xyz/oauth/github/callback?error=oauth_not_configured');
+    }
+
+    // Exchange code for access token
+    const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code: code,
+      }),
+    });
+
+    const tokenData = await tokenResponse.json();
+    console.log('🐙 GitHub token exchange:', tokenData.access_token ? 'SUCCESS' : 'FAILED');
+
+    if (tokenData.error) {
+      return res.redirect(`https://personapass.xyz/oauth/github/callback?error=${tokenData.error}`);
+    }
+
+    // Get user data
+    const userResponse = await fetch('https://api.github.com/user', {
+      headers: {
+        'Authorization': `Bearer ${tokenData.access_token}`,
+        'User-Agent': 'PersonaPass-App'
+      }
+    });
+
+    const userData = await userResponse.json();
+    console.log('🐙 GitHub user data:', userData.login || 'NO LOGIN');
+
+    // Create credential data
+    const credentialData = {
+      id: `github-${userData.id}-${Date.now()}`,
+      type: ['VerifiableCredential', 'GitHubProfile'],
+      issuer: 'did:persona:github',
+      credentialSubject: {
+        id: `github:${userData.login}`,
+        login: userData.login,
+        name: userData.name,
+        email: userData.email,
+        bio: userData.bio,
+        publicRepos: userData.public_repos,
+        followers: userData.followers,
+        following: userData.following,
+        createdAt: userData.created_at,
+        avatarUrl: userData.avatar_url,
+        htmlUrl: userData.html_url,
+        verificationTimestamp: new Date().toISOString()
+      },
+      issuanceDate: new Date().toISOString(),
+      expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 year
+    };
+
+    // Redirect to frontend with credential data
+    const credentialParam = encodeURIComponent(JSON.stringify(credentialData));
+    res.redirect(`https://personapass.xyz/oauth/github/callback?credential=${credentialParam}&success=true`);
+
+  } catch (error) {
+    console.error('GitHub OAuth callback error:', error);
+    res.redirect(`https://personapass.xyz/oauth/github/callback?error=${encodeURIComponent(error.message)}`);
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(`${new Date().toISOString()} - Error: ${err.message}`);
