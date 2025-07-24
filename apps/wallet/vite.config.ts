@@ -163,6 +163,12 @@ export default defineConfig(({ command: _command, mode }) => ({
     // Enable JSX optimizations for production
     jsx: 'automatic',
     jsxDev: mode !== 'production',
+    // Support for BigInt and top-level await
+    supported: {
+      bigint: true,
+      'top-level-await': true
+    },
+    target: 'es2020',
   },
   resolve: {
     alias: {
@@ -214,7 +220,7 @@ export default defineConfig(({ command: _command, mode }) => ({
       treeshake: false,
     },
     // Basic build settings only - React optimization handled via environment variables
-    target: 'es2022', // Support top-level await for WebAssembly
+    target: ['es2020', 'edge88', 'firefox78', 'chrome87', 'safari14'], // Support BigInt and modern features
     minify: mode === 'production' ? 'esbuild' : false, // Enable minification for production React
     chunkSizeWarningLimit: 2000,
     assetsInlineLimit: 0,

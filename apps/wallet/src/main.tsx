@@ -2,6 +2,9 @@
  * Persona Wallet Entry Point - ULTIMATE CACHE BUSTER v3
  */
 
+// Import BigInt polyfill first to ensure compatibility
+import "./polyfills/bigint";
+
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
