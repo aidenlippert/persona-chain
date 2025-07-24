@@ -4,6 +4,8 @@
  * OAuth2 flow + Repository statistics + Developer profile
  */
 
+import { oauthToVCService } from '../credentials/OAuthToVCService';
+
 export interface GitHubUser {
   id: number;
   login: string;
@@ -243,9 +245,22 @@ export class GitHubAPIService {
       // Set access token
       this.setAccessToken(result.access_token);
       
-      // Store the credential
+      // Create and store verifiable credential
+      console.log('🔄 Creating Verifiable Credential from GitHub data...');
+      const vc = await oauthToVCService.createVCFromOAuth({
+        platform: 'github',
+        accessToken: result.access_token,
+        userData: {
+          ...result.user,
+          stats: result.credential?.stats || {}
+        }
+      });
+      
+      // Store the credential data for backward compatibility
       this.credentialData = result.credential;
       localStorage.setItem('github_credential_cache_v3', JSON.stringify(result.credential));
+      
+      console.log('✅ GitHub Verifiable Credential created and stored!');
       
       // Clear OAuth state after successful processing
       this.clearOAuthStateAfterValidation();
