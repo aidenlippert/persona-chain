@@ -1,6 +1,6 @@
 {
   "name": "@personapass/wallet",
-  "version": "1.0.0-rc1-cachebust-force-deploy",
+  "version": "1.0.0-rc1-oauth-fix-deployed",
   "description": "PersonaPass Identity Wallet - Release Candidate 1",
   "private": true,
   "scripts": {

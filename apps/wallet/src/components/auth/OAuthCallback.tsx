@@ -144,8 +144,15 @@ export const OAuthCallback = ({ platform }: OAuthCallbackProps) => {
       if (!code) {
         console.error('❌ No code parameter found - checking if this is a Railway success response...');
         console.log('🔍 Parameters check:', { success, credential: !!credential, hasCredentialData: credential?.length > 0 });
-        setStatus('error');
-        setMessage('Missing OAuth code parameter');
+        // Check one more time if we have credential data
+        if (!credential) {
+          setStatus('error');
+          setMessage('Missing OAuth code parameter');
+        } else {
+          // We have credential but not recognized yet - show info
+          setStatus('success');
+          setMessage('OAuth completed! Refresh the page to see your credential.');
+        }
         return;
       }
 
