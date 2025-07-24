@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth Success - PersonaPass</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #000 0%, #111 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid #ff6b35;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        h1 {
+            color: #ff6b35;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+        }
+        .success-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+        .credential-data {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #ff6b35;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+            font-family: monospace;
+            font-size: 0.9em;
+            overflow-x: auto;
+        }
+        .button {
+            background: linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: transform 0.2s;
+        }
+        .button:hover {
+            transform: scale(1.05);
+        }
+        .info {
+            color: #ff6b35;
+            margin: 20px 0;
+            font-size: 1.1em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success-icon">✅</div>
+        <h1>GitHub OAuth Success!</h1>
+        <p class="info">Your GitHub credential has been created successfully!</p>
+        
+        <div class="credential-data" id="credentialDisplay">
+            Loading credential data...
+        </div>
+        
+        <button class="button" onclick="storeCredentialAndRedirect()">
+            Store Credential & Continue
+        </button>
+        
+        <p style="margin-top: 20px; opacity: 0.7;">
+            If the button doesn't work, refresh the page and try again.
+        </p>
+    </div>
+
+    <script>
+        // Parse URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const credentialParam = urlParams.get('credential');
+        const success = urlParams.get('success');
+        
+        // Display credential info
+        if (credentialParam && success === 'true') {
+            try {
+                const credential = JSON.parse(decodeURIComponent(credentialParam));
+                document.getElementById('credentialDisplay').innerHTML = `
+                    <strong>✅ Credential Created Successfully!</strong><br><br>
+                    <strong>Type:</strong> ${credential.type.join(', ')}<br>
+                    <strong>Username:</strong> ${credential.credentialSubject.login}<br>
+                    <strong>User ID:</strong> ${credential.credentialSubject.id}<br>
+                    <strong>Public Repos:</strong> ${credential.credentialSubject.publicRepos}<br>
+                    <strong>Followers:</strong> ${credential.credentialSubject.followers}<br>
+                    <strong>Created:</strong> ${new Date(credential.issuanceDate).toLocaleDateString()}<br>
+                    <strong>Expires:</strong> ${new Date(credential.expirationDate).toLocaleDateString()}
+                `;
+                
+                // Auto-store the credential
+                setTimeout(() => {
+                    storeCredentialAndRedirect();
+                }, 2000);
+                
+            } catch (error) {
+                document.getElementById('credentialDisplay').innerHTML = 
+                    '<strong>Error parsing credential data</strong><br>' + error.message;
+            }
+        } else {
+            document.getElementById('credentialDisplay').innerHTML = 
+                '<strong>No credential data found in URL</strong>';
+        }
+        
+        function storeCredentialAndRedirect() {
+            if (credentialParam && success === 'true') {
+                try {
+                    const credential = JSON.parse(decodeURIComponent(credentialParam));
+                    
+                    // Store in localStorage
+                    const existingCreds = JSON.parse(localStorage.getItem('credentials') || '[]');
+                    
+                    // Check if credential already exists
+                    const exists = existingCreds.some(c => c.id === credential.id);
+                    if (!exists) {
+                        existingCreds.push(credential);
+                        localStorage.setItem('credentials', JSON.stringify(existingCreds));
+                        console.log('✅ Credential stored successfully!');
+                    }
+                    
+                    // Notify parent window if in popup
+                    if (window.opener) {
+                        window.opener.postMessage({
+                            type: 'GITHUB_OAUTH_SUCCESS',
+                            credential: credential,
+                            username: credential.credentialSubject.login
+                        }, window.location.origin);
+                        window.close();
+                    } else {
+                        // Redirect to credentials page
+                        alert('GitHub credential stored successfully! Click OK to continue.');
+                        window.location.href = '/credentials';
+                    }
+                    
+                } catch (error) {
+                    alert('Error storing credential: ' + error.message);
+                }
+            }
+        }
+    </script>
+</body>
+</html>

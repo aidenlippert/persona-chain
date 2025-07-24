@@ -198,7 +198,8 @@ app.get('/oauth/github/callback', async (req, res) => {
 
     // Redirect to frontend with credential data
     const credentialParam = encodeURIComponent(JSON.stringify(credentialData));
-    res.redirect(`https://personapass.xyz/oauth/github/callback?credential=${credentialParam}&success=true`);
+    // TEMPORARY: Use success handler page to bypass Vercel caching issue
+    res.redirect(`https://personapass.xyz/oauth-success-handler.html?credential=${credentialParam}&success=true`);
     
   } catch (error) {
     console.error('❌ GitHub OAuth callback error:', error);
