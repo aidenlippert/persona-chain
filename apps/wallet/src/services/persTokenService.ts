@@ -9,10 +9,11 @@ import { errorService, ErrorCategory, ErrorSeverity } from './errorService';
 import { retryService } from './retryService';
 import { analyticsService } from './analyticsService';
 
-// Import contract ABIs (will be generated from Solidity)
-import PERS_TOKEN_ABI from '../contracts/abi/PERSToken.json';
-import PERS_STAKING_ABI from '../contracts/abi/PERSStaking.json';
-import PERS_REWARDS_ABI from '../contracts/abi/PERSRewards.json';
+// Import contract ABIs - Mock for now since we don't have real contracts yet
+// TODO: Import real ABIs when contracts are deployed
+const PERS_TOKEN_ABI = [];
+const PERS_STAKING_ABI = [];
+const PERS_REWARDS_ABI = [];
 
 interface TokenConfig {
   symbol: string;
