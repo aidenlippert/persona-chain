@@ -4,6 +4,8 @@
 
 // WASM functionality restored for legitimate ZK proof operations
 import { logWASMStatus } from "./utils/wasmTest";
+import { initializeWasmLoader } from "./utils/wasmLoader";
+import { initializeCryptoWasmFix, testCryptoWasm } from "./utils/cryptoWasmFix";
 
 import React from "react";
 import ReactDOM from "react-dom/client";
@@ -28,9 +30,28 @@ try {
 // 🚀 Initialize Production Monitoring Systems
 console.log("🔥 Initializing PersonaPass Production Systems...");
 
+// Initialize crypto WASM fixes for MIME type issues
+console.log("🔧 Initializing crypto WASM fixes...");
+initializeCryptoWasmFix();
+
+// Initialize robust WASM loader with MIME type fallback
+console.log("🚀 Initializing WASM loader...");
+initializeWasmLoader();
+
 // Test WASM functionality
 console.log("🧪 Testing WASM functionality...");
 logWASMStatus();
+
+// Test crypto WASM specifically
+setTimeout(async () => {
+  console.log("🧪 Testing crypto WASM...");
+  const cryptoWorking = await testCryptoWasm();
+  if (cryptoWorking) {
+    console.log("✅ Crypto WASM working correctly");
+  } else {
+    console.warn("⚠️ Crypto WASM fallback mode active");
+  }
+}, 1000);
 
 // Initialize error tracking
 try {

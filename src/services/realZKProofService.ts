@@ -12,6 +12,7 @@ import { cryptoService } from './cryptoService';
 import { storageService } from './storageService';
 import type { VerifiableCredential } from '../types/wallet';
 import { errorService } from "@/services/errorService";
+import { loadWasm, initializeWasmLoader } from '../utils/wasmLoader';
 
 interface CircuitConfig {
   wasmPath: string;
