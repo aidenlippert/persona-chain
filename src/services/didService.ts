@@ -6,13 +6,22 @@
  */
 
 import { ed25519 } from "@noble/curves/ed25519";
+
+// 🚨 WASM FIX: Force @noble/curves to use pure JavaScript instead of WASM
+// This prevents "Incorrect response MIME type" errors in production
+if (typeof globalThis !== 'undefined') {
+  // Disable WASM usage globally to avoid MIME type issues
+  globalThis.crypto = globalThis.crypto || {};
+  (globalThis as any).__NOBLE_DISABLE_WASM__ = true;
+}
+
 // import { randomBytes } from '@noble/hashes/utils';
 import { sha256 } from "@noble/hashes/sha256";
 import { base58btc } from "multiformats/bases/base58";
-// Use mock service in development/testing
-import { gcpHSMService } from "./mockGcpHSMService";
-// Import blockchain service for DID registry
-import { blockchainService } from "./blockchainService";
+// Use real HSM service for production
+import { realHSMService as gcpHSMService } from "./realHSMService";
+// Import production blockchain service for DID registry
+import { productionBlockchainService as blockchainService } from "./productionBlockchainService";
 import { errorService } from "@/services/errorService";
 
 /**

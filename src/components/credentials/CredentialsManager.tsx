@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { errorService } from "@/services/errorService";
+import { notificationService } from "@/services/notificationService";
 
 interface Credential {
   type: string;
@@ -91,7 +92,7 @@ export const CredentialsManager = ({ did, onCredentialCreated }: CredentialsMana
 
       // Create the verifiable credential
       const credential: Credential = {
-        type: ["VerifiableCredential", `${type}Credential`],
+        type: `${type}Credential`,
         issuer: did,
         issuanceDate: new Date().toISOString(),
         credentialSubject: {
@@ -136,7 +137,12 @@ export const CredentialsManager = ({ did, onCredentialCreated }: CredentialsMana
 
   const generateZKProof = (credential: Credential) => {
     // This would generate a real ZK proof
-    notify.info(`Zero-Knowledge Proof Generated!\n\nProving: ${credential.type[1]}\nWithout revealing: Personal details\n\nProof hash: 0x${Math.random().toString(16).substr(2, 8)}...`);
+    notificationService.notify(`Zero-Knowledge Proof Generated!
+
+Proving: ${credential.type}
+Without revealing: Personal details
+
+Proof hash: 0x${Math.random().toString(16).substr(2, 8)}...`, { type: 'success' });
   };
 
   return (
@@ -182,7 +188,7 @@ export const CredentialsManager = ({ did, onCredentialCreated }: CredentialsMana
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <h4 className="font-medium text-gray-900">
-                      {cred.type[1].replace('Credential', '')} Credential
+                      {cred.type.replace('Credential', '')} Credential
                     </h4>
                     <p className="text-sm text-gray-600 mt-1">
                       Issued: {new Date(cred.issuanceDate).toLocaleDateString()}

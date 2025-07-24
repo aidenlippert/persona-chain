@@ -2,6 +2,9 @@
  * Persona Wallet Entry Point - ULTIMATE CACHE BUSTER v3
  */
 
+// 🚨 CRITICAL FIX: Disable WASM before any other imports
+import "./utils/wasmDisabler";
+
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
@@ -10,6 +13,8 @@ import "./styles/globals.css";
 import "./styles/components.css";
 import { configService } from "./config";
 import { errorService } from "@/services/errorService";
+import { productionErrorTracker } from "./services/productionErrorTracker";
+import { workflowTester } from "./utils/workflowTester";
 
 // Initialize configuration service early
 try {
@@ -18,6 +23,44 @@ try {
 } catch (error) {
   errorService.logError("[ERROR] Failed to initialize configuration service:", error);
   // Continue with application startup using fallback values
+}
+
+// 🚀 Initialize Production Monitoring Systems
+console.log("🔥 Initializing PersonaPass Production Systems...");
+
+// Initialize error tracking
+try {
+  productionErrorTracker; // Initialize singleton
+  console.log("✅ Production error tracking initialized");
+} catch (error) {
+  console.error("❌ Failed to initialize error tracking:", error);
+}
+
+// Initialize workflow testing (run critical tests after app loads)
+try {
+  workflowTester; // Initialize singleton
+  console.log("✅ Workflow testing system initialized");
+  
+  // Run critical workflow tests after initial render
+  setTimeout(async () => {
+    try {
+      console.log("🧪 Running critical workflow tests...");
+      const summary = await workflowTester.runCriticalTests();
+      console.log("📊 Critical tests summary:", summary);
+      
+      if (summary.overallHealth === 'critical') {
+        console.error("🚨 CRITICAL: Core workflows failing!");
+      } else if (summary.overallHealth === 'degraded') {
+        console.warn("⚠️ WARNING: Some workflows degraded");
+      } else {
+        console.log("✅ All critical workflows passing");
+      }
+    } catch (testError) {
+      console.error("❌ Failed to run workflow tests:", testError);
+    }
+  }, 3000); // Wait 3 seconds for app to stabilize
+} catch (error) {
+  console.error("❌ Failed to initialize workflow testing:", error);
 }
 
 // Register service worker for PWA functionality

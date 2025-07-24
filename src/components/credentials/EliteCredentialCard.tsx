@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import {
   Shield,
   CreditCard,
@@ -180,18 +180,18 @@ export const EliteCredentialCard: React.FC<EliteCredentialCardProps> = ({
 
   const verificationBadge = getVerificationBadge();
 
-  const cardVariants = {
+  const cardVariants: Variants = {
     hidden: { opacity: 0, y: 20, scale: 0.95 },
     visible: { 
       opacity: 1, 
       y: 0, 
       scale: 1,
-      transition: { duration: 0.3, ease: "easeOut" }
+      transition: { duration: 0.3, type: "spring", stiffness: 100 }
     },
     hover: { 
       y: -8, 
       scale: 1.02,
-      transition: { duration: 0.2, ease: "easeOut" }
+      transition: { duration: 0.2, type: "spring", stiffness: 150 }
     },
     tap: { 
       scale: 0.98,

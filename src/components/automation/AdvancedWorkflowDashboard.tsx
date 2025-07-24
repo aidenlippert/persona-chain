@@ -45,7 +45,7 @@ interface ExecutionConfig {
       zipCode: string;
     };
   };
-  options?: {
+  options: {
     skipOptionalSteps: boolean;
     allowPartialCompletion: boolean;
     notifyOnProgress: boolean;

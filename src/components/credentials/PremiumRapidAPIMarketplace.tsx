@@ -3,7 +3,7 @@
  * Inspired by top-tier platforms like Zapier, Stripe Connect, and Auth0 Marketplace
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Shield, 
@@ -27,7 +27,7 @@ import {
   Eye,
   ExternalLink
 } from 'lucide-react';
-import { EliteWeb3Button } from '../ui/EliteWeb3Button';
+const EliteWeb3Button = lazy(() => import('../ui/EliteWeb3Button').then(m => ({ default: m.EliteWeb3Button })));
 import RapidAPIConnector, { RapidAPIMetadata, RapidAPISearchFilters } from '../../services/automation/RapidAPIConnector';
 import { errorService } from "@/services/errorService";
 
@@ -251,15 +251,17 @@ const EliteAPICard: React.FC<APICardProps> = ({ api, onSelect, onPreview, isSele
       {/* Actions */}
       <div className="p-6 pt-0">
         <div className="flex gap-2">
-          <EliteWeb3Button
-            variant="primary"
-            size="sm"
-            onClick={() => onSelect(api)}
-            className="flex-1 text-sm"
-            icon={<Zap className="w-4 h-4" />}
-          >
-            {isSelected ? 'Selected' : 'Select API'}
-          </EliteWeb3Button>
+          <Suspense fallback={<div className="animate-pulse bg-slate-700 h-8 rounded flex-1"></div>}>
+            <EliteWeb3Button
+              variant="primary"
+              size="sm"
+              onClick={() => onSelect(api)}
+              className="flex-1 text-sm"
+              icon={<Zap className="w-4 h-4" />}
+            >
+              {isSelected ? 'Selected' : 'Select API'}
+            </EliteWeb3Button>
+          </Suspense>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -425,14 +427,16 @@ export const PremiumRapidAPIMarketplace: React.FC = () => {
                 <div className="text-2xl font-bold text-cyan-400">{selectedAPIs.size}</div>
               </div>
               {selectedAPIs.size > 0 && (
-                <EliteWeb3Button
-                  variant="primary"
-                  size="lg"
-                  onClick={handleCreateVCs}
-                  icon={<Rocket className="w-5 h-5" />}
-                >
-                  Create VCs ({selectedAPIs.size})
-                </EliteWeb3Button>
+                <Suspense fallback={<div className="animate-pulse bg-slate-700 h-12 rounded"></div>}>
+                  <EliteWeb3Button
+                    variant="primary"
+                    size="lg"
+                    onClick={handleCreateVCs}
+                    icon={<Rocket className="w-5 h-5" />}
+                  >
+                    Create VCs ({selectedAPIs.size})
+                  </EliteWeb3Button>
+                </Suspense>
               )}
             </div>
           </div>
@@ -589,18 +593,20 @@ export const PremiumRapidAPIMarketplace: React.FC = () => {
 
                   {/* Actions */}
                   <div className="flex gap-4 pt-6 border-t border-slate-700/50">
-                    <EliteWeb3Button
-                      variant="primary"
-                      size="md"
-                      onClick={() => {
-                        handleAPISelect(previewAPI);
-                        setPreviewAPI(null);
-                      }}
-                      icon={<Zap className="w-4 h-4" />}
-                      className="flex-1"
-                    >
-                      {selectedAPIs.has(previewAPI.id) ? 'Selected' : 'Select API'}
-                    </EliteWeb3Button>
+                    <Suspense fallback={<div className="animate-pulse bg-slate-700 h-12 rounded flex-1"></div>}>
+                      <EliteWeb3Button
+                        variant="primary"
+                        size="md"
+                        onClick={() => {
+                          handleAPISelect(previewAPI);
+                          setPreviewAPI(null);
+                        }}
+                        icon={<Zap className="w-4 h-4" />}
+                        className="flex-1"
+                      >
+                        {selectedAPIs.has(previewAPI.id) ? 'Selected' : 'Select API'}
+                      </EliteWeb3Button>
+                    </Suspense>
                     <button
                       onClick={() => window.open(previewAPI.rapidApiUrl, '_blank')}
                       className="flex-1 px-6 py-3 bg-slate-800/50 text-slate-300 rounded-xl border border-slate-700/50 hover:bg-slate-700/50 hover:text-white transition-all flex items-center justify-center gap-2"

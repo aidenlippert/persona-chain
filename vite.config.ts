@@ -154,6 +154,8 @@ export default defineConfig(({ command: _command, mode }) => ({
     'process.env.NODE_ENV': JSON.stringify(mode),
     // Enable React production optimizations
     __DEV__: mode !== 'production',
+    // 🚨 WASM FIX: Force @noble/curves to use pure JavaScript
+    '__NOBLE_DISABLE_WASM__': true,
   },
   esbuild: {
     // Additional esbuild configuration for React optimization
@@ -208,16 +210,50 @@ export default defineConfig(({ command: _command, mode }) => ({
     },
   },
   build: {
-    // 🔧 MINIMAL BUILD CONFIG TO AVOID ROLLUP EXTENSIBILITY ERRORS
+    // 🚀 STATE-OF-THE-ART BUILD CONFIG - Advanced optimization
     rollupOptions: {
-      // Completely disable rollup optimizations that cause extensibility issues
-      treeshake: false,
+      output: {
+        // 🚨 EMERGENCY BUNDLE SIZE REDUCTION - Aggressive code splitting
+        manualChunks: (id) => {
+          // Split each major component into its own chunk
+          if (id.includes('EliteWeb3Button')) return 'elite-web3-button';
+          if (id.includes('CredentialsPage')) return 'credentials-page';
+          if (id.includes('ZKPDashboard')) return 'zkp-dashboard';
+          if (id.includes('IdentityVerificationPage')) return 'identity-verification';
+          
+          // Split large libraries
+          if (id.includes('snarkjs')) return 'snarkjs';
+          if (id.includes('circomlib')) return 'circomlib';
+          if (id.includes('ffjavascript')) return 'ffjavascript';
+          if (id.includes('@noble/curves')) return 'noble-curves';
+          if (id.includes('ethers')) return 'ethers';
+          if (id.includes('framer-motion')) return 'framer-motion';
+          
+          // Split React ecosystem
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) return 'react-core';
+          if (id.includes('node_modules/react-router')) return 'react-router';
+          
+          // Split UI libraries
+          if (id.includes('@heroicons/react')) return 'heroicons';
+          if (id.includes('@headlessui/react')) return 'headlessui';
+          
+          // Default chunk for everything else
+          if (id.includes('node_modules')) return 'vendor';
+        },
+        // 🎯 OPTIMIZED CHUNK NAMING
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]',
+      },
     },
-    // Basic build settings only - React optimization handled via environment variables
-    target: 'es2022', // Support top-level await for WebAssembly
-    minify: mode === 'production' ? 'esbuild' : false, // Enable minification for production React
-    chunkSizeWarningLimit: 2000,
-    assetsInlineLimit: 0,
+    // 🚀 MODERN BUILD TARGETS - Support top-level await
+    target: 'esnext', // Support latest features including top-level await
+    minify: mode === 'production' ? 'esbuild' : false,
+    chunkSizeWarningLimit: 500, // Strict 500KB limit
+    assetsInlineLimit: 4096, // Inline small assets
+    // 📊 BUILD ANALYSIS
+    reportCompressedSize: true,
+    sourcemap: mode === 'development' ? 'eval-cheap-module-source-map' : false,
   },
   optimizeDeps: {
     include: ["buffer", "crypto-browserify", "stream-browserify", "util"],

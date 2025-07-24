@@ -2,12 +2,12 @@
  * Login Page with Keplr Wallet Connection
  */
 
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 // Removed unused personaChainService import
 import { crossDeviceAuthService } from "../../services/crossDeviceAuthService";
-import { EliteWeb3Button } from "../ui/EliteWeb3Button";
+const EliteWeb3Button = lazy(() => import("../ui/EliteWeb3Button").then(m => ({ default: m.EliteWeb3Button })));
 import { errorService } from "@/services/errorService";
 
 export const LoginPage = () => {
@@ -103,28 +103,30 @@ export const LoginPage = () => {
           </div>
 
           {/* Keplr Login Button */}
-          <EliteWeb3Button
-            onClick={handleKeplrLogin}
-            disabled={isLoading}
-            variant="primary"
-            size="lg"
-            fullWidth
-            isLoading={isLoading}
-            className="mb-4"
-          >
-            {isLoading ? "Connecting..." : "Login with Keplr"}
-          </EliteWeb3Button>
+          <Suspense fallback={<div className="animate-pulse bg-slate-700 h-12 rounded-lg mb-4"></div>}>
+            <EliteWeb3Button
+              onClick={handleKeplrLogin}
+              disabled={isLoading}
+              variant="primary"
+              size="lg"
+              fullWidth
+              isLoading={isLoading}
+              className="mb-4"
+            >
+              {isLoading ? "Connecting..." : "Login with Keplr"}
+            </EliteWeb3Button>
 
-          {/* Test Button for Simulating Returning User */}
-          <EliteWeb3Button
-            onClick={handleSimulateReturningUser}
-            variant="secondary"
-            size="sm"
-            fullWidth
-            className="mb-4"
-          >
-            [MASK] Simulate Returning User (Test)
-          </EliteWeb3Button>
+            {/* Test Button for Simulating Returning User */}
+            <EliteWeb3Button
+              onClick={handleSimulateReturningUser}
+              variant="secondary"
+              size="sm"
+              fullWidth
+              className="mb-4"
+            >
+              [MASK] Simulate Returning User (Test)
+            </EliteWeb3Button>
+          </Suspense>
 
           {/* User Not Found Message */}
           {showUserNotFound && (
@@ -142,14 +144,16 @@ export const LoginPage = () => {
                   <p className="text-orange-400 text-sm mb-3">
                     No PersonaPass identity found for this wallet address. You'll need to create an account first.
                   </p>
-                  <EliteWeb3Button
-                    onClick={() => navigate('/onboarding')}
-                    variant="secondary"
-                    size="sm"
-                    className="bg-orange-500/20 hover:bg-orange-500/30 border-orange-500/50 text-orange-300"
-                  >
-                    Create Account
-                  </EliteWeb3Button>
+                  <Suspense fallback={<div className="animate-pulse bg-orange-500/20 h-8 rounded"></div>}>
+                    <EliteWeb3Button
+                      onClick={() => navigate('/onboarding')}
+                      variant="secondary"
+                      size="sm"
+                      className="bg-orange-500/20 hover:bg-orange-500/30 border-orange-500/50 text-orange-300"
+                    >
+                      Create Account
+                    </EliteWeb3Button>
+                  </Suspense>
                 </div>
               </div>
             </motion.div>

@@ -29,7 +29,6 @@ import {
 import APIMarketplaceCredentials from './APIMarketplaceCredentials';
 import { EnhancedCredentialsManager } from './EnhancedCredentialsManager';
 import { ProgressIndicator } from '../ui/ProgressIndicator';
-import { APITileSkeleton, CredentialListSkeleton, DashboardStatsSkeleton } from '../ui/SkeletonLoader';
 
 // Import services
 import { apiCredentialService } from '../../services/credentials/APICredentialService';

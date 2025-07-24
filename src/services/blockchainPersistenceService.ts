@@ -4,8 +4,8 @@
  */
 
 import { ethers } from "ethers";
-// Use mock service in development/testing
-import { gcpHSMService } from "./mockGcpHSMService";
+// Use real HSM service for production
+import { realHSMService as gcpHSMService } from "./realHSMService";
 import type { DIDDocument, DIDKeyPair } from "./didService";
 import type { VerifiableCredential } from "../types/wallet";
 import { errorService } from "@/services/errorService";

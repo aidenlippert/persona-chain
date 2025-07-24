@@ -48,10 +48,10 @@ export const StripeIdentityOAuth = () => {
         
         // Track successful verification
         analyticsService.trackEvent(
-          'identity_verification',
-          'oauth_verification_success',
+          'user_action',
+          'identity_verification_success',
           'stripe_identity',
-          localStorage.getItem('persona_user_id') || 'anonymous',
+          undefined,
           {
             sessionId: session.id,
             timestamp: Date.now(),
@@ -68,10 +68,10 @@ export const StripeIdentityOAuth = () => {
         
         // Track failed verification
         analyticsService.trackEvent(
-          'identity_verification',
-          'oauth_verification_failed',
+          'user_action',
+          'identity_verification_failed',
           'stripe_identity',
-          localStorage.getItem('persona_user_id') || 'anonymous',
+          undefined,
           {
             sessionId: session.id,
             status: session.status,
@@ -86,12 +86,12 @@ export const StripeIdentityOAuth = () => {
       
       // Track error
       analyticsService.trackEvent(
-        'identity_verification',
-        'oauth_verification_error',
+        'error',
+        'identity_verification_error',
         'stripe_identity',
-        localStorage.getItem('persona_user_id') || 'anonymous',
+        undefined,
         {
-          error: error.message,
+          error: error instanceof Error ? error.message : String(error),
           timestamp: Date.now(),
         }
       );

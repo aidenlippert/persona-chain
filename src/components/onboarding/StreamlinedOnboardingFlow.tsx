@@ -4,7 +4,7 @@
  * Features: Auto-save, instant feedback, progress tracking
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { personaChainService, PersonaWallet } from "../../services/personaChainService";
@@ -14,7 +14,7 @@ import { storageService } from "../../services/storageService";
 import { cryptoService } from "../../services/cryptoService";
 import { retryService } from "../../services/retryService";
 import { errorService, ErrorCategory, ErrorSeverity } from "../../services/errorService";
-import { EliteWeb3Button } from "../ui/EliteWeb3Button";
+const EliteWeb3Button = lazy(() => import("../ui/EliteWeb3Button").then(m => ({ default: m.EliteWeb3Button })));
 
 // Sprint 1.4: Analytics Integration
 import { analyticsService } from "../../services/analyticsService";
@@ -693,31 +693,35 @@ export const StreamlinedOnboardingFlow = () => {
                   </a>
                 )}
                 {progress.error.includes("Welcome back") && (
-                  <EliteWeb3Button
-                    variant="connect"
-                    size="md"
-                    fullWidth
-                    onClick={() => navigate('/login')}
-                    className="mt-3"
-                  >
-                    Go to Sign In Page
-                  </EliteWeb3Button>
+                  <Suspense fallback={<div className="animate-pulse bg-slate-700 h-10 rounded mt-3"></div>}>
+                    <EliteWeb3Button
+                      variant="connect"
+                      size="md"
+                      fullWidth
+                      onClick={() => navigate('/login')}
+                      className="mt-3"
+                    >
+                      Go to Sign In Page
+                    </EliteWeb3Button>
+                  </Suspense>
                 )}
               </motion.div>
             )}
 
-            <EliteWeb3Button
-              variant="primary"
-              size="lg"
-              fullWidth
-              onClick={handleConnect}
-              disabled={progress.isLoading}
-              isLoading={progress.isLoading}
-              icon={<span className="text-xl">[LINK]</span>}
-              className="mb-4"
-            >
-              {progress.isLoading ? "Connecting..." : "Start Your Journey"}
-            </EliteWeb3Button>
+            <Suspense fallback={<div className="animate-pulse bg-slate-700 h-14 rounded mb-4"></div>}>
+              <EliteWeb3Button
+                variant="primary"
+                size="lg"
+                fullWidth
+                onClick={handleConnect}
+                disabled={progress.isLoading}
+                isLoading={progress.isLoading}
+                icon={<span className="text-xl">[LINK]</span>}
+                className="mb-4"
+              >
+                {progress.isLoading ? "Connecting..." : "Start Your Journey"}
+              </EliteWeb3Button>
+            </Suspense>
 
             {/* Login Button for Existing Users */}
             <div className="flex items-center my-6">
@@ -726,17 +730,19 @@ export const StreamlinedOnboardingFlow = () => {
               <div className="flex-1 h-px bg-slate-700"></div>
             </div>
 
-            <EliteWeb3Button
-              variant="secondary"
-              size="lg"
-              fullWidth
-              onClick={() => navigate('/login')}
-              icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>}
-            >
-              Sign In
-            </EliteWeb3Button>
+            <Suspense fallback={<div className="animate-pulse bg-slate-700 h-14 rounded"></div>}>
+              <EliteWeb3Button
+                variant="secondary"
+                size="lg"
+                fullWidth
+                onClick={() => navigate('/login')}
+                icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>}
+              >
+                Sign In
+              </EliteWeb3Button>
+            </Suspense>
           </motion.div>
         );
 
@@ -783,16 +789,18 @@ export const StreamlinedOnboardingFlow = () => {
             )}
 
             {!progress.isLoading && !progress.error && (
-              <EliteWeb3Button
-                variant="primary"
-                size="lg"
-                fullWidth
-                onClick={handleCreateIdentity}
-                icon={<span className="text-xl">🆔</span>}
-                className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 shadow-purple-500/25 hover:shadow-purple-500/40"
-              >
-                Create My Identity
-              </EliteWeb3Button>
+              <Suspense fallback={<div className="animate-pulse bg-purple-500 h-14 rounded"></div>}>
+                <EliteWeb3Button
+                  variant="primary"
+                  size="lg"
+                  fullWidth
+                  onClick={handleCreateIdentity}
+                  icon={<span className="text-xl">🆔</span>}
+                  className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 shadow-purple-500/25 hover:shadow-purple-500/40"
+                >
+                  Create My Identity
+                </EliteWeb3Button>
+              </Suspense>
             )}
 
             {progress.isLoading && (
@@ -854,19 +862,21 @@ export const StreamlinedOnboardingFlow = () => {
               transition={{ delay: 0.5 }}
               className="flex flex-col items-center space-y-4"
             >
-              <EliteWeb3Button
-                variant="primary"
-                size="lg"
-                fullWidth
-                onClick={() => {
-                  console.log('[MANUAL] User clicked Go to Dashboard');
-                  navigate('/dashboard');
-                }}
-                icon={<span className="text-xl">🚀</span>}
-                className="bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600"
-              >
-                Go to Dashboard
-              </EliteWeb3Button>
+              <Suspense fallback={<div className="animate-pulse bg-emerald-500 h-14 rounded"></div>}>
+                <EliteWeb3Button
+                  variant="primary"
+                  size="lg"
+                  fullWidth
+                  onClick={() => {
+                    console.log('[MANUAL] User clicked Go to Dashboard');
+                    navigate('/dashboard');
+                  }}
+                  icon={<span className="text-xl">🚀</span>}
+                  className="bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600"
+                >
+                  Go to Dashboard
+                </EliteWeb3Button>
+              </Suspense>
               <div className="text-xs text-slate-500">Auto-redirecting in a few seconds...</div>
             </motion.div>
           </motion.div>

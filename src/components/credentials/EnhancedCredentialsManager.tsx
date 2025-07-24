@@ -8,9 +8,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { realBlockchainService } from "../../services/realBlockchainService";
 import { retryService } from "../../services/retryService";
 import { errorService, ErrorCategory, ErrorSeverity } from "../../services/errorService";
+import { NotificationService } from "../../services/notificationService";
 import { ProgressIndicator } from "../ui/ProgressIndicator";
 import { LinkedInOAuthComponent } from "../oauth/LinkedInOAuthComponent";
-import { errorService } from "@/services/errorService";
 
 interface VerificationEvent {
   id: string;
@@ -46,14 +46,18 @@ interface EnhancedCredentialsManagerProps {
   onCredentialCreated?: () => void;
 }
 
-export const EnhancedCredentialsManager = ({ did, walletAddress, onCredentialCreated }: EnhancedCredentialsManagerProps) => {
+export const EnhancedCredentialsManager = ({ did, walletAddress: _walletAddress, onCredentialCreated }: EnhancedCredentialsManagerProps) => {
   const [credentials, setCredentials] = useState<EnhancedCredential[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  // Removed unused selectedType and showModal state
+  const [selectedType, setSelectedType] = useState<string>("");
+  const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState("");
   const [blockchainCredentials, setBlockchainCredentials] = useState<any[]>([]);
   const [showVerificationHistory, setShowVerificationHistory] = useState<string | null>(null);
   const [showLinkedInOAuth, setShowLinkedInOAuth] = useState(false);
+  
+  // Notification service instance
+  const notify = NotificationService.getInstance();
   
   // Progress tracking for instant feedback
   const [credentialProgress, setCredentialProgress] = useState({
@@ -481,161 +485,8 @@ export const EnhancedCredentialsManager = ({ did, walletAddress, onCredentialCre
     }
   };
 
-  const createOrUpdateCredential = async (type: string, data: any) => {
-    setIsLoading(true);
-    try {
-      // Check for existing credential of this type
-      const existingCredential = credentials.find(cred => cred.platform === type);
-      
-      if (existingCredential) {
-        // Update existing credential
-        await updateExistingCredential(existingCredential, data);
-      } else {
-        // Create new credential
-        await createNewCredential(type, data);
-      }
-    } catch (error) {
-      errorService.logError("Failed to create/update credential:", error);
-      setError("Failed to process credential. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  const createNewCredential = async (type: string, data: any) => {
-    const credentialId = `cred_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const timestamp = new Date().toISOString();
-    
-    // Create W3C Verifiable Credential
-    const credential: EnhancedCredential = {
-      id: credentialId,
-      "@context": [
-        "https://www.w3.org/2018/credentials/v1",
-        "https://persona.xyz/contexts/v1"
-      ],
-      type: ["VerifiableCredential", `${type}Credential`],
-      issuer: `did:personachain:${walletAddress}`,
-      issuanceDate: timestamp,
-      lastUpdated: timestamp,
-      platform: type,
-      credentialSubject: {
-        id: did,
-        ...data
-      },
-      proof: {
-        type: "Ed25519Signature2020",
-        created: timestamp,
-        proofPurpose: "assertionMethod",
-        verificationMethod: `${did}#key-1`
-      },
-      verificationHistory: [],
-      metadata: {
-        verificationCount: 0,
-        trustScore: 50
-      }
-    };
 
-    // Register credential on blockchain
-    const didDocument = {
-      id: did,
-      controller: did,
-      verificationMethod: [],
-      created: new Date().toISOString(),
-      updated: new Date().toISOString()
-    };
-    
-    const txResult = await realBlockchainService.registerDID('persona-testnet', did, didDocument);
-    
-    if (txResult.success) {
-      credential.blockchainTxHash = txResult.txHash;
-      console.log("Credential anchored on blockchain:", txResult.txHash);
-    }
-
-    // Add verification event
-    const verificationEvent: VerificationEvent = {
-      id: `ver_${Date.now()}`,
-      timestamp,
-      type: 'issued',
-      source: type,
-      txHash: credential.blockchainTxHash,
-      metadata: { action: 'credential_issued' }
-    };
-    
-    credential.verificationHistory.push(verificationEvent);
-    credential.metadata.verificationCount = 1;
-    credential.metadata.lastVerified = timestamp;
-    credential.metadata.trustScore = calculateTrustScore(credential);
-
-    // Store locally
-    const updatedCredentials = [...credentials, credential];
-    localStorage.setItem('credentials', JSON.stringify(updatedCredentials));
-    setCredentials(updatedCredentials);
-    
-    console.log(`✅ ${type} credential created successfully`);
-    
-    // Call callback to refresh parent component
-    if (onCredentialCreated) {
-      onCredentialCreated();
-    }
-  };
-
-  const updateExistingCredential = async (existingCred: EnhancedCredential, newData: any) => {
-    const timestamp = new Date().toISOString();
-    
-    // Update credential data
-    const updatedCredential: EnhancedCredential = {
-      ...existingCred,
-      lastUpdated: timestamp,
-      credentialSubject: {
-        ...existingCred.credentialSubject,
-        ...newData
-      }
-    };
-
-    // Try blockchain update
-    const didDocument = {
-      id: did,
-      controller: did,
-      verificationMethod: [],
-      created: existingCred.issuanceDate,
-      updated: timestamp
-    };
-    
-    const txResult = await realBlockchainService.registerDID('persona-testnet', did, didDocument);
-    
-    // Add verification event
-    const verificationEvent: VerificationEvent = {
-      id: `ver_${Date.now()}`,
-      timestamp,
-      type: 'updated',
-      source: existingCred.platform,
-      txHash: txResult.success ? txResult.txHash : undefined,
-      metadata: { action: 'credential_updated', previousHash: existingCred.blockchainTxHash }
-    };
-    
-    updatedCredential.verificationHistory.push(verificationEvent);
-    updatedCredential.metadata.verificationCount += 1;
-    updatedCredential.metadata.lastVerified = timestamp;
-    updatedCredential.metadata.trustScore = calculateTrustScore(updatedCredential);
-    
-    if (txResult.success) {
-      updatedCredential.blockchainTxHash = txResult.txHash;
-    }
-
-    // Update storage
-    const updatedCredentials = credentials.map(cred => 
-      cred.id === existingCred.id ? updatedCredential : cred
-    );
-    localStorage.setItem('credentials', JSON.stringify(updatedCredentials));
-    setCredentials(updatedCredentials);
-    
-    console.log(`✅ ${existingCred.platform} credential updated successfully`);
-    
-    // Call callback to refresh parent component
-    if (onCredentialCreated) {
-      onCredentialCreated();
-    }
-  };
 
   // Removed unused fetchPlatformData function
 

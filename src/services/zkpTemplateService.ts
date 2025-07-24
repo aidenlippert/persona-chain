@@ -7,7 +7,7 @@ import { enhancedZKProofService } from './enhancedZKProofService';
 import { storageService } from './storageService';
 import { errorService, ErrorCategory, ErrorSeverity } from './errorService';
 import { analyticsService } from './analyticsService';
-import type { ZKProof, ZKCredential, VerifiableCredential } from '../types/wallet';
+import type { ZKProof, ZKCredential } from '../types/wallet';
 
 export interface ZKPTemplate {
   id: string;
@@ -244,18 +244,17 @@ export class ZKPTemplateService {
       const proofInputs = this.prepareProofInputs(template, request.inputs, credentials);
 
       // Generate ZK proof
-      const proof = await enhancedZKProofService.generateProof(
-        template.circuitId,
-        proofInputs,
-        {
-          privacy: request.options.privacy,
-          verification: request.options.verification,
-          metadata: request.options.metadata,
-        }
-      );
+      const zkProofRequest = {
+        credentialId: request.credentials[0] || 'template-credential',
+        proofType: template.circuitId as any,
+        publicInputs: proofInputs,
+        selectiveFields: undefined, // Not available in ProofGenerationRequest options
+        privacyLevel: (request.options?.privacy || 'selective') as any
+      };
+      const proofResponse = await enhancedZKProofService.generateProof(zkProofRequest);
 
       // Create ZK credential
-      const credential = await this.createZKCredential(template, proof, request);
+      const credential = await this.createZKCredential(template, proofResponse.proof, request);
 
       // Store proof and credential
       await storageService.storeCredential({
@@ -286,11 +285,12 @@ export class ZKPTemplateService {
 
       // Track analytics
       analyticsService.trackEvent(
+        'user_action',
         'zkp_template',
         'proof_generated',
-        'success',
-        template.id,
+        undefined, // userDID - not available in this context
         {
+          templateId: template.id,
           category: template.category,
           difficulty: template.difficulty,
           privacy: request.options.privacy,
@@ -299,13 +299,13 @@ export class ZKPTemplateService {
       );
 
       return {
-        proof,
+        proof: proofResponse.proof,
         credential,
-        verificationUrl: this.generateVerificationUrl(proof.commitment),
-        shareableProof: this.generateShareableProof(proof),
+        verificationUrl: this.generateVerificationUrl(proofResponse.proof.commitment),
+        shareableProof: this.generateShareableProof(proofResponse.proof),
         metadata: {
           templateUsed: template.id,
-          proofId: proof.commitment,
+          proofId: proofResponse.proof.commitment,
           createdAt: new Date().toISOString(),
           expiresAt: request.options.expiration ? new Date(request.options.expiration).toISOString() : undefined,
           verificationCount: 0,
@@ -313,11 +313,15 @@ export class ZKPTemplateService {
         },
       };
     } catch (error) {
-      errorService.logError(error instanceof Error ? error : new Error('ZKP generation failed'), {
-        category: ErrorCategory.CRYPTO,
-        severity: ErrorSeverity.HIGH,
-        metadata: { templateId: request.templateId, inputs: request.inputs },
-      });
+      errorService.logError(
+        'ZKP generation failed', 
+        { 
+          error: error instanceof Error ? error : new Error('ZKP generation failed'),
+          category: ErrorCategory.CRYPTO,
+          severity: ErrorSeverity.HIGH,
+          metadata: { templateId: request.templateId, inputs: request.inputs }
+        }
+      );
       throw error;
     }
   }
@@ -394,7 +398,7 @@ export class ZKPTemplateService {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         author: 'User',
-        tags: template.metadata?.tags || [],
+        tags: [],
         usageCount: 0,
         rating: 0,
         reviews: 0,
@@ -2142,7 +2146,7 @@ export class ZKPTemplateService {
         templates.push(...subcategory);
       }
     }
-    templates.push(...this.customTemplates.values());
+    templates.push(...Array.from(this.customTemplates.values()));
     return templates;
   }
 

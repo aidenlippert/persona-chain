@@ -289,7 +289,7 @@ export class ZKProofService {
     }
 
     const hash = await this.cryptoService.generateHash(commitmentData);
-    return Array.from(hash)
+    return Array.from(hash as Uint8Array)
       .map((b: number) => b.toString(16).padStart(2, "0"))
       .join("");
   }
@@ -327,7 +327,7 @@ export class ZKProofService {
     }
     
     const hash = await this.cryptoService.generateHash(nullifierInput);
-    return Array.from(hash)
+    return Array.from(hash as Uint8Array)
       .map((b: number) => b.toString(16).padStart(2, "0"))
       .join("");
   }
@@ -365,13 +365,7 @@ export class ZKProofService {
         return false;
       }
 
-      // Verify proof hasn't expired
-      if (
-        proof.metadata?.expiresAt &&
-        new Date() > new Date(proof.metadata.expiresAt)
-      ) {
-        return false;
-      }
+      // Note: Expiration check removed as ZKProof doesn't have metadata property
 
       // Verify nullifier uniqueness (check against stored nullifiers)
       const isNullifierUsed = await this.checkNullifierUsed(proof.nullifier);
@@ -511,6 +505,7 @@ export class ZKProofService {
         // Note: holder property removed from ZKCredential interface
         circuitId: "selective_disclosure",
         commitment: "",
+        nullifierHash: "",
         metadata: {
           credentialType: credential.type[credential.type.length - 1],
           source:

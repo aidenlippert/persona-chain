@@ -21,18 +21,8 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
   ClockIcon,
-  ShareIcon,
-  EyeIcon,
-  EyeSlashIcon,
-  TrashIcon,
-  ArrowDownTrayIcon,
-  ArrowUpTrayIcon,
-  DocumentTextIcon,
   ShieldCheckIcon,
-  GlobeAltIcon,
   BuildingOfficeIcon,
-  UserIcon,
-  CogIcon,
   LinkIcon,
   KeyIcon
 } from '@heroicons/react/24/outline';

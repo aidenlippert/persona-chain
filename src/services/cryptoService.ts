@@ -15,6 +15,14 @@
 
 import { ed25519 } from "@noble/curves/ed25519";
 import { secp256k1 } from "@noble/curves/secp256k1";
+
+// 🚨 WASM FIX: Force @noble/curves to use pure JavaScript instead of WASM
+// This prevents "Incorrect response MIME type" errors in production
+if (typeof globalThis !== 'undefined') {
+  // Disable WASM usage globally to avoid MIME type issues
+  globalThis.crypto = globalThis.crypto || {};
+  (globalThis as any).__NOBLE_DISABLE_WASM__ = true;
+}
 import { sha256 } from "@noble/hashes/sha256";
 import { randomBytes } from "@noble/hashes/utils";
 import * as jose from "jose";

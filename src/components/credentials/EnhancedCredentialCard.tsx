@@ -7,34 +7,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  CheckCircleIcon,
   ShieldCheckIcon,
   ArrowPathIcon,
   EyeIcon,
-  ClockIcon,
   ShareIcon,
-  DocumentDuplicateIcon,
   ExclamationTriangleIcon,
-  CalendarIcon,
-  ChartBarIcon,
-  KeyIcon,
-  LockClosedIcon,
-  GlobeAltIcon,
   CogIcon,
   ArchiveBoxIcon,
-  BellIcon,
   DocumentTextIcon,
-  MagnifyingGlassIcon,
-  CloudArrowDownIcon,
-  SparklesIcon,
-  TrophyIcon,
-  StarIcon,
   ShieldExclamationIcon,
   InformationCircleIcon
 } from '@heroicons/react/24/outline';
 import {
   CheckCircleIcon as CheckCircleSolid,
-  ShieldCheckIcon as ShieldCheckSolid,
   ClockIcon as ClockSolid,
   ExclamationTriangleIcon as ExclamationTriangleSolid
 } from '@heroicons/react/24/solid';
@@ -74,7 +59,6 @@ interface EnhancedCredentialCardProps {
   onUpdate?: (credentialId: string) => Promise<void>;
   onGenerateZKProof?: (credentialId: string) => Promise<void>;
   onShare?: (credentialId: string) => void;
-  onViewHistory?: (credentialId: string) => void;
   onRevoke?: (credentialId: string) => Promise<void>;
   onArchive?: (credentialId: string) => Promise<void>;
   onDelete?: (credentialId: string) => Promise<void>;
@@ -86,7 +70,6 @@ export const EnhancedCredentialCard: React.FC<EnhancedCredentialCardProps> = ({
   onUpdate,
   onGenerateZKProof,
   onShare,
-  onViewHistory,
   onRevoke,
   onArchive,
   onDelete
