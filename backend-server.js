@@ -4,6 +4,13 @@
  * Handles OAuth callbacks, API routes, and backend services
  */
 
+// BigInt serialization fix for Railway compatibility
+if (typeof BigInt.prototype.toJSON === 'undefined') {
+  BigInt.prototype.toJSON = function() {
+    return this.toString();
+  };
+}
+
 const express = require('express');
 const cors = require('cors');
 const { fileURLToPath } = require('url');
@@ -14,6 +21,8 @@ const PORT = process.env.PORT || 8080;
 // Configure CORS for frontend communication
 const corsOptions = {
   origin: [
+    'https://personapass.xyz',
+    'https://www.personapass.xyz',
     'https://personapass.vercel.app',
     'https://wallet-git-master-aiden-lipperts-projects.vercel.app',
     'http://localhost:5173',
@@ -63,7 +72,42 @@ app.get('/', (req, res) => {
   });
 });
 
-// OAuth callback handlers
+// GitHub OAuth init endpoint
+app.get('/oauth/github/init', async (req, res) => {
+  try {
+    const clientId = process.env.GITHUB_CLIENT_ID;
+    if (!clientId) {
+      return res.status(500).json({ error: 'GitHub OAuth not configured' });
+    }
+
+    // Generate secure state parameter
+    const state = Buffer.from(JSON.stringify({
+      timestamp: Date.now(),
+      nonce: Math.random().toString(36).substring(2, 15)
+    })).toString('base64');
+
+    // Build GitHub OAuth URL
+    const authUrl = new URL('https://github.com/login/oauth/authorize');
+    authUrl.searchParams.set('client_id', clientId);
+    authUrl.searchParams.set('redirect_uri', 'https://api.personapass.xyz/oauth/github/callback');
+    authUrl.searchParams.set('scope', 'user:email read:user');
+    authUrl.searchParams.set('state', state);
+    authUrl.searchParams.set('response_type', 'code');
+
+    console.log(`🐙 GitHub OAuth init: ${authUrl.toString()}`);
+    
+    res.json({
+      authUrl: authUrl.toString(),
+      state: state,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('GitHub OAuth init error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GitHub OAuth callback handler
 app.get('/oauth/github/callback', async (req, res) => {
   try {
     const { code, state } = req.query;
@@ -75,31 +119,78 @@ app.get('/oauth/github/callback', async (req, res) => {
     });
 
     if (!code) {
-      return res.status(400).json({
-        error: 'Missing authorization code',
-        timestamp: new Date().toISOString()
-      });
+      return res.redirect('https://personapass.xyz/oauth/github/callback?error=no_code');
     }
 
-    // Here you would normally:
-    // 1. Exchange code for access token
-    // 2. Validate state parameter
-    // 3. Get user data from GitHub
-    // 4. Store credentials securely
-    
-    // For now, redirect back to frontend with success
-    const frontendUrl = process.env.FRONTEND_URL || 'https://personapass.vercel.app';
-    const redirectUrl = `${frontendUrl}/oauth/github/success?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`;
-    
-    console.log('🔄 Redirecting to frontend:', redirectUrl);
-    res.redirect(redirectUrl);
+    const clientId = process.env.GITHUB_CLIENT_ID;
+    const clientSecret = process.env.GITHUB_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      return res.redirect('https://personapass.xyz/oauth/github/callback?error=oauth_not_configured');
+    }
+
+    // Exchange code for access token
+    const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code: code,
+      }),
+    });
+
+    const tokenData = await tokenResponse.json();
+    console.log('🐙 GitHub token exchange:', tokenData.access_token ? 'SUCCESS' : 'FAILED');
+
+    if (tokenData.error) {
+      return res.redirect(`https://personapass.xyz/oauth/github/callback?error=${tokenData.error}`);
+    }
+
+    // Get user data
+    const userResponse = await fetch('https://api.github.com/user', {
+      headers: {
+        'Authorization': `Bearer ${tokenData.access_token}`,
+        'User-Agent': 'PersonaPass-App'
+      }
+    });
+
+    const userData = await userResponse.json();
+    console.log('🐙 GitHub user data:', userData.login || 'NO LOGIN');
+
+    // Create credential data
+    const credentialData = {
+      id: `github-${userData.id}-${Date.now()}`,
+      type: ['VerifiableCredential', 'GitHubProfile'],
+      issuer: 'did:persona:github',
+      credentialSubject: {
+        id: `github:${userData.login}`,
+        login: userData.login,
+        name: userData.name,
+        email: userData.email,
+        bio: userData.bio,
+        publicRepos: userData.public_repos,
+        followers: userData.followers,
+        following: userData.following,
+        createdAt: userData.created_at,
+        avatarUrl: userData.avatar_url,
+        htmlUrl: userData.html_url,
+        verificationTimestamp: new Date().toISOString()
+      },
+      issuanceDate: new Date().toISOString(),
+      expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 year
+    };
+
+    // Redirect to frontend with credential data
+    const credentialParam = encodeURIComponent(JSON.stringify(credentialData));
+    res.redirect(`https://personapass.xyz/oauth/github/callback?credential=${credentialParam}&success=true`);
     
   } catch (error) {
     console.error('❌ GitHub OAuth callback error:', error);
-    res.status(500).json({
-      error: 'OAuth callback failed',
-      timestamp: new Date().toISOString()
-    });
+    res.redirect(`https://personapass.xyz/oauth/github/callback?error=${encodeURIComponent(error.message)}`);
   }
 });
 
