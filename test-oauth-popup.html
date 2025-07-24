@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test OAuth Popup - PersonaPass</title>
+    <style>
+        body {
+            font-family: system-ui;
+            padding: 40px;
+            max-width: 800px;
+            margin: 0 auto;
+            background: #000;
+            color: white;
+        }
+        button {
+            background: #ff6b35;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.2em;
+            cursor: pointer;
+            margin: 10px;
+        }
+        .status {
+            background: #333;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-family: monospace;
+        }
+        h1 {
+            color: #ff6b35;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 OAuth Popup Test</h1>
+    
+    <p>Click the button below to test the GitHub OAuth flow:</p>
+    
+    <button onclick="testOAuth()">🐙 Test GitHub OAuth</button>
+    
+    <div class="status" id="status">
+        Status will appear here...
+    </div>
+    
+    <h2>Instructions:</h2>
+    <ol>
+        <li>Click "Test GitHub OAuth" button</li>
+        <li>A popup window should open</li>
+        <li>The popup should show the OAuth success handler (not blank)</li>
+        <li>After OAuth completes, the popup should close</li>
+        <li>Check your credentials page to see if the credential was stored</li>
+    </ol>
+    
+    <button onclick="checkCredentials()">📋 Check Stored Credentials</button>
+    
+    <script>
+        function updateStatus(message) {
+            document.getElementById('status').innerHTML += message + '<br>';
+        }
+        
+        function testOAuth() {
+            updateStatus('🚀 Starting OAuth test...');
+            
+            // First get the auth URL from Railway backend
+            updateStatus('📡 Fetching auth URL from Railway backend...');
+            
+            fetch('https://api.personapass.xyz/oauth/github/init')
+                .then(res => res.json())
+                .then(data => {
+                    updateStatus('✅ Got auth URL: ' + data.authUrl.substring(0, 50) + '...');
+                    
+                    // Open popup
+                    const popup = window.open(
+                        data.authUrl,
+                        'github-oauth',
+                        'width=600,height=700,toolbar=no,menubar=no'
+                    );
+                    
+                    updateStatus('🪟 Popup opened');
+                    
+                    // Listen for OAuth success
+                    window.addEventListener('message', function(event) {
+                        if (event.data.type === 'GITHUB_OAUTH_SUCCESS') {
+                            updateStatus('✅ OAuth SUCCESS! Username: ' + event.data.username);
+                            updateStatus('📦 Credential stored with ID: ' + event.data.credential.id);
+                        }
+                    });
+                    
+                    // Check if popup is closed
+                    const checkPopup = setInterval(() => {
+                        if (popup.closed) {
+                            clearInterval(checkPopup);
+                            updateStatus('🪟 Popup closed');
+                        }
+                    }, 1000);
+                })
+                .catch(err => {
+                    updateStatus('❌ Error: ' + err.message);
+                });
+        }
+        
+        function checkCredentials() {
+            const creds = JSON.parse(localStorage.getItem('credentials') || '[]');
+            updateStatus('📋 Stored credentials: ' + creds.length);
+            creds.forEach(cred => {
+                updateStatus('- ' + cred.type.join(', ') + ': ' + (cred.credentialSubject.login || cred.credentialSubject.id));
+            });
+        }
+    </script>
+</body>
+</html>

@@ -10,3 +10,6 @@ third_party/
 *.log
 .env*
 !.env.example
+api/
+apps/wallet/api/
+app/api/
