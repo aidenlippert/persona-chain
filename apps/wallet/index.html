@@ -60,5 +60,14 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <!-- OAuth Callback Handler for blank page fix -->
+    <script>
+      if (window.location.pathname === '/oauth/github/callback') {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('success') === 'true' && urlParams.get('credential')) {
+          document.body.innerHTML = '<div style="padding: 40px; text-align: center; font-family: system-ui;">Processing OAuth... <script src="/oauth-callback-handler.js"><\/script></div>';
+        }
+      }
+    </script>
   </body>
 </html>
