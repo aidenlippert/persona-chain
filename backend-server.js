@@ -72,6 +72,11 @@ app.get('/', (req, res) => {
   });
 });
 
+// Test endpoint to verify routing
+app.get('/test-route', (req, res) => {
+  res.json({ message: 'Test route working!', timestamp: new Date().toISOString() });
+});
+
 // GitHub OAuth init endpoint
 app.get('/oauth/github/init', async (req, res) => {
   try {
