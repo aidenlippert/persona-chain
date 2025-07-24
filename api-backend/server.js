@@ -6,6 +6,13 @@
  * NO HARDCODED VALUES - ALL CONFIGURABLE
  */
 
+// BigInt serialization fix for Railway compatibility
+if (typeof BigInt.prototype.toJSON === 'undefined') {
+  BigInt.prototype.toJSON = function() {
+    return this.toString();
+  };
+}
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -307,7 +314,7 @@ app.get('/oauth/github/callback', async (req, res) => {
       return res.redirect('https://personapass.xyz/oauth/github/callback?error=oauth_not_configured');
     }
 
-    // Exchange code for access token
+    // Exchange code for access token (using fetch with error handling)
     const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
       headers: {

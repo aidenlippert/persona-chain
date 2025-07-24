@@ -82,7 +82,7 @@
     "gemini:optimize": "gemini-cli optimize src/",
     "gemini:security": "gemini-cli security src/",
     "startup:all": "npm run startup:test && npm run startup:build && npm run startup:deploy",
-    "start": "node backend-server.js",
+    "start": "echo 'Starting PersonaPass Backend...' && node backend-server.js",
     "railway-start": "node backend-server.js",
     "vercel-build": "NODE_OPTIONS='--max_old_space_size=4096' npm run build",
     "heroku-postbuild": "npm run build"

@@ -29,6 +29,10 @@ export const OAuthCallback = ({ platform }: OAuthCallbackProps) => {
       const code = searchParams.get('code');
       const state = searchParams.get('state');
       const error = searchParams.get('error');
+      
+      // NEW: Check for Railway backend success response
+      const credential = searchParams.get('credential');
+      const success = searchParams.get('success');
 
       console.log('🚀🚀🚀 EXTREME OAUTH CALLBACK HEAVY DEBUG START 🚀🚀🚀');
       
@@ -77,6 +81,52 @@ export const OAuthCallback = ({ platform }: OAuthCallbackProps) => {
       const hasGitHubCreds = !!(import.meta.env.VITE_GITHUB_CLIENT_ID && import.meta.env.VITE_GITHUB_CLIENT_SECRET);
       console.log('🔑 GitHub credentials configured:', hasGitHubCreds);
 
+      // NEW: Handle Railway backend success response first
+      if (success === 'true' && credential) {
+        console.log('🎉 Railway backend OAuth success detected!');
+        console.log('📦 Credential data received:', credential.substring(0, 200) + '...');
+        
+        try {
+          const credentialData = JSON.parse(decodeURIComponent(credential));
+          console.log('✅ Parsed credential data:', credentialData);
+          
+          setMessage('GitHub credential received! Storing...');
+          
+          // Store credential
+          const existingCreds = JSON.parse(localStorage.getItem('credentials') || '[]');
+          existingCreds.push(credentialData);
+          localStorage.setItem('credentials', JSON.stringify(existingCreds));
+          
+          console.log('✅ Railway OAuth credential stored! Total credentials:', existingCreds.length);
+          
+          setStatus('success');
+          setMessage('GitHub developer credential created successfully via Railway!');
+          
+          // Notify parent window if popup
+          if (window.opener) {
+            window.opener.postMessage({ 
+              type: 'GITHUB_OAUTH_SUCCESS', 
+              credential: credentialData,
+              username: credentialData.credentialSubject?.login || 'Unknown User'
+            }, window.location.origin);
+            window.close();
+            return;
+          }
+          
+          // Same window - redirect to credentials page
+          setTimeout(() => {
+            navigate('/credentials');
+          }, 2000);
+          
+          return;
+        } catch (parseError) {
+          console.error('❌ Failed to parse credential data:', parseError);
+          setStatus('error');
+          setMessage('Failed to process credential data');
+          return;
+        }
+      }
+
       if (error) {
         console.error('🚨 GitHub returned error parameter:', error);
         console.log('🔍 Error analysis:', {
@@ -92,7 +142,8 @@ export const OAuthCallback = ({ platform }: OAuthCallbackProps) => {
       }
 
       if (!code) {
-        console.error('❌ No code parameter found');
+        console.error('❌ No code parameter found - checking if this is a Railway success response...');
+        console.log('🔍 Parameters check:', { success, credential: !!credential, hasCredentialData: credential?.length > 0 });
         setStatus('error');
         setMessage('Missing OAuth code parameter');
         return;

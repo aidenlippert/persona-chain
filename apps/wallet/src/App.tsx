@@ -889,7 +889,7 @@ const App = () => {
                     </PageErrorBoundary>
                   } />
                   
-                  {/* OAuth Callbacks */}
+                  {/* OAuth Callbacks - GitHub handled by Railway backend, then redirected here */}
                   <Route path="/oauth/github/callback" element={
                     <PageErrorBoundary pageName="GitHubCallback">
                       <OAuthCallback platform="github" />

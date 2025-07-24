@@ -69,76 +69,35 @@ export class GitHubAPIService {
   }
 
   /**
-   * 🔗 Start GitHub OAuth flow (RETURNS URL FOR POPUP)
+   * 🔗 Start GitHub OAuth flow using Railway backend API
    */
-  startOAuthFlow(): string {
-    console.log('🚀🚀🚀 POPUP MODE: Starting GitHub OAuth flow for popup');
+  async startOAuthFlow(): Promise<string> {
+    console.log('🚀🚀🚀 Using Railway backend for GitHub OAuth flow');
     
     // CLEAR OLD DATA BUT KEEP SESSION STATE UNTIL CALLBACK
     this.clearOldCredentialData();
     
-    const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
-    console.log('🔍 DEBUG: Client ID exists:', !!clientId);
-    
-    if (!clientId) {
-      console.error('❌ CRITICAL ERROR: GitHub Client ID not configured!');
-      throw new Error('GitHub Client ID not configured');
-    }
-
-    const scopes = ['user', 'public_repo', 'read:org'];
-    
-    // Use current domain for redirect URI to handle different environments
-    const currentDomain = window.location.origin;
-    const redirectUri = `${currentDomain}/oauth/github/callback`;
-    
-    console.log('🌐 Using redirect URI:', redirectUri);
-    
-    // Log the domain detection for debugging
-    console.log('🔍 Domain detection:', {
-      currentOrigin: window.location.origin,
-      hostname: window.location.hostname,
-      protocol: window.location.protocol,
-      isDev: window.location.hostname === 'localhost',
-      isVercel: window.location.hostname.includes('vercel.app'),
-      isProduction: window.location.hostname === 'personapass.xyz'
-    });
-    
-    // Generate FRESH state with timestamp to ensure uniqueness
-    const timestamp = Date.now();
-    const randomString = Math.random().toString(36).substring(2, 15);
-    const state = `${timestamp}_${randomString}`;
-    
-    console.log('🔍 DEBUG: FRESH OAuth parameters:', {
-      clientId: clientId.substring(0, 8) + '...',
-      redirectUri,
-      state,
-      stateLength: state.length,
-      scopes: scopes.join(' '),
-      timestamp
-    });
-    
-    // Store FRESH state for callback validation
     try {
-      sessionStorage.setItem('github_oauth_state', state);
-      localStorage.setItem('github_oauth_state_backup', state);
-      console.log('✅ DEBUG: FRESH OAuth state stored successfully:', state);
+      // Call Railway backend API to get the OAuth URL
+      const response = await fetch('https://api.personapass.xyz/oauth/github/init', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Railway API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Got OAuth URL from Railway backend:', data.authUrl);
+      
+      return data.authUrl;
     } catch (error) {
-      console.warn('⚠️ DEBUG: Could not store OAuth state:', error);
+      console.error('❌ Failed to start OAuth flow via Railway backend:', error);
+      throw error;
     }
-    
-    const authUrl = new URL('https://github.com/login/oauth/authorize');
-    authUrl.searchParams.set('client_id', clientId);
-    authUrl.searchParams.set('redirect_uri', redirectUri);
-    authUrl.searchParams.set('scope', scopes.join(' '));
-    authUrl.searchParams.set('state', state);
-    // Force fresh consent by adding timestamp
-    authUrl.searchParams.set('allow_signup', 'true');
-    
-    const finalUrl = authUrl.toString();
-    console.log('🔗 DEBUG: FRESH OAuth URL:', finalUrl);
-    console.log('🪟 DEBUG: Returning URL for popup window...');
-    
-    return finalUrl;
   }
 
   /**
