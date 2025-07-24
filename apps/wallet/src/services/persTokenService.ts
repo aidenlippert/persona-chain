@@ -9,11 +9,53 @@ import { errorService, ErrorCategory, ErrorSeverity } from './errorService';
 import { retryService } from './retryService';
 import { analyticsService } from './analyticsService';
 
-// Import contract ABIs - Mock for now since we don't have real contracts yet
-// TODO: Import real ABIs when contracts are deployed
-const PERS_TOKEN_ABI = [];
-const PERS_STAKING_ABI = [];
-const PERS_REWARDS_ABI = [];
+// Import contract configuration
+import { CURRENT_CONTRACTS } from '../config/contracts';
+
+// Production ABI for PERS Token contract
+const PERS_TOKEN_ABI = [
+  "function name() view returns (string)",
+  "function symbol() view returns (string)",
+  "function decimals() view returns (uint8)",
+  "function totalSupply() view returns (uint256)",
+  "function balanceOf(address) view returns (uint256)",
+  "function transfer(address to, uint256 amount) returns (bool)",
+  "function allowance(address owner, address spender) view returns (uint256)",
+  "function approve(address spender, uint256 amount) returns (bool)",
+  "function transferFrom(address from, address to, uint256 amount) returns (bool)",
+  "function purchaseCredentialCredits(uint256 amount)",
+  "function purchaseZKProofCredits(uint256 amount)",
+  "function purchaseAPICredits(uint256 amount)",
+  "function stake(uint256 amount)",
+  "function unstake(uint256 amount)",
+  "function claimRewards()",
+  "function calculateReward(address user) view returns (uint256)",
+  "event Transfer(address indexed from, address indexed to, uint256 value)",
+  "event Approval(address indexed owner, address indexed spender, uint256 value)"
+];
+
+// Production ABI for Staking contract
+const PERS_STAKING_ABI = [
+  "function stake(uint256 amount, uint256 lockPeriod) returns (bool)",
+  "function unstake() returns (bool)",
+  "function stakes(address user) view returns (uint256 amount, uint256 startTime, uint256 lockPeriod, uint256 tier)",
+  "function getPendingRewards(address user) view returns (uint256)",
+  "function trustScores(address user) view returns (uint256)",
+  "event Staked(address indexed user, uint256 amount, uint256 lockPeriod)",
+  "event Unstaked(address indexed user, uint256 amount, uint256 rewards)"
+];
+
+// Production ABI for Rewards contract
+const PERS_REWARDS_ABI = [
+  "function claimRewards() returns (bool)",
+  "function recordVerification(address user, string memory credentialType, bool withZkProof, bool isCrossChain) returns (bool)",
+  "function getTotalEarned(address user) view returns (uint256)",
+  "function userRewards(address user) view returns (uint256 totalEarned, uint256 totalClaimed, uint256 lastClaimTime)",
+  "function getPendingRewards(address user) view returns (uint256)",
+  "function getDailyRewardsClaimed(address user) view returns (uint256)",
+  "event RewardsClaimed(address indexed user, uint256 amount)",
+  "event VerificationRecorded(address indexed user, string credentialType, uint256 reward)"
+];
 
 interface TokenConfig {
   symbol: string;

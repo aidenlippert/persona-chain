@@ -10,7 +10,7 @@ import { ed25519 } from "@noble/curves/ed25519";
 import { sha256 } from "@noble/hashes/sha256";
 import { base58btc } from "multiformats/bases/base58";
 // Use mock service in development/testing
-import { gcpHSMService } from "./mockGcpHSMService";
+import { webCryptoHSMService } from "./crypto/WebCryptoHSMService";
 // Import blockchain service for DID registry
 import { blockchainService } from "./blockchainService";
 import { errorService } from "@/services/errorService";
@@ -365,7 +365,7 @@ class DIDService {
       let hsmKeyId = '';
 
       // Use HSM if available and requested
-      if (options.useHSM && gcpHSMService.isAvailable()) {
+      if (options.useHSM) {
         const hsmResult = await this.generateHSMBackedDID();
         if (hsmResult.success) {
           return hsmResult;
@@ -442,13 +442,13 @@ class DIDService {
     const startTime = performance.now();
     
     try {
-      await gcpHSMService.initialize();
+      await webCryptoHSMService.initialize();
       
       // Use HSM for key generation and signing
       const testData = new Uint8Array([1, 2, 3, 4, 5]);
       const testDID = 'test-did-for-hsm';
       
-      const sigResult = await gcpHSMService.signWithDIDKey(testData, testDID);
+      const sigResult = await webCryptoHSMService.signWithDIDKey(testData, { id: testDID } as any);
       const publicKey = sigResult.publicKey;
       
       const publicKeyMultibase = this.encodePublicKeyMultibase(publicKey);
@@ -553,10 +553,9 @@ class DIDService {
     try {
       // Use HSM if available
       if (didKeyPair.hsmBacked && didKeyPair.hsmKeyId) {
-        const sigResult = await gcpHSMService.signWithDIDKey(
+        const sigResult = await webCryptoHSMService.signWithDIDKey(
           data,
-          didKeyPair.did,
-          didKeyPair.hsmKeyId
+          { id: didKeyPair.did } as any
         );
         
         this.analyticsService.trackDIDUsage({

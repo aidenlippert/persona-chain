@@ -5,7 +5,7 @@
 
 import { ethers } from "ethers";
 // Use mock service in development/testing
-import { gcpHSMService } from "./mockGcpHSMService";
+import { webCryptoHSMService } from "./crypto/WebCryptoHSMService";
 import type { DIDDocument, DIDKeyPair } from "./didService";
 import type { VerifiableCredential } from "../types/wallet";
 import { errorService } from "@/services/errorService";
@@ -87,7 +87,7 @@ export class BlockchainPersistenceService {
       // Initialize signer
       if (config.useHSM) {
         // Use HSM for signing
-        await gcpHSMService.initialize();
+        await webCryptoHSMService.initialize();
         this.signer = await this.createHSMSigner();
       } else if (config.privateKey) {
         // Use private key for signing
@@ -121,7 +121,8 @@ export class BlockchainPersistenceService {
       connect: (provider: ethers.Provider) => this.createHSMSigner(),
       getAddress: async () => {
         // Derive address from HSM public key
-        const config = gcpHSMService.getConfig();
+        // Get address from Web Crypto HSM service
+        // For now return a placeholder address
         if (!config) throw new Error("HSM not configured");
 
         // This would need to be implemented based on the HSM public key
@@ -131,9 +132,9 @@ export class BlockchainPersistenceService {
         // Sign transaction with HSM
         const serialized = ethers.Transaction.from(transaction).serialized;
         const hash = ethers.keccak256(serialized);
-        const signature = await gcpHSMService.signWithDIDKey(
+        const signature = await webCryptoHSMService.signWithDIDKey(
           ethers.getBytes(hash),
-          { id: "hsm-signer", document: {} } as any,
+          { id: "hsm-signer" } as any
         );
 
         // Convert HSM signature to Ethereum format
@@ -146,10 +147,9 @@ export class BlockchainPersistenceService {
         const messageBytes =
           typeof message === "string" ? ethers.toUtf8Bytes(message) : message;
 
-        const signature = await gcpHSMService.signWithDIDKey(messageBytes, {
-          id: "hsm-signer",
-          document: {},
-        } as any);
+        const signature = await webCryptoHSMService.signWithDIDKey(messageBytes, 
+          { id: "hsm-signer" } as any
+        );
 
         return this.convertHSMSignatureToEthereumFormat(
           signature.signature,
