@@ -1,0 +1,21 @@
+# Ignore backup API files that cause BigInt compilation errors
+api_backup_temp/
+
+# Ignore development and environment files
+.env.development
+.env.production
+.env.vercel
+.env.vercel.production
+node_modules/
+.git/
+*.log
+
+# Ignore backend files (deployed separately to Railway)
+api-backend/
+apps/backend/
+apps/connectors/
+
+# Ignore test and development artifacts
+coverage/
+test-results/
+playwright-report/
