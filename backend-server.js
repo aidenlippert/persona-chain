@@ -94,7 +94,7 @@ app.get('/oauth/github/init', async (req, res) => {
     authUrl.searchParams.set('state', state);
     authUrl.searchParams.set('response_type', 'code');
 
-    console.log(`🐙 GitHub OAuth init: ${authUrl.toString()}`);
+    console.log(`🐙 GitHub OAuth init requested: ${authUrl.toString()}`);
     
     res.json({
       authUrl: authUrl.toString(),
