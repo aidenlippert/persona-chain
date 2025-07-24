@@ -6,7 +6,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
-  testDir: "./tests/e2e",
+  testDir: "./tests",
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -25,7 +25,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: process.env.TARGET_URL || "https://personapass.xyz",
+    baseURL: process.env.TARGET_URL || "https://wallet-git-master-ai-projects.vercel.app",
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: "on-first-retry",
     /* Take screenshot on failure */
@@ -33,11 +33,11 @@ export default defineConfig({
     /* Record video on failure */
     video: "retain-on-failure",
     /* Global test timeout */
-    timeout: 30000,
+    timeout: 60000, // Increased for production testing
     /* Global action timeout */
-    actionTimeout: 10000,
+    actionTimeout: 15000, // Increased for network delays
     /* Global navigation timeout */
-    navigationTimeout: 30000,
+    navigationTimeout: 45000, // Increased for production deployment
   },
 
   /* Configure projects for major browsers */

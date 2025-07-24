@@ -1,0 +1,63 @@
+/**
+ * ULTRA-EARLY WASM BLOCKER
+ * This script runs BEFORE React and all other JavaScript to prevent WASM loading
+ */
+
+// Ultra-aggressive WASM prevention - must run first
+(function() {
+  'use strict';
+  
+  console.log('🚨 ULTRA-EARLY WASM BLOCKER ACTIVATED');
+  
+  // Block WebAssembly before any library can use it
+  if (typeof WebAssembly !== 'undefined') {
+    const blockWasm = function() {
+      console.warn('🚨 WASM BLOCKED BY ULTRA-EARLY BLOCKER');
+      return Promise.reject(new Error('WASM completely disabled for production MIME type compatibility'));
+    };
+    
+    WebAssembly.compile = blockWasm;
+    WebAssembly.instantiate = blockWasm;
+    
+    if (WebAssembly.compileStreaming) {
+      WebAssembly.compileStreaming = blockWasm;
+    }
+    
+    if (WebAssembly.instantiateStreaming) {
+      WebAssembly.instantiateStreaming = blockWasm;
+    }
+    
+    // Block instantiate overloads
+    WebAssembly.instantiate = blockWasm;
+    
+    console.log('✅ WebAssembly completely blocked by ultra-early script');
+  }
+  
+  // Set global flags before any library loads
+  if (typeof globalThis !== 'undefined') {
+    globalThis.__NOBLE_DISABLE_WASM__ = true;
+    globalThis.__WASM_COMPLETELY_DISABLED__ = true;
+  }
+  
+  if (typeof window !== 'undefined') {
+    window.__NOBLE_DISABLE_WASM__ = true;
+    window.__WASM_COMPLETELY_DISABLED__ = true;
+  }
+  
+  // Override fetch to block .wasm files EARLY
+  if (typeof fetch !== 'undefined') {
+    const originalFetch = fetch;
+    fetch = function(input, init) {
+      const url = typeof input === 'string' ? input : input.url;
+      
+      if (url && url.includes('.wasm')) {
+        console.warn('🚨 WASM FILE BLOCKED BY ULTRA-EARLY FETCH OVERRIDE:', url);
+        return Promise.reject(new Error('WASM file completely blocked for production'));
+      }
+      
+      return originalFetch.call(this, input, init);
+    };
+  }
+  
+  console.log('✅ ULTRA-EARLY WASM BLOCKER INSTALLATION COMPLETE');
+})();

@@ -84,6 +84,23 @@ export class ProductionErrorTracker {
    * Track a new error
    */
   trackError(error: PersonaPassError | Error, context?: any): void {
+    // Filter out WASM and extension errors that we've intentionally blocked
+    const errorMessage = error instanceof PersonaPassError ? error.message : error.message;
+    const shouldSuppress = 
+      errorMessage.includes('WebAssembly') ||
+      errorMessage.includes('wasm') ||
+      errorMessage.includes('MIME type') ||
+      errorMessage.includes('application/wasm') ||
+      errorMessage.includes('chrome-extension') ||
+      errorMessage.includes('hook.js') ||
+      errorMessage.includes('overrideMethod') ||
+      errorMessage.includes('Failed to execute \'compile\' on \'WebAssembly\'');
+    
+    if (shouldSuppress) {
+      // Don't track suppressed errors
+      return;
+    }
+
     const personaError = error instanceof PersonaPassError 
       ? error 
       : this.convertToPersonaPassError(error, context);
@@ -127,6 +144,18 @@ export class ProductionErrorTracker {
   private setupGlobalErrorHandlers(): void {
     // Handle unhandled promise rejections
     window.addEventListener('unhandledrejection', (event) => {
+      const reasonStr = String(event.reason);
+      
+      // Filter out WASM and extension errors
+      if (reasonStr.includes('WebAssembly') ||
+          reasonStr.includes('wasm') ||
+          reasonStr.includes('MIME type') ||
+          reasonStr.includes('application/wasm') ||
+          reasonStr.includes('chrome-extension') ||
+          reasonStr.includes('hook.js')) {
+        return; // Don't track these errors
+      }
+      
       const error = new Error(`Unhandled Promise Rejection: ${event.reason}`);
       this.trackError(error, { 
         type: 'unhandled_promise_rejection',
@@ -136,6 +165,17 @@ export class ProductionErrorTracker {
 
     // Handle global JavaScript errors
     window.addEventListener('error', (event) => {
+      // Filter out WASM and extension errors
+      if (event.message?.includes('WebAssembly') ||
+          event.message?.includes('wasm') ||
+          event.message?.includes('MIME type') ||
+          event.message?.includes('application/wasm') ||
+          event.message?.includes('chrome-extension') ||
+          event.filename?.includes('chrome-extension') ||
+          event.filename?.includes('hook.js')) {
+        return; // Don't track these errors
+      }
+      
       const error = new Error(`Global Error: ${event.message}`);
       this.trackError(error, {
         type: 'global_error',

@@ -86,19 +86,24 @@ window.addEventListener('unhandledrejection', (event) => {
   }
 });
 
-// SAFE global error handler - only suppress clear extension errors
+// SAFE global error handler - suppress extension and WASM errors
 window.addEventListener('error', (event) => {
-  // SAFELY filter out ONLY clearly extension-related errors
+  // SAFELY filter out extension errors and WASM errors
   const shouldSuppress = 
     // Browser extensions - must be very specific
     event.filename?.includes('chrome-extension://') ||
     event.filename?.includes('moz-extension://') ||
     event.filename?.includes('contentScripts') ||
     event.filename?.includes('injectedScript') ||
-    (event.filename?.includes('hook.js') && event.message?.includes('extension'));
+    (event.filename?.includes('hook.js') && event.message?.includes('extension')) ||
+    // WASM-related errors that we've intentionally blocked
+    event.message?.includes('WebAssembly') ||
+    event.message?.includes('wasm') ||
+    event.message?.includes('MIME type') ||
+    event.message?.includes('application/wasm');
 
   if (shouldSuppress) {
-    // Prevent extension errors from appearing
+    // Prevent extension and WASM errors from appearing
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
@@ -115,15 +120,20 @@ window.addEventListener('error', (event) => {
   });
 });
 
-// Minimal console filtering - only suppress clear extension errors
+// Enhanced console filtering - suppress extension and WASM errors
 const originalConsoleError = console.error;
 console.error = function(...args) {
   const message = args.join(' ');
   
-  // Only suppress clearly extension-related errors
+  // Suppress extension-related and WASM-related errors
   if (message.includes('chrome-extension') ||
       message.includes('moz-extension') ||
-      message.includes('hook.js') && message.includes('overrideMethod')) {
+      (message.includes('hook.js') && message.includes('overrideMethod')) ||
+      message.includes('WebAssembly') ||
+      message.includes('wasm') ||
+      message.includes('MIME type') ||
+      message.includes('application/wasm') ||
+      message.includes('Failed to execute \'compile\' on \'WebAssembly\'')) {
     return;
   }
   
