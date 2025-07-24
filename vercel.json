@@ -49,6 +49,32 @@
           "value": "public, max-age=31536000, immutable"
         }
       ]
+    },
+    {
+      "source": "/(.*).wasm",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/wasm"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/circuits/(.*).wasm",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/wasm"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     }
   ],
   "rewrites": [
