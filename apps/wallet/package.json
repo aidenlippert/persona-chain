@@ -3,7 +3,6 @@
   "version": "1.0.0-rc1-cachebust-force-deploy",
   "description": "PersonaPass Identity Wallet - Release Candidate 1",
   "private": true,
-  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
