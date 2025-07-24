@@ -1,0 +1,12 @@
+backend-server.js
+minimal-server.js
+server.js
+railway.json
+Dockerfile
+.railway
+contracts/
+x/
+third_party/
+*.log
+.env*
+!.env.example
