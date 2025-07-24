@@ -22,6 +22,17 @@ export async function loadWasm(wasmUrl: string, imports?: any): Promise<WasmLoad
   try {
     console.log(`[WASM-LOADER] Loading WebAssembly from: ${wasmUrl}`);
     
+    // If we're on Vercel production, use the proxy API to ensure correct MIME type
+    if (window.location.hostname === 'personapass.xyz' || 
+        window.location.hostname.includes('vercel.app')) {
+      // Extract the file path from the URL
+      const urlPath = new URL(wasmUrl, window.location.origin).pathname;
+      const proxyUrl = `/api/wasm-proxy?file=${encodeURIComponent(urlPath)}`;
+      
+      console.log(`[WASM-LOADER] Using proxy API for Vercel deployment: ${proxyUrl}`);
+      wasmUrl = proxyUrl;
+    }
+    
     // Method 1: Try streaming compilation (optimal performance)
     try {
       const response = await fetch(wasmUrl);

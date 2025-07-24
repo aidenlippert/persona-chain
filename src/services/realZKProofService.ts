@@ -187,16 +187,27 @@ export class RealZKProofService {
   }
 
   /**
-   * Load circuit WASM file
+   * Load circuit WASM file using our robust WASM loader
    */
   private async loadCircuitWasm(wasmPath: string): Promise<Buffer> {
     try {
-      const response = await fetch(wasmPath);
-      if (!response.ok) {
-        throw new Error(`Failed to load WASM: ${response.statusText}`);
+      // Use our WASM loader for proper MIME type handling
+      const result = await loadWasm(wasmPath);
+      
+      if (!result.success || !result.module) {
+        throw new Error(result.error?.message || 'Failed to load WASM');
       }
+      
+      // Export the module to ArrayBuffer
+      const exports = WebAssembly.Module.exports(result.module);
+      console.log(`✅ Loaded WASM module with ${exports.length} exports`);
+      
+      // For snarkjs, we need to return the module bytes
+      // Since we have the module instance, we'll fetch it again as bytes
+      const response = await fetch(wasmPath);
       const arrayBuffer = await response.arrayBuffer();
       return Buffer.from(arrayBuffer);
+      
     } catch (error) {
       throw new Error(`Failed to load circuit WASM from ${wasmPath}: ${error}`);
     }
