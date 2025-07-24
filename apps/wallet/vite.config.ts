@@ -163,9 +163,8 @@ export default defineConfig(({ command: _command, mode }) => ({
     // Enable JSX optimizations for production
     jsx: 'automatic',
     jsxDev: mode !== 'production',
-    // Support for BigInt and top-level await
+    // Support for top-level await (BigInt is native in Node.js 18+)
     supported: {
-      bigint: true,
       'top-level-await': true
     },
     target: 'es2020',
