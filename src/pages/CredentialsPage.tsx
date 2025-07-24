@@ -47,6 +47,7 @@ import { realAPIIntegrationService, APIConnection, APIProvider } from '../servic
 import APIConnectionModal from '../components/APIConnectionModal';
 import { EnhancedCredentialCard } from '../components/credentials/EnhancedCredentialCard';
 import { enhancedCredentialManager, CredentialMetadata } from '../services/credentials/EnhancedCredentialManager';
+import { errorService } from '../services/errorService';
 
 // 🎯 SMART API MARKETPLACE TYPES
 interface MarketplaceStats {
@@ -190,7 +191,7 @@ export const CredentialsPage = () => {
 
       await addCredential(normalizedCredential);
     } catch (error) {
-      console.error('❌ Failed to safely add credential:', error);
+      errorService.logError('❌ Failed to safely add credential:', error);
       throw error;
     }
   };
@@ -297,7 +298,7 @@ export const CredentialsPage = () => {
       setDidKeyPair(keyPair);
       console.log('✅ DID key pair generated and stored securely');
     } catch (error) {
-      console.error('❌ Failed to generate DID keys:', error);
+      errorService.logError('❌ Failed to generate DID keys:', error);
       alert('Failed to generate DID keys. Please try again.');
     }
   };
@@ -486,7 +487,7 @@ export const CredentialsPage = () => {
         throw new Error(result.error || 'ZK proof generation failed');
       }
     } catch (error) {
-      console.error('❌ Failed to generate ZK proof:', error);
+      errorService.logError('❌ Failed to generate ZK proof:', error);
       alert(`❌ Failed to generate ZK proof: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsGeneratingZKProof(null);
@@ -504,7 +505,7 @@ export const CredentialsPage = () => {
         title: 'PersonaPass Verifiable Credential',
         text: 'Verify this credential on PersonaPass',
         url: shareUrl,
-      }).catch(console.error);
+      }).catch(error => errorService.logError('API search error:', error));
     } else {
       // Fallback: copy to clipboard
       navigator.clipboard.writeText(shareUrl)
@@ -1204,7 +1205,7 @@ export const CredentialsPage = () => {
                         });
                         setProfessionalFeatures(prev => ({ ...prev, zkHealthScore: result }));
                       } catch (error) {
-                        console.error('Failed to generate ZK-Health Score:', error);
+                        errorService.logError('Failed to generate ZK-Health Score:', error);
                         alert('Failed to generate ZK-Health Score. Please try again.');
                       }
                       setIsGeneratingFeature(null);
@@ -1271,7 +1272,7 @@ export const CredentialsPage = () => {
                         });
                         setProfessionalFeatures(prev => ({ ...prev, silentKYC: result }));
                       } catch (error) {
-                        console.error('Failed to generate Silent KYC:', error);
+                        errorService.logError('Failed to generate Silent KYC:', error);
                         alert('Failed to generate Silent KYC. Please try again.');
                       }
                       setIsGeneratingFeature(null);
@@ -1354,7 +1355,7 @@ export const CredentialsPage = () => {
                         });
                         setProfessionalFeatures(prev => ({ ...prev, proofOfHuman: result }));
                       } catch (error) {
-                        console.error('Failed to generate Proof-of-Human:', error);
+                        errorService.logError('Failed to generate Proof-of-Human:', error);
                         alert('Failed to generate Proof-of-Human. Please try again.');
                       }
                       setIsGeneratingFeature(null);
@@ -1423,7 +1424,7 @@ export const CredentialsPage = () => {
                         });
                         setProfessionalFeatures(prev => ({ ...prev, ageGate: result }));
                       } catch (error) {
-                        console.error('Failed to generate Age Gate:', error);
+                        errorService.logError('Failed to generate Age Gate:', error);
                         alert('Failed to generate Age Gate. Please try again.');
                       }
                       setIsGeneratingFeature(null);
@@ -1494,7 +1495,7 @@ export const CredentialsPage = () => {
                         );
                         setProfessionalFeatures(prev => ({ ...prev, crossChainIdentity: result }));
                       } catch (error) {
-                        console.error('Failed to generate Cross-Chain Identity:', error);
+                        errorService.logError('Failed to generate Cross-Chain Identity:', error);
                         alert('Failed to generate Cross-Chain Identity. Please try again.');
                       }
                       setIsGeneratingFeature(null);

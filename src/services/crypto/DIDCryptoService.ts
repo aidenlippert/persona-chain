@@ -9,6 +9,7 @@ import * as ed25519 from '@noble/ed25519';
 import { sha256 } from '@noble/hashes/sha256';
 import { sha512 } from '@noble/hashes/sha512';
 import { randomBytes } from '@noble/hashes/utils';
+import { errorService } from '../errorService';
 
 // 🎯 W3C DID:key Method Types
 export interface DIDKeyPair {
@@ -111,7 +112,7 @@ export class DIDCryptoService {
       console.log('🔧 Ed25519 hash functions forcefully initialized');
       
     } catch (error) {
-      console.error('❌ Failed to initialize Ed25519 hash functions:', error);
+      errorService.logError('❌ Failed to initialize Ed25519 hash functions:', error);
       console.warn('⚠️ DID crypto service will operate in limited mode');
     }
   }
@@ -187,7 +188,7 @@ export class DIDCryptoService {
       return keyPair;
       
     } catch (error) {
-      console.error('❌ Failed to generate DID key pair:', error);
+      errorService.logError('❌ Failed to generate DID key pair:', error);
       throw new Error(`DID key generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
