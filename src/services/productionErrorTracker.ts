@@ -84,19 +84,12 @@ export class ProductionErrorTracker {
    * Track a new error
    */
   trackError(error: PersonaPassError | Error, context?: any): void {
-    // Filter out WASM and extension errors that we've intentionally blocked
+    // Filter out extension errors only (allow WASM errors for debugging)
     const errorMessage = error instanceof PersonaPassError ? error.message : error.message;
     const shouldSuppress = 
-      errorMessage.includes('WebAssembly') ||
-      errorMessage.includes('wasm') ||
-      errorMessage.includes('MIME type') ||
-      errorMessage.includes('application/wasm') ||
-      errorMessage.includes('WASM_SILENTLY_BLOCKED') ||
-      errorMessage.includes('WASM file completely blocked') ||
       errorMessage.includes('chrome-extension') ||
       errorMessage.includes('hook.js') ||
-      errorMessage.includes('overrideMethod') ||
-      errorMessage.includes('Failed to execute \'compile\' on \'WebAssembly\'');
+      errorMessage.includes('overrideMethod');
     
     if (shouldSuppress) {
       // Don't track suppressed errors
@@ -148,14 +141,8 @@ export class ProductionErrorTracker {
     window.addEventListener('unhandledrejection', (event) => {
       const reasonStr = String(event.reason);
       
-      // Filter out WASM and extension errors
-      if (reasonStr.includes('WebAssembly') ||
-          reasonStr.includes('wasm') ||
-          reasonStr.includes('MIME type') ||
-          reasonStr.includes('application/wasm') ||
-          reasonStr.includes('WASM_SILENTLY_BLOCKED') ||
-          reasonStr.includes('WASM file completely blocked') ||
-          reasonStr.includes('chrome-extension') ||
+      // Filter out extension errors only (allow WASM errors for debugging)
+      if (reasonStr.includes('chrome-extension') ||
           reasonStr.includes('hook.js')) {
         return; // Don't track these errors
       }
@@ -169,14 +156,8 @@ export class ProductionErrorTracker {
 
     // Handle global JavaScript errors
     window.addEventListener('error', (event) => {
-      // Filter out WASM and extension errors
-      if (event.message?.includes('WebAssembly') ||
-          event.message?.includes('wasm') ||
-          event.message?.includes('MIME type') ||
-          event.message?.includes('application/wasm') ||
-          event.message?.includes('WASM_SILENTLY_BLOCKED') ||
-          event.message?.includes('WASM file completely blocked') ||
-          event.message?.includes('chrome-extension') ||
+      // Filter out extension errors only (allow WASM errors for debugging)
+      if (event.message?.includes('chrome-extension') ||
           event.filename?.includes('chrome-extension') ||
           event.filename?.includes('hook.js')) {
         return; // Don't track these errors

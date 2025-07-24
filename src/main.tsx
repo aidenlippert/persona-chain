@@ -2,8 +2,8 @@
  * Persona Wallet Entry Point - ULTIMATE CACHE BUSTER v3
  */
 
-// 🚨 CRITICAL FIX: Disable WASM before any other imports
-import "./utils/wasmDisabler";
+// WASM functionality restored for legitimate ZK proof operations
+import { logWASMStatus } from "./utils/wasmTest";
 
 import React from "react";
 import ReactDOM from "react-dom/client";
@@ -27,6 +27,10 @@ try {
 
 // 🚀 Initialize Production Monitoring Systems
 console.log("🔥 Initializing PersonaPass Production Systems...");
+
+// Test WASM functionality
+console.log("🧪 Testing WASM functionality...");
+logWASMStatus();
 
 // Initialize error tracking
 try {
@@ -81,12 +85,8 @@ if ("serviceWorker" in navigator) {
 window.addEventListener('unhandledrejection', (event) => {
   const reasonStr = String(event.reason);
   
-  // Suppress WASM and extension errors
-  if (reasonStr.includes('WASM_SILENTLY_BLOCKED') ||
-      reasonStr.includes('WASM file completely blocked') ||
-      reasonStr.includes('WebAssembly') ||
-      reasonStr.includes('wasm') ||
-      reasonStr.includes('Node cannot be found') ||
+  // Suppress extension errors only (keep WASM errors visible for debugging)
+  if (reasonStr.includes('Node cannot be found') ||
       reasonStr.includes('chrome-extension')) {
     event.preventDefault();
     return;
@@ -95,33 +95,26 @@ window.addEventListener('unhandledrejection', (event) => {
   errorService.logError('Unhandled promise rejection:', event.reason);
 });
 
-// SAFE global error handler - suppress extension and WASM errors
+// Global error handler - suppress extension errors only
 window.addEventListener('error', (event) => {
-  // SAFELY filter out extension errors and WASM errors
+  // SAFELY filter out extension errors only
   const shouldSuppress = 
     // Browser extensions - must be very specific
     event.filename?.includes('chrome-extension://') ||
     event.filename?.includes('moz-extension://') ||
     event.filename?.includes('contentScripts') ||
     event.filename?.includes('injectedScript') ||
-    (event.filename?.includes('hook.js') && event.message?.includes('extension')) ||
-    // WASM-related errors that we've intentionally blocked
-    event.message?.includes('WebAssembly') ||
-    event.message?.includes('wasm') ||
-    event.message?.includes('MIME type') ||
-    event.message?.includes('application/wasm') ||
-    event.message?.includes('WASM_SILENTLY_BLOCKED') ||
-    event.message?.includes('WASM file completely blocked');
+    (event.filename?.includes('hook.js') && event.message?.includes('extension'));
 
   if (shouldSuppress) {
-    // Prevent extension and WASM errors from appearing
+    // Prevent extension errors from appearing
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
     return false;
   }
   
-  // Log ALL other errors including legitimate application errors
+  // Log ALL errors including WASM errors for debugging
   errorService.logError('[ALERT] Global Error Handler - Application Error:', {
     message: event.message,
     filename: event.filename,
@@ -131,26 +124,19 @@ window.addEventListener('error', (event) => {
   });
 });
 
-// Enhanced console filtering - suppress extension and WASM errors
+// Enhanced console filtering - suppress extension errors only
 const originalConsoleError = console.error;
 console.error = function(...args) {
   const message = args.join(' ');
   
-  // Suppress extension-related and WASM-related errors
+  // Suppress extension-related errors only
   if (message.includes('chrome-extension') ||
       message.includes('moz-extension') ||
-      (message.includes('hook.js') && message.includes('overrideMethod')) ||
-      message.includes('WebAssembly') ||
-      message.includes('wasm') ||
-      message.includes('MIME type') ||
-      message.includes('application/wasm') ||
-      message.includes('WASM_SILENTLY_BLOCKED') ||
-      message.includes('WASM file completely blocked') ||
-      message.includes('Failed to execute \'compile\' on \'WebAssembly\'')) {
+      (message.includes('hook.js') && message.includes('overrideMethod'))) {
     return;
   }
   
-  // Allow all other errors through
+  // Allow all other errors through including WASM errors for debugging
   originalConsoleError.apply(console, args);
 };
 

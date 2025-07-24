@@ -7,12 +7,11 @@
 
 import { ed25519 } from "@noble/curves/ed25519";
 
-// 🚨 WASM FIX: Force @noble/curves to use pure JavaScript instead of WASM
-// This prevents "Incorrect response MIME type" errors in production
+// Enable WASM for optimal cryptographic performance
 if (typeof globalThis !== 'undefined') {
-  // Disable WASM usage globally to avoid MIME type issues
+  // Allow WASM for better performance
   globalThis.crypto = globalThis.crypto || {};
-  (globalThis as any).__NOBLE_DISABLE_WASM__ = true;
+  (globalThis as any).__NOBLE_DISABLE_WASM__ = false;
 }
 
 // import { randomBytes } from '@noble/hashes/utils';

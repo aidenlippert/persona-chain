@@ -154,8 +154,8 @@ export default defineConfig(({ command: _command, mode }) => ({
     'process.env.NODE_ENV': JSON.stringify(mode),
     // Enable React production optimizations
     __DEV__: mode !== 'production',
-    // 🚨 WASM FIX: Force @noble/curves to use pure JavaScript
-    '__NOBLE_DISABLE_WASM__': true,
+    // Allow WASM for legitimate cryptographic operations
+    '__NOBLE_DISABLE_WASM__': false,
   },
   esbuild: {
     // Additional esbuild configuration for React optimization
@@ -188,6 +188,8 @@ export default defineConfig(({ command: _command, mode }) => ({
         frame-ancestors 'none';
       `.replace(/\s+/g, ' ').trim()
     },
+    // Ensure proper WASM MIME type handling
+    middlewareMode: false,
     proxy: {
       "/api/v1": {
         target: "http://localhost:8080",
@@ -212,10 +214,8 @@ export default defineConfig(({ command: _command, mode }) => ({
   build: {
     // 🚀 STATE-OF-THE-ART BUILD CONFIG - Advanced optimization
     rollupOptions: {
-      external: [
-        // Exclude WASM files from bundle to prevent MIME type issues
-        /\.wasm$/,
-      ],
+      // Allow WASM files to be bundled properly
+      external: [],
       output: {
         // 🚨 EMERGENCY BUNDLE SIZE REDUCTION - Aggressive code splitting
         manualChunks: (id) => {
