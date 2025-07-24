@@ -61,20 +61,27 @@ app.get('/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({
     message: 'PersonaPass Backend API',
-    version: '1.0.0',
+    version: '1.0.0-oauth-debug',
     timestamp: new Date().toISOString(),
+    commit: 'ed5f4ec',
     endpoints: [
       '/health - Health check',
-      '/api/oauth/github - GitHub OAuth handling',
-      '/api/credentials - Credential management',
-      '/api/auth - Authentication services'
+      '/oauth/github/init - GitHub OAuth initialization',
+      '/oauth/github/callback - GitHub OAuth callback',
+      '/debug-deployment - Debug endpoint',
+      '/api/* - API placeholder'
     ]
   });
 });
 
-// Test endpoint to verify routing
-app.get('/test-route', (req, res) => {
-  res.json({ message: 'Test route working!', timestamp: new Date().toISOString() });
+// Test endpoint to verify routing - FORCE DEPLOYMENT
+app.get('/debug-deployment', (req, res) => {
+  res.json({ 
+    message: 'Deployment working - commit ed5f4ec', 
+    timestamp: new Date().toISOString(),
+    nodeVersion: process.version,
+    env: process.env.NODE_ENV || 'development'
+  });
 });
 
 // GitHub OAuth init endpoint
