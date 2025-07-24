@@ -1,9 +1,19 @@
 {
+  "version": 2,
+  "public": true,
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "framework": null,
+  "functions": {},
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ],
   "build": {
     "env": {
       "NODE_VERSION": "18"
     }
-  },
-  "buildCommand": "npm run build"
+  }
 }
