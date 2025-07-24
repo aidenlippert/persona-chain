@@ -65,19 +65,9 @@ class SecureCredentialStorageService {
       });
       
       // Store in encrypted IndexedDB via DatabaseService
-      await this.databaseService.storeCredential({
-        id: credential.id,
-        did: credential.credentialSubject?.id || credential.id || 'unknown',
-        type: Array.isArray(credential.type) ? credential.type.join(',') : 'VerifiableCredential',
-        issuer: credential.issuer,
-        data: credential,
-        tags: [Array.isArray(credential.type) ? credential.type[1] || 'unknown' : 'unknown'],
-        metadata: {
-          blockchainTxHash: credential.blockchainTxHash,
-          issuanceDate: credential.issuanceDate,
-          encrypted: true
-        }
-      });
+      // Fixed: Pass userDid as first parameter and credential as second parameter
+      const userDid = credential.credentialSubject?.id || 'unknown';
+      await this.databaseService.storeCredential(userDid, credential);
 
       // Also store in IndexedDB for offline access
       await storageService.storeCredential(credential);
