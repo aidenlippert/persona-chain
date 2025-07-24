@@ -54,5 +54,76 @@ export function isWasmDisabled(): boolean {
   return Boolean(globalFlag || windowFlag);
 }
 
-// Auto-run the disabler when this module is imported
+/**
+ * Additional WASM prevention for production deployments
+ */
+export function preventAllWasm(): void {
+  try {
+    // Override WebAssembly.compile to prevent MIME type errors
+    if (typeof WebAssembly !== 'undefined') {
+      const originalCompile = WebAssembly.compile;
+      const originalInstantiate = WebAssembly.instantiate;
+      const originalCompileStreaming = WebAssembly.compileStreaming;
+      const originalInstantiateStreaming = WebAssembly.instantiateStreaming;
+      
+      WebAssembly.compile = function() {
+        console.warn('🚨 WASM compile blocked - using JavaScript fallback');
+        return Promise.reject(new Error('WASM disabled for production MIME type compatibility'));
+      };
+      
+      WebAssembly.instantiate = function() {
+        console.warn('🚨 WASM instantiate blocked - using JavaScript fallback');
+        return Promise.reject(new Error('WASM disabled for production MIME type compatibility'));
+      };
+
+      // Also override streaming methods
+      if (WebAssembly.compileStreaming) {
+        WebAssembly.compileStreaming = function() {
+          console.warn('🚨 WASM compileStreaming blocked - using JavaScript fallback');
+          return Promise.reject(new Error('WASM streaming disabled for production MIME type compatibility'));
+        };
+      }
+
+      if (WebAssembly.instantiateStreaming) {
+        WebAssembly.instantiateStreaming = function() {
+          console.warn('🚨 WASM instantiateStreaming blocked - using JavaScript fallback');
+          return Promise.reject(new Error('WASM streaming disabled for production MIME type compatibility'));
+        };
+      }
+      
+      console.log('✅ All WebAssembly methods overridden for production safety');
+    }
+  } catch (error) {
+    console.warn('⚠️ Failed to override WebAssembly methods:', error);
+  }
+}
+
+/**
+ * Prevent circuits WASM loading specifically
+ */
+export function preventCircuitWasm(): void {
+  try {
+    // Override fetch to intercept WASM file requests
+    const originalFetch = window.fetch;
+    window.fetch = function(input, init) {
+      const url = typeof input === 'string' ? input : input.url;
+      
+      // Block all .wasm file requests
+      if (url.includes('.wasm')) {
+        console.warn('🚨 WASM file request blocked:', url);
+        return Promise.reject(new Error('WASM file loading disabled for production compatibility'));
+      }
+      
+      return originalFetch.call(this, input, init);
+    };
+    
+    console.log('✅ Fetch override installed to block WASM file requests');
+  } catch (error) {
+    console.warn('⚠️ Failed to override fetch for WASM blocking:', error);
+  }
+}
+
+// Auto-run all disablers when this module is imported
 disableNobleWasm();
+preventAllWasm();
+preventCircuitWasm();

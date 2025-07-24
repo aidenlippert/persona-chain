@@ -212,6 +212,10 @@ export default defineConfig(({ command: _command, mode }) => ({
   build: {
     // 🚀 STATE-OF-THE-ART BUILD CONFIG - Advanced optimization
     rollupOptions: {
+      external: [
+        // Exclude WASM files from bundle to prevent MIME type issues
+        /\.wasm$/,
+      ],
       output: {
         // 🚨 EMERGENCY BUNDLE SIZE REDUCTION - Aggressive code splitting
         manualChunks: (id) => {

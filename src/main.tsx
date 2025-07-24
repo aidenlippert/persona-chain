@@ -131,20 +131,45 @@ console.error = function(...args) {
   originalConsoleError.apply(console, args);
 };
 
-// Minimal React DevTools compatibility
+// Enhanced React DevTools compatibility with error suppression
 try {
-  if (typeof window !== 'undefined' && !window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
-    // Only set up if not already present
-    window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
-      checkDCE: () => {},
-      supportsFiber: true,
-      inject: () => {},
-      onCommitFiberRoot: () => {},
-      onCommitFiberUnmount: () => {},
-    };
+  if (typeof window !== 'undefined') {
+    // Create a more comprehensive React DevTools hook to prevent errors
+    if (!window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
+      window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
+        checkDCE: () => {},
+        supportsFiber: true,
+        inject: () => {},
+        onCommitFiberRoot: () => {},
+        onCommitFiberUnmount: () => {},
+        isDisabled: false,
+        // Additional methods to prevent hook.js errors
+        overrideMethod: () => {},
+        onScheduleFiberRoot: () => {},
+        onCommitFiberUnmount: () => {},
+        renderer: null,
+        renderers: new Map(),
+        // Suppress overrideMethod errors specifically
+        _overrideMethod: () => {},
+      };
+    }
+    
+    // Specifically handle overrideMethod errors from extensions
+    const originalHook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+    if (originalHook && typeof originalHook.overrideMethod === 'function') {
+      const originalOverrideMethod = originalHook.overrideMethod;
+      originalHook.overrideMethod = function(...args) {
+        try {
+          return originalOverrideMethod.apply(this, args);
+        } catch (error) {
+          // Silently suppress overrideMethod errors
+          return;
+        }
+      };
+    }
   }
 } catch (e) {
-  // Ignore errors
+  // Ignore all hook setup errors
 }
 
 // Create root and render app
