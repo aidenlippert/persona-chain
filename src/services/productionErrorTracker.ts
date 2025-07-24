@@ -91,6 +91,8 @@ export class ProductionErrorTracker {
       errorMessage.includes('wasm') ||
       errorMessage.includes('MIME type') ||
       errorMessage.includes('application/wasm') ||
+      errorMessage.includes('WASM_SILENTLY_BLOCKED') ||
+      errorMessage.includes('WASM file completely blocked') ||
       errorMessage.includes('chrome-extension') ||
       errorMessage.includes('hook.js') ||
       errorMessage.includes('overrideMethod') ||
@@ -151,6 +153,8 @@ export class ProductionErrorTracker {
           reasonStr.includes('wasm') ||
           reasonStr.includes('MIME type') ||
           reasonStr.includes('application/wasm') ||
+          reasonStr.includes('WASM_SILENTLY_BLOCKED') ||
+          reasonStr.includes('WASM file completely blocked') ||
           reasonStr.includes('chrome-extension') ||
           reasonStr.includes('hook.js')) {
         return; // Don't track these errors
@@ -170,6 +174,8 @@ export class ProductionErrorTracker {
           event.message?.includes('wasm') ||
           event.message?.includes('MIME type') ||
           event.message?.includes('application/wasm') ||
+          event.message?.includes('WASM_SILENTLY_BLOCKED') ||
+          event.message?.includes('WASM file completely blocked') ||
           event.message?.includes('chrome-extension') ||
           event.filename?.includes('chrome-extension') ||
           event.filename?.includes('hook.js')) {

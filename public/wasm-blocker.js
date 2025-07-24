@@ -16,19 +16,21 @@
       return Promise.reject(new Error('WASM completely disabled for production MIME type compatibility'));
     };
     
-    WebAssembly.compile = blockWasm;
-    WebAssembly.instantiate = blockWasm;
+    // Silent blocking functions
+    const silentBlockWasm = function() {
+      return Promise.reject(new Error('WASM_SILENTLY_BLOCKED'));
+    };
+    
+    WebAssembly.compile = silentBlockWasm;
+    WebAssembly.instantiate = silentBlockWasm;
     
     if (WebAssembly.compileStreaming) {
-      WebAssembly.compileStreaming = blockWasm;
+      WebAssembly.compileStreaming = silentBlockWasm;
     }
     
     if (WebAssembly.instantiateStreaming) {
-      WebAssembly.instantiateStreaming = blockWasm;
+      WebAssembly.instantiateStreaming = silentBlockWasm;
     }
-    
-    // Block instantiate overloads
-    WebAssembly.instantiate = blockWasm;
     
     console.log('✅ WebAssembly completely blocked by ultra-early script');
   }
@@ -51,8 +53,8 @@
       const url = typeof input === 'string' ? input : input.url;
       
       if (url && url.includes('.wasm')) {
-        console.warn('🚨 WASM FILE BLOCKED BY ULTRA-EARLY FETCH OVERRIDE:', url);
-        return Promise.reject(new Error('WASM file completely blocked for production'));
+        // Silently block WASM files without logging
+        return Promise.reject(new Error('WASM_SILENTLY_BLOCKED'));
       }
       
       return originalFetch.call(this, input, init);

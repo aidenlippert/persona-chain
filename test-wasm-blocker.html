@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WASM Blocker Test</title>
+    <!-- Load our WASM blocker first -->
+    <script src="/public/wasm-blocker.js"></script>
+</head>
+<body>
+    <h1>Testing WASM Blocker</h1>
+    <div id="results"></div>
+    
+    <script>
+        const results = document.getElementById('results');
+        
+        // Test 1: Check if global flags are set
+        console.log('🧪 Testing WASM blocker functionality');
+        
+        results.innerHTML += '<h2>Test Results:</h2>';
+        
+        if (window.__WASM_COMPLETELY_DISABLED__) {
+            results.innerHTML += '<p>✅ Global WASM disabled flag is set</p>';
+        } else {
+            results.innerHTML += '<p>❌ Global WASM disabled flag is NOT set</p>';
+        }
+        
+        if (window.__NOBLE_DISABLE_WASM__) {
+            results.innerHTML += '<p>✅ Noble WASM disabled flag is set</p>';
+        } else {
+            results.innerHTML += '<p>❌ Noble WASM disabled flag is NOT set</p>';
+        }
+        
+        // Test 2: Try to use WebAssembly
+        try {
+            WebAssembly.compile(new Uint8Array([0, 0, 0, 0]));
+            results.innerHTML += '<p>❌ WebAssembly.compile did NOT fail (blocker not working)</p>';
+        } catch (error) {
+            if (error.message.includes('WASM completely disabled')) {
+                results.innerHTML += '<p>✅ WebAssembly.compile properly blocked</p>';
+            } else {
+                results.innerHTML += '<p>⚠️ WebAssembly.compile failed for different reason: ' + error.message + '</p>';
+            }
+        }
+        
+        // Test 3: Try WebAssembly.instantiate
+        try {
+            WebAssembly.instantiate(new Uint8Array([0, 0, 0, 0]));
+            results.innerHTML += '<p>❌ WebAssembly.instantiate did NOT fail (blocker not working)</p>';
+        } catch (error) {
+            if (error.message.includes('WASM completely disabled')) {
+                results.innerHTML += '<p>✅ WebAssembly.instantiate properly blocked</p>';
+            } else {
+                results.innerHTML += '<p>⚠️ WebAssembly.instantiate failed for different reason: ' + error.message + '</p>';
+            }
+        }
+        
+        // Test 4: Try to fetch a .wasm file
+        fetch('/test.wasm').then(() => {
+            results.innerHTML += '<p>❌ WASM file fetch did NOT fail (blocker not working)</p>';
+        }).catch(error => {
+            if (error.message.includes('WASM file completely blocked')) {
+                results.innerHTML += '<p>✅ WASM file fetch properly blocked</p>';
+            } else {
+                results.innerHTML += '<p>⚠️ WASM file fetch failed for different reason: ' + error.message + '</p>';
+            }
+        });
+        
+        console.log('✅ WASM blocker test completed');
+    </script>
+</body>
+</html>

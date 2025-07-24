@@ -79,11 +79,20 @@ if ("serviceWorker" in navigator) {
 
 // Add global error handler for unhandled promise rejections
 window.addEventListener('unhandledrejection', (event) => {
-  errorService.logError('Unhandled promise rejection:', event.reason);
-  if (event.reason?.message?.includes('Node cannot be found')) {
-    console.warn('Suppressing harmless "Node cannot be found" error from browser extensions');
+  const reasonStr = String(event.reason);
+  
+  // Suppress WASM and extension errors
+  if (reasonStr.includes('WASM_SILENTLY_BLOCKED') ||
+      reasonStr.includes('WASM file completely blocked') ||
+      reasonStr.includes('WebAssembly') ||
+      reasonStr.includes('wasm') ||
+      reasonStr.includes('Node cannot be found') ||
+      reasonStr.includes('chrome-extension')) {
     event.preventDefault();
+    return;
   }
+  
+  errorService.logError('Unhandled promise rejection:', event.reason);
 });
 
 // SAFE global error handler - suppress extension and WASM errors
@@ -100,7 +109,9 @@ window.addEventListener('error', (event) => {
     event.message?.includes('WebAssembly') ||
     event.message?.includes('wasm') ||
     event.message?.includes('MIME type') ||
-    event.message?.includes('application/wasm');
+    event.message?.includes('application/wasm') ||
+    event.message?.includes('WASM_SILENTLY_BLOCKED') ||
+    event.message?.includes('WASM file completely blocked');
 
   if (shouldSuppress) {
     // Prevent extension and WASM errors from appearing
@@ -133,6 +144,8 @@ console.error = function(...args) {
       message.includes('wasm') ||
       message.includes('MIME type') ||
       message.includes('application/wasm') ||
+      message.includes('WASM_SILENTLY_BLOCKED') ||
+      message.includes('WASM file completely blocked') ||
       message.includes('Failed to execute \'compile\' on \'WebAssembly\'')) {
     return;
   }
