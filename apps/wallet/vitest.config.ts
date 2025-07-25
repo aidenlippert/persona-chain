@@ -136,11 +136,7 @@ export default defineConfig({
     retry: 1,
 
     // Reporter configuration
-    reporter: ["verbose", "junit", "json"],
-    outputFile: {
-      junit: "./test-results/junit.xml",
-      json: "./test-results/results.json",
-    },
+    reporter: "verbose",
 
     // Watch mode configuration
     watch: true,

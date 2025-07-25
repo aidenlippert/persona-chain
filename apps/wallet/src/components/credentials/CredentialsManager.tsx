@@ -5,9 +5,10 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { errorService } from "@/services/errorService";
+import { notificationService } from "@/services/notificationService";
 
 interface Credential {
-  type: string;
+  type: string[];
   issuer: string;
   issuanceDate: string;
   credentialSubject: any;
@@ -136,7 +137,7 @@ export const CredentialsManager = ({ did, onCredentialCreated }: CredentialsMana
 
   const generateZKProof = (credential: Credential) => {
     // This would generate a real ZK proof
-    notify.info(`Zero-Knowledge Proof Generated!\n\nProving: ${credential.type[1]}\nWithout revealing: Personal details\n\nProof hash: 0x${Math.random().toString(16).substr(2, 8)}...`);
+    notificationService.notify(`Zero-Knowledge Proof Generated!\n\nProving: ${credential.type[1]}\nWithout revealing: Personal details\n\nProof hash: 0x${Math.random().toString(16).substr(2, 8)}...`, { type: 'info' });
   };
 
   return (

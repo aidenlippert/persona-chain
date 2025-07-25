@@ -553,7 +553,11 @@ export const AdvancedWorkflowDashboard: React.FC = () => {
                     checked={executionConfig.options?.skipOptionalSteps || false}
                     onChange={(e) => setExecutionConfig(prev => ({
                       ...prev,
-                      options: { ...prev.options, skipOptionalSteps: e.target.checked }
+                      options: { 
+                        skipOptionalSteps: e.target.checked,
+                        allowPartialCompletion: prev.options?.allowPartialCompletion ?? false,
+                        notifyOnProgress: prev.options?.notifyOnProgress ?? false
+                      }
                     }))}
                     className="rounded"
                   />
@@ -566,7 +570,11 @@ export const AdvancedWorkflowDashboard: React.FC = () => {
                     checked={executionConfig.options?.allowPartialCompletion || false}
                     onChange={(e) => setExecutionConfig(prev => ({
                       ...prev,
-                      options: { ...prev.options, allowPartialCompletion: e.target.checked }
+                      options: { 
+                        skipOptionalSteps: prev.options?.skipOptionalSteps ?? false,
+                        allowPartialCompletion: e.target.checked,
+                        notifyOnProgress: prev.options?.notifyOnProgress ?? false
+                      }
                     }))}
                     className="rounded"
                   />
@@ -579,7 +587,11 @@ export const AdvancedWorkflowDashboard: React.FC = () => {
                     checked={executionConfig.options?.notifyOnProgress || false}
                     onChange={(e) => setExecutionConfig(prev => ({
                       ...prev,
-                      options: { ...prev.options, notifyOnProgress: e.target.checked }
+                      options: { 
+                        skipOptionalSteps: prev.options?.skipOptionalSteps ?? false,
+                        allowPartialCompletion: prev.options?.allowPartialCompletion ?? false,
+                        notifyOnProgress: e.target.checked
+                      }
                     }))}
                     className="rounded"
                   />

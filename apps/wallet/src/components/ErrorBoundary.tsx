@@ -78,7 +78,7 @@ export class ErrorBoundary extends Component<Props, State> {
     }
     
     // For genuine errors, log and update state
-    errorService.logError('[ALERT] ErrorBoundary caught a genuine error:', error, errorInfo);
+    errorService.logError(`[ALERT] ErrorBoundary caught a genuine error: ${error.message}`, error);
     
     // Capture specific error types for better handling
     if (error.message.includes('Node cannot be found')) {

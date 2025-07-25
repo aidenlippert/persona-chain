@@ -7,16 +7,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  CheckCircleIcon,
   ShieldCheckIcon,
   ArrowPathIcon,
   EyeIcon,
-  ClockIcon,
   ShareIcon,
-  DocumentDuplicateIcon,
   ExclamationTriangleIcon,
-  CalendarIcon,
-  ChartBarIcon,
   KeyIcon,
   LockClosedIcon,
   GlobeAltIcon,

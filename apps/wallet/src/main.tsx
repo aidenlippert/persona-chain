@@ -80,10 +80,22 @@ const originalConsoleError = console.error;
 console.error = function(...args) {
   const message = args.join(' ');
   
-  // Only suppress clearly extension-related errors
-  if (message.includes('chrome-extension') ||
-      message.includes('moz-extension') ||
-      message.includes('hook.js') && message.includes('overrideMethod')) {
+  // CRITICAL: Never suppress WASM, WebAssembly, or crypto-related errors
+  if (message.includes('WebAssembly') || 
+      message.includes('wasm') || 
+      message.includes('@noble') ||
+      message.includes('crypto') ||
+      message.includes('MIME type') ||
+      (message.includes('compile') && message.includes('WebAssembly'))) {
+    originalConsoleError.apply(console, args);
+    return;
+  }
+  
+  // Only suppress clearly extension-related errors (be very specific)
+  if (message.includes('chrome-extension://') ||
+      message.includes('moz-extension://') ||
+      message.includes('contentScripts') ||
+      (message.includes('hook.js') && message.includes('overrideMethod'))) {
     return;
   }
   
