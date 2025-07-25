@@ -3,8 +3,165 @@ import react from "@vitejs/plugin-react";
 // import { VitePWA } from "vite-plugin-pwa"; // 🚧 TEMPORARILY DISABLED
 import { nodePolyfills } from "vite-plugin-node-polyfills";
 import { visualizer } from "rollup-plugin-visualizer";
-import wasm from "vite-plugin-wasm";
+// REMOVED: import wasm from "vite-plugin-wasm"; // 🚨 CRITICAL: Disabled to prevent WASM loading
 import path from "path";
+
+// 🚨 ULTRA-AGGRESSIVE WASM BLOCKER - Complete prevention at build time
+const wasmBlockerPlugin = () => ({
+  name: 'wasm-blocker',
+  transform(code: string, id: string) {
+    // Target ALL libraries that might use WASM - Enhanced for Noble v1.9.4
+    if (id.includes('@noble/curves') || id.includes('noble-curves') || id.includes('secp256k1')) {
+      console.log(`[VITE-WASM-BLOCKER] 🎯 TIER-1 WASM DISABLING in: ${id}`);
+      
+      let transformedCode = code;
+      
+      // 🚨 CRITICAL: Inject Tier-1 WASM disabling at the top of Noble modules
+      transformedCode = `
+// 🔐 TIER-1 WASM DISABLING - Injected at build time
+if (typeof globalThis !== 'undefined') {
+  globalThis.process = { env: { NOBLE_DISABLE_WASM: 'true' } };
+  globalThis.__NOBLE_DISABLE_WASM__ = true;
+  globalThis.WebAssembly = undefined; // Complete WebAssembly blocking
+}
+if (typeof window !== 'undefined') {
+  window.WebAssembly = undefined; // Browser-specific blocking
+}
+console.log('[VITE-WASM-BLOCKER] 🎯 TIER-1 NOBLE WASM DISABLED');
+${transformedCode}`;
+      
+      // 🔥 DESTROY all WASM-related code patterns
+      
+      // 1. Replace all dynamic imports of .wasm files
+      transformedCode = transformedCode.replace(
+        /import\(['"`][^'"`]*\.wasm['"`]\)/g, 
+        'Promise.resolve(null) // WASM blocked - JS fallback'
+      );
+      
+      // 2. Replace await import() patterns for WASM
+      transformedCode = transformedCode.replace(
+        /await\s+import\(['"`][^'"`]*\.wasm['"`]\)/g, 
+        'null // WASM blocked - JS fallback'
+      );
+      
+      // 3. Replace fetch calls for .wasm files - Multiple patterns
+      transformedCode = transformedCode.replace(
+        /fetch\(['"`][^'"`]*\.wasm['"`]\)/g,
+        'Promise.reject(new TypeError("WASM_DISABLED: Network error")) // WASM blocked - triggers JS fallback'
+      );
+      
+      // Also handle template literal fetch calls
+      transformedCode = transformedCode.replace(
+        /fetch\(`[^`]*\.wasm`\)/g,
+        'Promise.reject(new TypeError("WASM_DISABLED: Network error")) // WASM blocked - triggers JS fallback'
+      );
+      
+      // Handle dynamic fetch calls with variables
+      transformedCode = transformedCode.replace(
+        /fetch\([^)]*wasmUrl[^)]*\)/g,
+        'Promise.reject(new TypeError("WASM_DISABLED: Network error")) // WASM blocked - triggers JS fallback'
+      );
+      
+      // 4. Replace any WebAssembly.instantiate calls with graceful fallback
+      transformedCode = transformedCode.replace(
+        /WebAssembly\.instantiate\(/g,
+        '(() => Promise.reject(new TypeError("WASM_DISABLED: WebAssembly disabled")))( // WASM blocked'
+      );
+      
+      // 5. Replace WebAssembly.instantiateStreaming calls with graceful fallback
+      transformedCode = transformedCode.replace(
+        /WebAssembly\.instantiateStreaming\(/g,
+        '(() => Promise.reject(new TypeError("WASM_DISABLED: WebAssembly disabled")))( // WASM blocked'
+      );
+      
+      // 6. Replace WebAssembly.compile calls
+      transformedCode = transformedCode.replace(
+        /WebAssembly\.compile\(/g,
+        '(() => Promise.reject(new TypeError("WASM_DISABLED: WebAssembly disabled")))( // WASM blocked'
+      );
+      
+      // 7. Replace WebAssembly.compileStreaming calls
+      transformedCode = transformedCode.replace(
+        /WebAssembly\.compileStreaming\(/g,
+        '(() => Promise.reject(new TypeError("WASM_DISABLED: WebAssembly disabled")))( // WASM blocked'
+      );
+      
+      // 8. Block all .wasm file references more carefully
+      transformedCode = transformedCode.replace(
+        /(['"`])([^'"`]*?)\.wasm\1/g,
+        '$1data:application/wasm;base64,INVALID$1'
+      );
+      
+      // 9. Disable any WASM-related flags/variables
+      transformedCode = transformedCode.replace(
+        /const\s+wasmSupported\s*=\s*true/g,
+        'const wasmSupported = false'
+      );
+      
+      transformedCode = transformedCode.replace(
+        /let\s+wasmSupported\s*=\s*true/g,
+        'let wasmSupported = false'
+      );
+      
+      // 10. Force disable WASM in noble library specifically
+      transformedCode = transformedCode.replace(
+        /const\s+WASM_DISABLE\s*=\s*false/g,
+        'const WASM_DISABLE = true'
+      );
+      
+      transformedCode = transformedCode.replace(
+        /let\s+WASM_DISABLE\s*=\s*false/g,
+        'let WASM_DISABLE = true'
+      );
+      
+      return transformedCode;
+    }
+    
+    return code;
+  },
+  generateBundle(options: any, bundle: any) {
+    // Remove any WASM files from final bundle (except circuits)
+    Object.keys(bundle).forEach(fileName => {
+      if (fileName.endsWith('.wasm') && !fileName.includes('circuits')) {
+        console.log(`[VITE-WASM-BLOCKER] 🗑️ Removing WASM file from bundle: ${fileName}`);
+        delete bundle[fileName];
+      }
+    });
+    
+    // Also scan and clean any WASM references in JavaScript bundles
+    Object.keys(bundle).forEach(fileName => {
+      if (fileName.endsWith('.js')) {
+        const chunk = bundle[fileName];
+        if (chunk.type === 'chunk' && chunk.code) {
+          // Remove any remaining secp256k1 WASM references
+          const originalCode = chunk.code;
+          
+          // Block WASM fetch calls with Promise rejection
+          chunk.code = chunk.code.replace(
+            /fetch\(['"`]([^'"`]*\.wasm)['"`]\)/g,
+            'Promise.reject(new TypeError("WASM_DISABLED: $1 blocked"))'
+          );
+          
+          // Replace remaining WASM URL strings more carefully
+          chunk.code = chunk.code.replace(
+            /(['"`])([^'"`]*?)\.wasm\1/g,
+            '$1data:application/wasm;base64,INVALID$1'
+          );
+          
+          // Handle secp256k1 specific patterns more carefully  
+          chunk.code = chunk.code.replace(
+            /(['"`])(secp256k1-[A-Za-z0-9]+)\.wasm\1/g,
+            '$1data:application/wasm;base64,INVALID$1'
+          );
+          
+          if (originalCode !== chunk.code) {
+            console.log(`[VITE-WASM-BLOCKER] 🧹 Cleaned WASM references in: ${fileName}`);
+          }
+        }
+      }
+    });
+  }
+});
 
 export default defineConfig(({ command: _command, mode }) => ({
   plugins: [
@@ -12,7 +169,7 @@ export default defineConfig(({ command: _command, mode }) => ({
       // Use automatic JSX runtime for better performance
       jsxRuntime: 'automatic'
     }),
-    wasm(),
+    wasmBlockerPlugin(), // 🚨 CRITICAL: Block WASM at build time
     nodePolyfills({
       // Enable polyfills for specific globals and modules
       globals: {
@@ -154,8 +311,10 @@ export default defineConfig(({ command: _command, mode }) => ({
     'process.env.NODE_ENV': JSON.stringify(mode),
     // Enable React production optimizations
     __DEV__: mode !== 'production',
-    // Allow WASM for legitimate cryptographic operations
-    '__NOBLE_DISABLE_WASM__': false,
+    // 🚨 CRITICAL: Disable WASM completely to prevent @noble/curves loading
+    '__NOBLE_DISABLE_WASM__': true,
+    '__NOBLE_WASM_DISABLE__': true,
+    'process.env.NOBLE_DISABLE_WASM': '"true"',
   },
   esbuild: {
     // Additional esbuild configuration for React optimization

@@ -2,6 +2,9 @@
  * Persona Wallet Entry Point - ULTIMATE CACHE BUSTER v3
  */
 
+// CRITICAL: Initialize WASM blocking BEFORE any other imports
+import "./utils/cryptoUtils"; // Initialize crypto WASM disabling FIRST
+
 // WASM functionality restored for legitimate ZK proof operations
 import { logWASMStatus } from "./utils/wasmTest";
 import { initializeWasmLoader } from "./utils/wasmLoader";
@@ -50,6 +53,16 @@ setTimeout(async () => {
     console.log("✅ Crypto WASM working correctly");
   } else {
     console.warn("⚠️ Crypto WASM fallback mode active");
+  }
+  
+  // Run tier-1 crypto tests
+  console.log("🧪 Running Tier-1 crypto tests...");
+  const { runTier1CryptoTests } = await import('./utils/tier1CryptoTest');
+  const suite = await runTier1CryptoTests();
+  if (suite.overallSuccess) {
+    console.log("✅ All Tier-1 crypto tests passed!");
+  } else {
+    console.warn(`⚠️ ${suite.failedTests}/${suite.totalTests} crypto tests failed`);
   }
 }, 1000);
 

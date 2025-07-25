@@ -465,8 +465,10 @@ export class RapidAPIVCWorkflow {
     
     for (const category of categories) {
       const apis = await this.rapidApiConnector.getAPIsByCategory(category);
-      const api = apis.find(a => a.id === apiId);
-      if (api) return api;
+      if (apis && Array.isArray(apis)) {
+        const api = apis.find(a => a.id === apiId);
+        if (api) return api;
+      }
     }
     
     return null;
